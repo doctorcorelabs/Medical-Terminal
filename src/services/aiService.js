@@ -8,9 +8,17 @@ async function callAI(messages, options = {}) {
         'Content-Type': 'application/json',
     };
 
+    // Inject anti-LaTeX format globally
+    const processedMessages = messages.map(m => {
+        if (m.role === 'system') {
+            return { ...m, content: m.content + '\n\nPENTING: Dilarang keras menggunakan format rendering matematika LaTeX (seperti simbol $...$ atau \\circ) untuk angka, derajat suhu, maupun persentase. Tuliskan teks normal secara langsung (contoh: 38.5°C, 96%, 120/80 mmHg).' };
+        }
+        return m;
+    });
+
     const body = {
         model: options.model || 'google/gemini-2.5-flash-lite-preview-09-2025',
-        messages,
+        messages: processedMessages,
         max_tokens: options.maxTokens || 2048,
         temperature: options.temperature || 0.3,
     };
@@ -59,10 +67,20 @@ export async function getSymptomInsight(symptoms, patientInfo) {
     const messages = [
         {
             role: 'system',
-            content: `Anda adalah asisten klinis AI. Analisis gejala pasien dan berikan insight dalam bahasa Indonesia. Format:
+            content: `Anda adalah asisten klinis AI. Analisis gejala pasien dan berikan insight menggunakan bahasa formal, istilah medis baku, dalam bahasa Indonesia. Berikan minimal 5 kemungkinan diagnosis.
+
+Format WAJIB (ikuti persis):
 **Kemungkinan Diagnosis (DDx):**
-1. [Diagnosis] - Probabilitas: [Tinggi/Sedang/Rendah]
-2. ...
+1. [Nama Diagnosis Lengkap] - Probabilitas: [Tinggi/Sedang/Rendah]
+   **Reasoning:** [Penjelasan klinis mengapa diagnosis ini mungkin berdasarkan gejala yang ada, mekanisme patofisiologi, dan temuan pendukung]
+2. [Nama Diagnosis Lengkap] - Probabilitas: [Tinggi/Sedang/Rendah]
+   **Reasoning:** [Penjelasan klinis...]
+3. [Nama Diagnosis Lengkap] - Probabilitas: [Tinggi/Sedang/Rendah]
+   **Reasoning:** [Penjelasan klinis...]
+4. [Nama Diagnosis Lengkap] - Probabilitas: [Tinggi/Sedang/Rendah]
+   **Reasoning:** [Penjelasan klinis...]
+5. [Nama Diagnosis Lengkap] - Probabilitas: [Tinggi/Sedang/Rendah]
+   **Reasoning:** [Penjelasan klinis...]
 
 **Gejala Utama yang Mendukung:**
 - [gejala dan korelasinya]

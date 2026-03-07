@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences } from '../services/dataService';
@@ -6,6 +6,8 @@ import { getSmartSummary, getSymptomInsight, getDailyEvaluation, getPhysicalExam
 import SymptomGraph from '../components/visualization/SymptomGraph';
 import TimelineChart from '../components/visualization/TimelineChart';
 import DDxRadar from '../components/visualization/DDxRadar';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export default function PatientDetail() {
     const { id } = useParams();
@@ -14,7 +16,16 @@ export default function PatientDetail() {
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState('overview');
     const [aiLoading, setAiLoading] = useState({});
-    const [aiResults, setAiResults] = useState({});
+    const [aiResults, setAiResults] = useState(patient?.aiInsights || {});
+
+    // Sinkronisasi data AI jika pasien berubah
+    useEffect(() => {
+        if (patient?.aiInsights) {
+            setAiResults(patient.aiInsights);
+        } else {
+            setAiResults({});
+        }
+    }, [patient?.id]);
     const [symptomInput, setSymptomInput] = useState({ name: '', severity: 'sedang', notes: '' });
     const [examInput, setExamInput] = useState({ findings: '', system: 'umum' });
     const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '' });
@@ -38,10 +49,32 @@ export default function PatientDetail() {
         try {
             const result = await fn();
             setAiResults(prev => ({ ...prev, [key]: result }));
+
+            // Auto save to patient object context so it goes to Supabase
+            if (patient) {
+                updatePatient(patient.id, {
+                    aiInsights: {
+                        ...(patient.aiInsights || {}),
+                        [key]: result
+                    }
+                });
+            }
         } catch (err) {
             setAiResults(prev => ({ ...prev, [key]: `Error: ${err.message}` }));
         } finally {
             setAiLoading(prev => ({ ...prev, [key]: false }));
+        }
+    };
+
+    const handleSaveAI = (key, text) => {
+        setAiResults(prev => ({ ...prev, [key]: text }));
+        if (patient) {
+            updatePatient(patient.id, {
+                aiInsights: {
+                    ...(patient.aiInsights || {}),
+                    [key]: text
+                }
+            });
         }
     };
 
@@ -129,7 +162,7 @@ export default function PatientDetail() {
                 onRemove={(reportId) => removeDailyReport(patient.id, reportId)}
                 onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
                 aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
-            {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} />}
+            {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} />}
         </div>
     );
 }
@@ -196,7 +229,7 @@ function TabRingkasan({ patient, navigate }) {
                 {(patient.symptoms || []).length > 0 && (
                     <>
                         <Kartu judul="Peta Gejala" headerIcon="hub">
-                            <div className="h-[300px] lg:h-[350px]"><SymptomGraph symptoms={patient.symptoms} /></div>
+                            <div className="h-[300px] lg:h-[350px]"><SymptomGraph symptoms={patient.symptoms} aiResult={patient.aiInsights?.symptoms} /></div>
                         </Kartu>
                         <Kartu judul="Timeline Gejala" headerIcon="timeline">
                             <TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} />
@@ -316,7 +349,7 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
             <div className="lg:col-span-5 space-y-5 min-w-0">
                 {(patient.symptoms || []).length > 0 && (
                     <>
-                        <Kartu judul="Node Gejala"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} /></div></Kartu>
+                        <Kartu judul="Node Gejala"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
                         <Kartu judul="Timeline"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
                     </>
                 )}
@@ -604,25 +637,29 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
 }
 
 /* ====== TAB AI ====== */
-function TabAI({ patient, callAI, aiResults, aiLoading }) {
+function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
+    const aiMethods = [
+        {
+            key: 'summary', icon: 'auto_awesome', color: 'from-primary to-blue-600', title: 'Ringkasan Cerdas', desc: 'Kondisi, temuan kritis, tindakan',
+            disabled: false,
+            fn: () => callAI('summary', () => getSmartSummary(patient))
+        },
+        {
+            key: 'soap', icon: 'clinical_notes', color: 'from-emerald-500 to-teal-500', title: 'Catatan SOAP', desc: 'Generate catatan SOAP otomatis',
+            disabled: false,
+            fn: () => callAI('soap', () => getSOAPNote(patient))
+        },
+        {
+            key: 'symptoms', icon: 'diagnosis', color: 'from-amber-500 to-orange-500', title: 'Diagnosis Banding', desc: 'Analisis kemungkinan diagnosis',
+            disabled: (patient.symptoms || []).length === 0,
+            fn: () => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun, Diagnosis: ${patient.diagnosis}`))
+        },
+    ];
+
     return (
         <div className="space-y-5 lg:space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
-                {[
-                    {
-                        key: 'summary', icon: 'auto_awesome', color: 'from-primary to-blue-600', title: 'Ringkasan Cerdas', desc: 'Kondisi, temuan kritis, tindakan',
-                        fn: () => callAI('summary', () => getSmartSummary(patient))
-                    },
-                    {
-                        key: 'soap', icon: 'clinical_notes', color: 'from-emerald-500 to-teal-500', title: 'Catatan SOAP', desc: 'Generate catatan SOAP otomatis',
-                        fn: () => callAI('soap', () => getSOAPNote(patient))
-                    },
-                    {
-                        key: 'symptoms', icon: 'diagnosis', color: 'from-amber-500 to-orange-500', title: 'Diagnosis Banding', desc: 'Analisis kemungkinan diagnosis',
-                        disabled: (patient.symptoms || []).length === 0,
-                        fn: () => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun, Diagnosis: ${patient.diagnosis}`))
-                    },
-                ].map(item => (
+                {aiMethods.map(item => (
                     <button key={item.key} onClick={item.fn} disabled={item.disabled || aiLoading[item.key]}
                         className="flex flex-col items-start p-4 lg:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group disabled:opacity-50">
                         <div className={`size-10 rounded-lg bg-gradient-to-br ${item.color} text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform flex-shrink-0`}>
@@ -633,19 +670,26 @@ function TabAI({ patient, callAI, aiResults, aiLoading }) {
                     </button>
                 ))}
             </div>
+
             {(patient.symptoms || []).length > 0 && (
-                <Kartu judul="Radar Diagnosis Banding"><DDxRadar symptoms={patient.symptoms} /></Kartu>
+                <Kartu judul="Radar Diagnosis Banding"><DDxRadar symptoms={patient.symptoms} aiResult={aiResults.symptoms} /></Kartu>
             )}
-            {['summary', 'soap', 'symptoms'].map(key => (aiResults[key] || aiLoading[key]) && (
-                <Kartu key={key} judul={key === 'summary' ? 'Ringkasan Cerdas' : key === 'soap' ? 'Catatan SOAP' : 'Diagnosis Banding'}>
-                    {aiLoading[key] ? (
-                        <div className="flex items-center gap-3 py-6 justify-center">
-                            <span className="material-symbols-outlined animate-spin text-primary text-xl">progress_activity</span>
-                            <span className="text-sm text-slate-400">AI sedang menganalisis...</span>
-                        </div>
-                    ) : <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">{aiResults[key]}</div>}
-                </Kartu>
-            ))}
+
+            {['summary', 'soap', 'symptoms'].map(key => {
+                if (!aiResults[key] && !aiLoading[key]) return null;
+                const m = aiMethods.find(x => x.key === key);
+
+                return (
+                    <KartuAIDetail
+                        key={key}
+                        judul={m.title}
+                        result={aiResults[key]}
+                        loading={aiLoading[key]}
+                        onUpdate={m.fn}
+                        onSave={(text) => onSaveAI(key, text)}
+                    />
+                );
+            })}
         </div>
     );
 }
@@ -674,7 +718,75 @@ function TombolAI({ label, onGenerate, loading, result, disabled }) {
                 {loading ? <><span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>Menganalisis...</> :
                     <><span className="material-symbols-outlined text-lg">auto_awesome</span>{label}</>}
             </button>
-            {result && <div className="mt-3 p-3 lg:p-4 bg-white dark:bg-slate-900 rounded-lg text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed border border-slate-200 dark:border-slate-800">{result}</div>}
+            {result && <div className="mt-3 p-3 lg:p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>}
+        </div>
+    );
+}
+
+function KartuAIDetail({ judul, result, loading, onUpdate, onSave }) {
+    const [isMinimized, setIsMinimized] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editText, setEditText] = useState(result || '');
+
+    useEffect(() => {
+        setEditText(result || '');
+    }, [result]);
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 gap-3">
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+                    {judul}
+                </h3>
+                <div className="flex gap-1 justify-end items-center flex-wrap">
+                    {!isEditing && !loading && result && (
+                        <>
+                            <button onClick={onUpdate} title="Update AI (Generate Ulang)" className="flex items-center gap-1 p-1.5 px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors font-semibold text-[11px] bg-white dark:bg-slate-800">
+                                <span className="material-symbols-outlined text-sm">refresh</span> Update
+                            </button>
+                            <button onClick={() => setIsEditing(true)} title="Edit Manual" className="flex items-center gap-1 p-1.5 px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-amber-600 hover:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors font-semibold text-[11px] bg-white dark:bg-slate-800 ml-1">
+                                <span className="material-symbols-outlined text-sm">edit</span> Edit
+                            </button>
+                        </>
+                    )}
+                    {isEditing && (
+                        <>
+                            <button onClick={() => { setIsEditing(false); setEditText(result); }} title="Batal Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border border-transparent">
+                                <span className="material-symbols-outlined text-sm">close</span>
+                            </button>
+                            <button onClick={() => { onSave(editText); setIsEditing(false); }} title="Simpan Perubahan" className="flex items-center gap-1 p-1.5 px-4 rounded-lg text-white bg-green-500 hover:bg-green-600 border border-green-600 transition-colors font-bold text-[11px] shadow-sm ml-1">
+                                <span className="material-symbols-outlined text-sm">save</span> Simpan
+                            </button>
+                        </>
+                    )}
+                    <button onClick={() => setIsMinimized(!isMinimized)} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors ml-2 border border-slate-200 dark:border-slate-700">
+                        <span className="material-symbols-outlined text-sm">{isMinimized ? 'expand_more' : 'expand_less'}</span>
+                    </button>
+                </div>
+            </div>
+
+            {!isMinimized && (
+                <div className="p-4 lg:p-6 bg-white dark:bg-slate-900">
+                    {loading ? (
+                        <div className="flex flex-col items-center gap-3 py-10 justify-center">
+                            <span className="material-symbols-outlined animate-spin text-primary text-3xl">progress_activity</span>
+                            <span className="text-sm font-semibold text-slate-400">Menyusun analisis AI...</span>
+                        </div>
+                    ) : isEditing ? (
+                        <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            placeholder="Ketik detail diagnosis/catatan di sini..."
+                            className="w-full min-h-[350px] p-4 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-slate-700 dark:text-slate-300 font-mono leading-relaxed"
+                        />
+                    ) : (
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

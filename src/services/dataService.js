@@ -328,3 +328,54 @@ export function getRelativeTime(dateString) {
     if (diff < 604800) return `${Math.floor(diff / 86400)} hari lalu`;
     return formatDate(dateString);
 }
+
+export function parseAIDiagnoses(text) {
+    if (!text) return null;
+    const diagnoses = [];
+    const lines = text.split('\n');
+    let inDdx = false;
+
+    for (const line of lines) {
+        // Masuk seksi DDx
+        if (/kemungkinan diagnosis|\(ddx\)|diagnosis banding/i.test(line)) {
+            inDdx = true;
+            continue;
+        }
+        // Keluar seksi DDx
+        if (inDdx && /gejala utama|pemeriksaan yang|red flag/i.test(line)) {
+            inDdx = false;
+        }
+        if (!inDdx) continue;
+
+        // Bersihkan markdown bold/italic
+        const cleanLine = line.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_/g, '').trim();
+
+        // Regex fleksibel: nomor. [nama termasuk (CAP) dsb] - Probabilitas: Tinggi/Sedang/Rendah
+        const match = cleanLine.match(
+            /^\d+\.\s+(.+?)\s*-\s*Probabilitas\s*:\s*(Tinggi|Sedang|Rendah)/i
+        );
+
+        if (match) {
+            const rawName = match[1].trim();
+            const probText = match[2].toLowerCase();
+
+            let probValue;
+            if (probText === 'tinggi') probValue = 85 + Math.floor(Math.random() * 10);
+            else if (probText === 'sedang') probValue = 50 + Math.floor(Math.random() * 20);
+            else probValue = 20 + Math.floor(Math.random() * 15);
+
+            // Singkat nama: hapus keterangan dalam kurung seperti (CAP), (jika ada riwayat PPOK)
+            const simplified = rawName.replace(/\s*\([^)]*\)/g, '').trim();
+            const displayName = simplified.length > 1 ? simplified : rawName;
+
+            diagnoses.push({
+                diagnosis: displayName,
+                probability: probValue,
+                level: probText,
+                fullMark: 100,
+            });
+        }
+    }
+
+    return diagnoses.length > 0 ? diagnoses : null;
+}

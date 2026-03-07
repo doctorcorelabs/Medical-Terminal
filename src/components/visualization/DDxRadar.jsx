@@ -1,92 +1,116 @@
 import { useMemo } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { parseAIDiagnoses } from '../../services/dataService';
 
-// Simple symptom-to-diagnosis mapping for visualization
-const symptomDiagnosisMap = {
-    'demam': ['Infeksi', 'Pneumonia', 'Malaria', 'DBD', 'Typhoid'],
-    'batuk': ['Pneumonia', 'ISPA', 'TB Paru', 'Asma', 'Bronkitis'],
-    'nyeri dada': ['ACS/MI', 'Pneumonia', 'GERD', 'Pneumothorax', 'Costochondritis'],
-    'sesak napas': ['Pneumonia', 'Asma', 'PPOK', 'Efusi Pleura', 'Gagal Jantung'],
-    'nyeri perut': ['Apendisitis', 'Gastritis', 'Kolesistitis', 'Pankreatitis', 'Ileus'],
-    'mual': ['Gastritis', 'Hepatitis', 'Pankreatitis', 'Kehamilan', 'Vertigo'],
-    'muntah': ['Gastritis', 'GEA', 'Ileus', 'Pankreatitis', 'Peningkatan TIK'],
-    'diare': ['GEA', 'IBD', 'Typhoid', 'Kolitis', 'Malabsorbsi'],
-    'pusing': ['Vertigo', 'Anemia', 'Hipotensi', 'Migrain', 'Stroke'],
-    'lemas': ['Anemia', 'Hipoglikemia', 'Dehidrasi', 'Infeksi', 'Hipotiroid'],
-    'nyeri kepala': ['Migrain', 'TTH', 'Meningitis', 'Stroke', 'Sinusitis'],
-    'edema': ['Gagal Jantung', 'Sindrom Nefrotik', 'Sirosis', 'DVT', 'Hipotiroid'],
-    'ikterik': ['Hepatitis', 'Sirosis', 'Kolesistitis', 'Malaria', 'Hemolisis'],
+// Custom label renderer - wraps long labels into 2 lines, no truncation
+const CustomTick = ({ payload, x, y, cx, cy }) => {
+    const label = payload.value;
+    const maxCharsPerLine = 13;
+    const words = label.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        const test = currentLine ? currentLine + ' ' + word : word;
+        if (test.length <= maxCharsPerLine) {
+            currentLine = test;
+        } else {
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+        }
+    });
+    if (currentLine) lines.push(currentLine);
+
+    // Determine text anchor based on x position relative to center
+    const relX = x - cx;
+    const textAnchor = relX > 10 ? 'start' : relX < -10 ? 'end' : 'middle';
+
+    // Push label outward from center
+    const angle = Math.atan2(y - cy, x - cx);
+    const pushOut = 10;
+    const lx = x + Math.cos(angle) * pushOut;
+    const ly = y + Math.sin(angle) * pushOut;
+
+    const lineHeight = 13;
+    const totalHeight = (lines.length - 1) * lineHeight;
+
+    return (
+        <text
+            x={lx}
+            y={ly - totalHeight / 2}
+            textAnchor={textAnchor}
+            fill="#475569"
+            fontSize={10}
+            fontWeight={600}
+        >
+            {lines.map((line, i) => (
+                <tspan key={i} x={lx} dy={i === 0 ? 0 : lineHeight}>
+                    {line}
+                </tspan>
+            ))}
+        </text>
+    );
 };
 
-export default function DDxRadar({ symptoms }) {
+export default function DDxRadar({ symptoms, aiResult }) {
     const data = useMemo(() => {
         if (!symptoms || symptoms.length === 0) return [];
 
-        // Count diagnosis mentions across symptoms
-        const diagnosisCounts = {};
-        let maxCount = 1;
-
-        symptoms.forEach(symptom => {
-            const key = symptom.name.toLowerCase().trim();
-            // Find matching symptom in map
-            const matched = Object.keys(symptomDiagnosisMap).find(k =>
-                key.includes(k) || k.includes(key)
-            );
-
-            if (matched) {
-                const severityMultiplier = symptom.severity === 'berat' ? 3 : symptom.severity === 'sedang' ? 2 : 1;
-                symptomDiagnosisMap[matched].forEach(diagnosis => {
-                    diagnosisCounts[diagnosis] = (diagnosisCounts[diagnosis] || 0) + severityMultiplier;
-                });
+        // HANYA tampilkan data dari AI — tidak ada dummy
+        if (aiResult) {
+            const aiData = parseAIDiagnoses(aiResult);
+            if (aiData && aiData.length > 0) {
+                return aiData.slice(0, 8).map(d => ({
+                    diagnosis: d.diagnosis,
+                    probability: d.probability,
+                    fullMark: 100
+                }));
             }
-        });
-
-        // Get top diagnoses
-        const entries = Object.entries(diagnosisCounts);
-        if (entries.length === 0) {
-            // Fallback: create generic entries
-            const uniqueSymptoms = [...new Set(symptoms.map(s => s.name))];
-            return uniqueSymptoms.slice(0, 6).map(s => ({
-                diagnosis: s,
-                probability: Math.floor(Math.random() * 40) + 30,
-                fullMark: 100,
-            }));
         }
 
-        entries.sort((a, b) => b[1] - a[1]);
-        maxCount = entries[0][1];
+        // Jika belum ada AI result: kembalikan array kosong (placeholder)
+        return [];
+    }, [symptoms, aiResult]);
 
-        return entries.slice(0, 8).map(([diagnosis, count]) => ({
-            diagnosis,
-            probability: Math.round((count / maxCount) * 100),
-            fullMark: 100,
-        }));
-    }, [symptoms]);
+    // State: belum ada AI result sama sekali
+    if (!aiResult) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+                <span className="material-symbols-outlined text-4xl text-slate-300">radar</span>
+                <p className="text-sm text-slate-400 text-center">
+                    Klik <span className="font-bold text-primary">Diagnosis Banding</span> di atas untuk<br />
+                    menghasilkan visualisasi radar AI.
+                </p>
+            </div>
+        );
+    }
 
+    // State: ada AI result tapi parser gagal (format tidak terbaca)
     if (data.length === 0) {
-        return <p className="text-sm text-slate-400 text-center py-8">Tambahkan gejala untuk melihat radar DDx</p>;
+        return <p className="text-sm text-slate-400 text-center py-8">Radar tidak tersedia — format DDx dari AI tidak terbaca.</p>;
     }
 
     return (
-        <div className="w-full h-[300px] md:h-[350px]">
+        <div className="w-full h-[400px] md:h-[440px]">
             <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={data} cx="50%" cy="50%" outerRadius="75%">
+                <RadarChart data={data} cx="50%" cy="50%" outerRadius="52%" margin={{ top: 30, right: 60, bottom: 30, left: 60 }}>
                     <PolarGrid stroke="#e2e8f0" />
                     <PolarAngleAxis
                         dataKey="diagnosis"
-                        tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
+                        tick={<CustomTick />}
                     />
                     <PolarRadiusAxis
                         angle={90}
                         domain={[0, 100]}
-                        tick={{ fontSize: 9, fill: '#94a3b8' }}
+                        tick={{ fontSize: 8, fill: '#94a3b8' }}
+                        tickCount={5}
                     />
                     <Radar
                         name="Probabilitas"
                         dataKey="probability"
                         stroke="#136dec"
                         fill="#136dec"
-                        fillOpacity={0.2}
+                        fillOpacity={0.25}
                         strokeWidth={2}
                     />
                     <Tooltip

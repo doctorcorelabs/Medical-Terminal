@@ -7,6 +7,7 @@ import {
     useEdgesState,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { parseAIDiagnoses } from '../../services/dataService';
 
 const severityColors = {
     ringan: { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
@@ -14,9 +15,12 @@ const severityColors = {
     berat: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
 };
 
-export default function SymptomGraph({ symptoms }) {
+export default function SymptomGraph({ symptoms, aiResult }) {
     const { initialNodes, initialEdges } = useMemo(() => {
         if (!symptoms || symptoms.length === 0) return { initialNodes: [], initialEdges: [] };
+
+        const aiData = parseAIDiagnoses(aiResult);
+        const hasAI = aiData && aiData.length > 0;
 
         const centerX = 250;
         const centerY = 200;
@@ -109,8 +113,56 @@ export default function SymptomGraph({ symptoms }) {
             }
         }
 
+        // Add AI Diagnoses Nodes
+        if (hasAI) {
+            const diagRadius = radius + 90;
+            const diagAngleStep = (2 * Math.PI) / aiData.length;
+
+            aiData.slice(0, 5).forEach((d, i) => {
+                const angle = diagAngleStep * i - Math.PI / 4;
+                const x = centerX + diagRadius * Math.cos(angle) - 50;
+                const y = centerY + diagRadius * Math.sin(angle) - 20;
+
+                nodes.push({
+                    id: `ai-ddx-${i}`,
+                    position: { x, y },
+                    data: {
+                        label: (
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '10px', textTransform: 'uppercase', color: '#f59e0b', fontWeight: '800', marginBottom: '2px' }}>DDX</div>
+                                <div style={{ fontSize: '11px', fontWeight: '700' }}>{d.diagnosis}</div>
+                                <div style={{ fontSize: '9px', marginTop: '2px', opacity: 0.8 }}>Prob: {d.probability}%</div>
+                            </div>
+                        ),
+                    },
+                    style: {
+                        background: '#fffbeb',
+                        border: '2px dashed #f59e0b',
+                        borderRadius: '8px',
+                        padding: '8px 10px',
+                        fontSize: '11px',
+                        color: '#92400e',
+                        minWidth: '85px',
+                        boxShadow: '0 4px 10px rgba(245, 158, 11, 0.15)',
+                    },
+                });
+
+                edges.push({
+                    id: `e-ddx-${i}`,
+                    source: 'center',
+                    target: `ai-ddx-${i}`,
+                    animated: true,
+                    style: {
+                        stroke: '#fbbf24',
+                        strokeWidth: 2,
+                        strokeDasharray: '4 4',
+                    },
+                });
+            });
+        }
+
         return { initialNodes: nodes, initialEdges: edges };
-    }, [symptoms]);
+    }, [symptoms, aiResult]);
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
