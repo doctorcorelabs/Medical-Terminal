@@ -1,4 +1,5 @@
-// Data management with localStorage (MVP) - will be replaced with Supabase
+// Data management with localStorage and Supabase sync
+import { supabase } from './supabaseClient';
 const STORAGE_KEY = 'medterminal_patients';
 
 function getStoredData() {
@@ -13,6 +14,41 @@ function getStoredData() {
 function saveData(patients) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
 }
+
+// ----- Supabase Sync Functions -----
+export async function syncToSupabase(userId) {
+    if (!userId) return;
+    const patients = getStoredData();
+    try {
+        await supabase.from('user_patients').upsert({
+            user_id: userId,
+            patients_data: patients,
+            updated_at: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error("Failed to sync to Supabase:", err);
+    }
+}
+
+export async function fetchFromSupabase(userId) {
+    if (!userId) return getStoredData();
+    try {
+        const { data, error } = await supabase
+            .from('user_patients')
+            .select('patients_data')
+            .eq('user_id', userId)
+            .single();
+
+        if (data?.patients_data) {
+            saveData(data.patients_data);
+            return data.patients_data;
+        }
+    } catch (err) {
+        console.error("Failed to fetch from Supabase:", err);
+    }
+    return getStoredData();
+}
+// -----------------------------------
 
 export function getAllPatients() {
     return getStoredData();

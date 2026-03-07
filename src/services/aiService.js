@@ -1,19 +1,15 @@
-const AI_WORKER_URL = localStorage.getItem('ai_worker_url') || '';
-const OPENROUTER_KEY = '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';
+// URL of the deployed Cloudflare Worker
+const AI_WORKER_URL = 'https://medterminal-ai.daivanfebrijuansetiya.workers.dev';
 
 async function callAI(messages, options = {}) {
-    const url = AI_WORKER_URL || 'https://openrouter.ai/api/v1/chat/completions';
+    // If not using worker, you could fallback, but for security we enforce worker:
+    const url = AI_WORKER_URL;
     const headers = {
         'Content-Type': 'application/json',
     };
 
-    if (!AI_WORKER_URL) {
-        headers['Authorization'] = `Bearer ${OPENROUTER_KEY}`;
-        headers['HTTP-Referer'] = window.location.origin;
-    }
-
     const body = {
-        model: options.model || 'google/gemini-2.5-flash-preview',
+        model: options.model || 'google/gemini-2.5-flash-lite-preview-09-2025',
         messages,
         max_tokens: options.maxTokens || 2048,
         temperature: options.temperature || 0.3,
@@ -43,12 +39,13 @@ export async function getSmartSummary(patientData) {
     const messages = [
         {
             role: 'system',
-            content: `Anda adalah asisten klinis AI. Berikan ringkasan klinis dalam bahasa Indonesia yang terstruktur. Format respons:
-**Kondisi:** [ringkasan kondisi pasien saat ini]
-**Temuan Kritis:** [temuan kritis yang perlu diperhatikan]  
-**Tindakan Selanjutnya:** [rekomendasi tindakan berikutnya]
+            content: `Anda adalah asisten klinis AI. Berikan ringkasan klinis menggunakan bahasa formal dan istilah medis kedokteran yang tepat. Gunakan seluruh data yang diberikan (meliputi ringkasan, gejala, pemeriksaan fisik, lab, obat, dan catatan harian) sebagai konteks utama Anda untuk memberikan output summary detail terkait kondisi pasien. Format respons:
 
-Berikan respons singkat, padat, dan klinis.`
+**Kondisi:** [Detail kondisi medis pasien saat ini secara klinis]
+**Temuan Kritis:** [Detail temuan kritis/abnormal secara spesifik dari gejala, fisik, dan lab]
+**Tindakan Selanjutnya:** [Rekomendasi penanganan medis/tindakan berikutnya sesuai panduan klinis]
+
+Berikan respons yang detail, komprehensif, dan menggunakan terminologi medis baku.`
         },
         {
             role: 'user',

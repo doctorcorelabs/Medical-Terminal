@@ -1,15 +1,29 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import * as dataService from '../services/dataService';
 
 const PatientContext = createContext();
 
 export function PatientProvider({ children }) {
-    const [patients, setPatients] = useState(() => dataService.getAllPatients());
+    const { user } = useAuth();
+    const [patients, setPatients] = useState([]);
     const [selectedPatientId, setSelectedPatientId] = useState(null);
+
+    // Initial load when user logs in
+    useEffect(() => {
+        if (user) {
+            dataService.fetchFromSupabase(user.id).then(data => {
+                setPatients(data);
+            });
+        }
+    }, [user]);
 
     const refreshPatients = useCallback(() => {
         setPatients(dataService.getAllPatients());
-    }, []);
+        if (user) {
+            dataService.syncToSupabase(user.id); // Sync in background
+        }
+    }, [user]);
 
     const selectedPatient = patients.find(p => p.id === selectedPatientId) || null;
 

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
     { to: '/', icon: 'home', label: 'Beranda' },
@@ -11,6 +12,7 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const { isDark, toggleTheme } = useTheme();
+    const { user, signOut } = useAuth();
 
     return (
         <>
@@ -62,14 +64,15 @@ export default function Sidebar({ isOpen, onClose }) {
                 </div>
 
                 {/* User info */}
-                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex-shrink-0">
-                    <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex-shrink-0 group relative">
+                    <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={() => signOut()}>
                         <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
-                            DC
+                            {user?.email?.charAt(0).toUpperCase() || 'U'}
                         </div>
-                        <div className="overflow-hidden min-w-0">
-                            <p className="text-sm font-bold truncate">Dokter Coass</p>
-                            <p className="text-xs text-slate-500 truncate">Stase Aktif</p>
+                        <div className="overflow-hidden min-w-0 flex-1">
+                            <p className="text-sm font-bold truncate" title={user?.email || 'User'}>{user?.email || 'Dokter Coass'}</p>
+                            <p className="text-xs text-slate-500 truncate group-hover:hidden">Stase Aktif</p>
+                            <p className="text-xs text-red-500 font-bold hidden group-hover:block transition-all">Keluar Akun</p>
                         </div>
                     </div>
                 </div>

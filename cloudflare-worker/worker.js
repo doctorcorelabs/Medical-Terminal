@@ -1,8 +1,8 @@
 // Cloudflare Worker - Medical Terminal AI Gateway
 // Deploy this to Cloudflare Workers to proxy AI requests to OpenRouter
 
-const OPENROUTER_API_KEY = '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';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -32,12 +32,12 @@ export default {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${env.OPENROUTER_API_KEY || OPENROUTER_API_KEY}`,
+                    'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
                     'HTTP-Referer': 'https://medterminal.app',
                     'X-Title': 'MedTerminal Clinical AI',
                 },
                 body: JSON.stringify({
-                    model: body.model || 'google/gemini-2.5-flash-preview',
+                    model: body.model || 'google/gemini-2.5-flash-lite-preview-09-2025',
                     messages: body.messages,
                     max_tokens: body.max_tokens || 2048,
                     temperature: body.temperature || 0.3,
