@@ -1,5 +1,5 @@
 // URL of the deployed Cloudflare Worker
-const AI_WORKER_URL = 'https://medterminal-ai.daivanfebrijuansetiya.workers.dev';
+const AI_WORKER_URL = import.meta.env.VITE_AI_WORKER_URL;
 
 async function callAI(messages, options = {}) {
     // If not using worker, you could fallback, but for security we enforce worker:

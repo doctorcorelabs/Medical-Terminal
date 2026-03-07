@@ -3,8 +3,8 @@
 // Uses proven-accessible RSS feeds with multiple fallback strategies
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://hvhsoscduqektunuryky.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2aHNvc2NkdXFla3R1bnVyeWt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4NTI1MTEsImV4cCI6MjA4ODQyODUxMX0.SqhqevIGMAoI9NQAS4UykEIycVqzoyV7HCfpTIjryN0';
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const RSS_SOURCES = [

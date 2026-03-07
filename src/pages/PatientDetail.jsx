@@ -209,11 +209,11 @@ function TabRingkasan({ patient, navigate }) {
                             { label: 'Frek. Napas', value: patient.respRate, unit: '/min' },
                             { label: 'SpO2', value: patient.spO2, unit: '%' },
                         ].map(v => (
-                            <div key={v.label} className="p-3 lg:p-4 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/10">
-                                <p className="text-[10px] text-primary font-bold uppercase mb-1 truncate">{v.label}</p>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-lg lg:text-xl font-bold">{v.value || '-'}</span>
-                                    <span className="text-[10px] text-slate-500 font-medium flex-shrink-0">{v.unit}</span>
+                            <div key={v.label} className="p-2 lg:p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/10 text-center flex flex-col h-full">
+                                <p className="text-[10px] sm:text-xs text-primary font-bold leading-tight min-h-[1.75rem] flex items-start justify-center mb-1">{v.label}</p>
+                                <div className="flex flex-col items-center justify-center mt-auto">
+                                    <span className="text-base sm:text-[1.1rem] font-black text-slate-800 dark:text-slate-100 leading-none mb-0.5">{v.value || '-'}</span>
+                                    <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold tracking-wide">{v.unit}</span>
                                 </div>
                             </div>
                         ))}

@@ -108,13 +108,13 @@ export default function AddPatient() {
                                         <div className="grid grid-cols-2 gap-4">
                                             <InputGroup label="Umur" name="age" type="number" value={form.age} onChange={handleChange} placeholder="Tahun" />
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Jenis Kelamin</label>
-                                                <div className="flex p-1 bg-slate-50 dark:bg-slate-900 rounded-xl gap-1 border border-slate-100 dark:border-slate-800">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">J. Kelamin</label>
+                                                <div className="flex p-1 bg-slate-50 dark:bg-slate-900 rounded-xl gap-1 border border-slate-100 dark:border-slate-800 h-[42px]">
                                                     {[{ v: 'male', l: 'Laki-laki', i: 'male' }, { v: 'female', l: 'Perempuan', i: 'female' }].map(opt => (
                                                         <button key={opt.v} type="button" onClick={() => setForm(p => ({ ...p, gender: opt.v }))}
-                                                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${form.gender === opt.v ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <span className="material-symbols-outlined text-sm">{opt.i}</span>
-                                                            {opt.l}
+                                                            title={opt.l}
+                                                            className={`flex-1 rounded-lg transition-all flex items-center justify-center ${form.gender === opt.v ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-700'}`}>
+                                                            <span className="material-symbols-outlined text-[20px]">{opt.i}</span>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -126,17 +126,12 @@ export default function AddPatient() {
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
                                             <SelectGroup label="Gol. Darah" name="bloodType" value={form.bloodType} onChange={handleChange} options={[{ v: '', l: '-' }, { v: 'A+', l: 'A+' }, { v: 'B+', l: 'B+' }, { v: 'AB+', l: 'AB+' }, { v: 'O+', l: 'O+' }, { v: 'A-', l: 'A-' }, { v: 'B-', l: 'B-' }, { v: 'AB-', l: 'AB-' }, { v: 'O-', l: 'O-' }]} />
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">Kondisi</label>
-                                                <div className="grid grid-cols-2 gap-1 p-1 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
-                                                    {[{ v: 'stable', l: 'Stb' }, { v: 'improving', l: 'Mbk' }, { v: 'urgent', l: 'Mdk' }, { v: 'critical', l: 'Krt' }].map(opt => (
-                                                        <button key={opt.v} type="button" onClick={() => setForm(p => ({ ...p, condition: opt.v }))}
-                                                            className={`py-1 text-[9px] font-black uppercase rounded-lg transition-all ${form.condition === opt.v ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800'}`}>
-                                                            {opt.l}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                            <SelectGroup label="Kondisi" name="condition" value={form.condition} onChange={handleChange} options={[
+                                                { v: 'stable', l: 'Stabil' },
+                                                { v: 'improving', l: 'Membaik' },
+                                                { v: 'urgent', l: 'Mendesak' },
+                                                { v: 'critical', l: 'Kritis' }
+                                            ]} />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <InputGroup label="BB (kg)" name="weight" type="number" value={form.weight} onChange={handleChange} placeholder="70" />

@@ -64,50 +64,37 @@ function NewsCard({ article, featured = false }) {
                 href={article.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group block rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:border-primary/40 transition-all duration-300 hover:-translate-y-1"
+                className="group block rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-lg hover:border-primary/40 transition-all duration-300 h-full flex flex-col"
             >
-                <div className="relative h-48 overflow-hidden" style={{ background: `linear-gradient(135deg, ${article.color}18, ${article.color}35)` }}>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span
-                            className="material-symbols-outlined text-[80px] opacity-20 group-hover:opacity-30 transition-opacity"
-                            style={{ color: article.color }}
-                        >
-                            {icon}
-                        </span>
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <div className="absolute bottom-4 left-4 right-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${catStyles.bg} ${catStyles.text} backdrop-blur-sm`}>
+                <div className="p-5 flex flex-col h-full">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                            <span className="material-symbols-outlined text-[24px]">{icon}</span>
+                        </div>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${catStyles.bg} ${catStyles.text}`}>
                             <span className={`size-1.5 rounded-full ${catStyles.dot}`} />
                             {article.category}
                         </span>
                     </div>
-                    {/* Decorative DNA helix pattern */}
-                    <div className="absolute top-3 right-3 opacity-20">
-                        <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
-                            <circle cx="30" cy="30" r="28" stroke={article.color} strokeWidth="1.5" strokeDasharray="4 3" />
-                            <circle cx="30" cy="30" r="18" stroke={article.color} strokeWidth="1" strokeDasharray="3 4" />
-                            <circle cx="30" cy="30" r="8" fill={article.color} opacity="0.4" />
-                        </svg>
-                    </div>
-                </div>
-                <div className="p-5">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-3">
+
+                    <h3 className="font-bold text-slate-900 dark:text-white text-lg leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-3">
                         {article.title}
                     </h3>
+
                     {article.description && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
+                        <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3 mb-4 flex-1">
                             {article.description}
                         </p>
                     )}
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-[14px] text-slate-400">{icon}</span>
-                            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{article.source}</span>
+
+                    <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="material-symbols-outlined text-[14px] text-slate-400 flex-shrink-0">source</span>
+                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">{article.source}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-slate-400">
-                            <span className="material-symbols-outlined text-[13px]">schedule</span>
-                            <span className="text-xs">{getRelativeTime(article.pubDate)}</span>
+                        <div className="flex items-center gap-1 text-slate-400 flex-shrink-0 pl-2">
+                            <span className="material-symbols-outlined text-[14px]">schedule</span>
+                            <span className="text-xs font-medium">{getRelativeTime(article.pubDate)}</span>
                         </div>
                     </div>
                 </div>
@@ -120,28 +107,25 @@ function NewsCard({ article, featured = false }) {
             href={article.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex gap-4 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:border-primary/40 transition-all duration-300 hover:-translate-y-0.5"
+            className="group flex flex-col sm:flex-row gap-4 p-4 lg:p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-primary/40 transition-all duration-300"
         >
-            <div
-                className="flex-shrink-0 size-12 rounded-xl flex items-center justify-center"
-                style={{ background: `${article.color}15` }}
-            >
-                <span className="material-symbols-outlined text-[22px]" style={{ color: article.color }}>{icon}</span>
+            <div className="flex-shrink-0 size-12 lg:size-14 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                <span className="material-symbols-outlined text-[24px] lg:text-[28px]">{icon}</span>
             </div>
             <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm leading-snug mb-1 group-hover:text-primary transition-colors line-clamp-2">
-                    {article.title}
-                </h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${catStyles.bg} ${catStyles.text}`}>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${catStyles.bg} ${catStyles.text}`}>
                         {article.category}
                     </span>
-                    <span className="text-xs text-slate-400">{article.source}</span>
-                    <span className="text-slate-300 dark:text-slate-700 text-xs">•</span>
-                    <span className="text-xs text-slate-400">{getRelativeTime(article.pubDate)}</span>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{article.source}</span>
+                    <span className="text-slate-300 dark:text-slate-700 text-xs hidden sm:inline">•</span>
+                    <span className="text-xs font-medium text-slate-400">{getRelativeTime(article.pubDate)}</span>
                 </div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                    {article.title}
+                </h3>
             </div>
-            <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-primary self-center transition-colors flex-shrink-0">
+            <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-primary self-center transition-colors flex-shrink-0 hidden sm:block">
                 open_in_new
             </span>
         </a>
@@ -157,16 +141,20 @@ function StatsBadge({ articles }) {
     }).length;
 
     return (
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {[
-                { label: 'Total Berita', value: articles.length, icon: 'article', color: 'text-primary' },
-                { label: 'Sumber Aktif', value: sources, icon: 'source', color: 'text-emerald-600 dark:text-emerald-400' },
-                { label: 'Hari Ini', value: today, icon: 'today', color: 'text-amber-600 dark:text-amber-400' },
+                { label: 'Total Berita', value: articles.length, icon: 'article', bgColor: 'bg-primary/10 dark:bg-primary/20', color: 'text-primary' },
+                { label: 'Sumber Aktif', value: sources, icon: 'source', bgColor: 'bg-emerald-50 dark:bg-emerald-900/30', color: 'text-emerald-600 dark:text-emerald-400' },
+                { label: 'Hari Ini', value: today, icon: 'today', bgColor: 'bg-amber-50 dark:bg-amber-900/30', color: 'text-amber-600 dark:text-amber-400' },
             ].map(stat => (
-                <div key={stat.label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center">
-                    <span className={`material-symbols-outlined text-[20px] ${stat.color} mb-1`}>{stat.icon}</span>
-                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{stat.label}</p>
+                <div key={stat.label} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+                    <div className={`size-12 rounded-lg ${stat.bgColor} ${stat.color} flex items-center justify-center flex-shrink-0`}>
+                        <span className="material-symbols-outlined text-[24px]">{stat.icon}</span>
+                    </div>
+                    <div>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">{stat.label}</p>
+                        <h3 className="text-2xl font-bold mt-0.5 text-slate-900 dark:text-white">{stat.value}</h3>
+                    </div>
                 </div>
             ))}
         </div>
@@ -183,7 +171,7 @@ function SourceFilter({ articles, selected, onSelect }) {
                     onClick={() => onSelect(src)}
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected === src
                         ? 'bg-primary text-white shadow-sm shadow-primary/30'
-                        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-primary/50'
+                        : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                         }`}
                 >
                     {src}
@@ -207,7 +195,7 @@ function CategoryFilter({ articles, selected, onSelect }) {
                             ? styles
                                 ? `${styles.bg} ${styles.text} ring-2 ring-offset-1 ring-current`
                                 : 'bg-primary text-white'
-                            : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-primary/50'
+                            : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                             }`}
                     >
                         {styles && <span className={`size-1.5 rounded-full ${styles.dot}`} />}
@@ -375,62 +363,37 @@ export default function News() {
     const rest = filtered.slice(3);
 
     return (
-        <div className="min-h-full bg-[#f6f7f8] dark:bg-[#101822]">
-            {/* Hero Header */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-primary to-blue-800 dark:from-blue-950 dark:to-slate-900 px-6 pt-8 pb-12">
-                {/* Decorative background elements */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-16 -right-16 size-64 rounded-full bg-white/5 blur-2xl" />
-                    <div className="absolute -bottom-20 -left-10 size-80 rounded-full bg-white/5 blur-3xl" />
-                    <svg className="absolute top-4 right-8 opacity-10" width="120" height="120" viewBox="0 0 120 120">
-                        <defs>
-                            <pattern id="crosshatch" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
-                                <line x1="0" y1="0" x2="12" y2="12" stroke="white" strokeWidth="0.5" />
-                                <line x1="12" y1="0" x2="0" y2="12" stroke="white" strokeWidth="0.5" />
-                            </pattern>
-                        </defs>
-                        <rect width="120" height="120" fill="url(#crosshatch)" />
-                    </svg>
-                    {/* ECG line decoration */}
-                    <svg className="absolute bottom-0 left-0 right-0 opacity-10" height="60" preserveAspectRatio="none" viewBox="0 0 1200 60">
-                        <polyline
-                            points="0,30 200,30 240,5 260,55 280,5 300,30 400,30 450,30 470,10 490,50 510,30 700,30 750,30 790,10 820,50 840,30 1200,30"
-                            stroke="white" strokeWidth="2" fill="none"
-                        />
-                    </svg>
-                </div>
-
-                <div className="relative max-w-5xl mx-auto">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2">
-                            <span className="material-symbols-outlined text-white text-[24px]">newspaper</span>
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-white">Berita Medis</h1>
-                            <p className="text-blue-200 text-sm">Informasi kesehatan & kedokteran terkini</p>
-                        </div>
+        <div className="p-4 md:p-6 lg:p-8 space-y-6 lg:space-y-8 pb-20 lg:pb-8 animate-[fadeIn_0.3s_ease-out]">
+            {/* Header */}
+            <section>
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+                    <div className="min-w-0">
+                        <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary text-[28px] md:text-[32px]">newspaper</span>
+                            Berita Medis
+                        </h2>
+                        <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">Informasi kesehatan & kedokteran terkini.</p>
                     </div>
-
                     {updatedAt && (
-                        <div className="flex items-center gap-2 mt-4">
-                            <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm text-blue-100 text-xs px-3 py-1.5 rounded-full border border-white/20">
-                                <span className="material-symbols-outlined text-[13px]">update</span>
+                        <div className="flex flex-col sm:items-end gap-2">
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg flex items-center gap-1.5 w-max">
+                                <span className="material-symbols-outlined text-[14px]">update</span>
                                 Diperbarui: {formatDate(updatedAt)}
-                                {isMock && <span className="ml-1 text-yellow-300 font-semibold">(Demo)</span>}
+                                {isMock && <span className="text-amber-500 ml-1">(Demo)</span>}
                             </span>
-                            <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-200 text-xs px-3 py-1.5 rounded-full border border-emerald-500/30">
-                                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs px-2.5 py-1 rounded-lg w-max font-semibold">
+                                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                 Refresh otomatis 12:00 WIB
                             </span>
                         </div>
                     )}
                 </div>
-            </div>
+            </section>
 
             {/* Main Content */}
-            <div className="max-w-5xl mx-auto px-4 -mt-6 pb-20">
+            <div className="space-y-6">
                 {/* Search + Controls card */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 mb-6">
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 mb-6">
                     <div className="flex gap-3 mb-4">
                         <div className="flex-1 relative">
                             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
@@ -439,7 +402,7 @@ export default function News() {
                                 placeholder="Cari berita, sumber, atau topik..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
                             />
                         </div>
                         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
