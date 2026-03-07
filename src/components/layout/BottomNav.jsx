@@ -4,8 +4,8 @@ const items = [
     { to: '/', icon: 'home', label: 'Beranda' },
     { to: '/patients', icon: 'group', label: 'Pasien' },
     { to: '/add-patient', icon: 'add_circle', label: 'Baru' },
+    { to: '/news', icon: 'newspaper', label: 'News' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
-    { to: '/settings', icon: 'settings', label: 'Setting' },
 ];
 
 export default function BottomNav() {

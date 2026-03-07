@@ -150,21 +150,33 @@ export async function getSupportingExamInsight(labData, diagnosis) {
     return callAI(messages);
 }
 
-export async function getDrugInteraction(drugs) {
+export async function getMedicationRecommendation(diagnosis, symptoms) {
     const messages = [
         {
             role: 'system',
-            content: `Anda adalah asisten farmakologi AI. Periksa interaksi antar obat dan berikan peringatan dalam bahasa Indonesia. Format:
-**Status Interaksi:** [Aman ✅ / Perhatian ⚠️ / Kontraindikasi ❌]
-**Detail Interaksi:**
-- [obat A + obat B]: [jenis interaksi dan efeknya]
+            content: `Anda adalah asisten medis farmakologi AI. Berikan rekomendasi obat yang relevan berdasarkan diagnosis dan gejala pasien dalam bahasa Indonesia. Gunakan bahasa formal dan istilah medis.
 
-**Rekomendasi:**
-[saran alternatif jika ada interaksi berbahaya]`
+Format WAJIB:
+**Rekomendasi Terapi Farmakologis:**
+
+1. **[Nama Golongan Obat]**
+   - **Nama Obat:** [Nama Generik/Paten]
+   - **Cara Kerja:** [Mekanisme farmakodinamik singkat]
+   - **Sediaan & Dosis:** [Sediaan umum dan dosis lazim]
+   - **Rute Pemberian:** [Oral/IV/IM dll]
+   - **Kontraindikasi:** [Kondisi yang melarang penggunaan obat ini]
+
+2. **[Nama Golongan Obat]**
+   - ...
+
+**Catatan Klinis:**
+- [Peringatan atau hal yang perlu diwaspadai dari regimen di atas]`
         },
         {
             role: 'user',
-            content: `Periksa interaksi obat-obat berikut: ${drugs.join(', ')}`
+            content: `Saya butuh rekomendasi obat untuk pasien dengan:
+Diagnosis: ${diagnosis || 'Belum ditegakkan'}
+Gejala: ${symptoms || 'Tidak spesifik'}`
         }
     ];
     return callAI(messages);

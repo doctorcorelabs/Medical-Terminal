@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences } from '../services/dataService';
-import { getSmartSummary, getSymptomInsight, getDailyEvaluation, getPhysicalExamInsight, getSupportingExamInsight, getDrugInteraction, getSOAPNote } from '../services/aiService';
+import { getSmartSummary, getSymptomInsight, getDailyEvaluation, getPhysicalExamInsight, getSupportingExamInsight, getMedicationRecommendation, getSOAPNote } from '../services/aiService';
 import SymptomGraph from '../components/visualization/SymptomGraph';
 import TimelineChart from '../components/visualization/TimelineChart';
 import DDxRadar from '../components/visualization/DDxRadar';
@@ -155,7 +155,7 @@ export default function PatientDetail() {
             {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
                 onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, prescInput); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral' }); }}
                 onRemove={(prescId) => removePrescription(patient.id, prescId)}
-                onAI={() => callAI('drugs', () => getDrugInteraction((patient.prescriptions || []).map(p => `${p.name} ${p.dosage}`)))}
+                onAI={() => callAI('drugs', () => getMedicationRecommendation(patient.diagnosis, (patient.symptoms || []).map(s => s.name).join(', ')))}
                 aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} />}
             {activeTab === 'reports' && <TabLaporan patient={patient} input={reportInput} setInput={setReportInput}
                 onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, reportInput); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '' }); }}
@@ -540,7 +540,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                         <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Tambah Obat</button>
                     </form>
                 </Kartu>
-                <TombolAI label="Cek Interaksi Obat" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.prescriptions || []).length < 2} />
+                <TombolAI label="Rekomendasi Obat AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={!(patient.symptoms || []).length && !patient.diagnosis} />
             </div>
             <div className="min-w-0">
                 <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>

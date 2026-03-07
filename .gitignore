@@ -27,3 +27,6 @@ dist-ssr
 build_output.txt
 build_error.txt
 
+
+# Local Netlify folder
+.netlify

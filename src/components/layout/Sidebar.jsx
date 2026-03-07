@@ -6,6 +6,7 @@ const navItems = [
     { to: '/', icon: 'home', label: 'Beranda' },
     { to: '/patients', icon: 'group', label: 'Daftar Pasien' },
     { to: '/add-patient', icon: 'person_add', label: 'Pasien Baru' },
+    { to: '/news', icon: 'newspaper', label: 'News' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
     { to: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];

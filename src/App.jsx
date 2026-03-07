@@ -13,6 +13,7 @@ import PatientDetail from './pages/PatientDetail';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import News from './pages/News';
 
 export default function App() {
   const { user } = useAuth();
@@ -45,6 +46,7 @@ export default function App() {
                   <Route path="/patients" element={<PatientList />} />
                   <Route path="/add-patient" element={<AddPatient />} />
                   <Route path="/patient/:id" element={<PatientDetail />} />
+                  <Route path="/news" element={<News />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>

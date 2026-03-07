@@ -1,0 +1,18 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Scheduled trigger: runs daily at 05:00 UTC = 12:00 WIB (GMT+7)
+# The same fetch-news function handles both HTTP requests and scheduled runs
+[[scheduled_functions]]
+  name = "fetch-news"
+  cron = "0 5 * * *"
