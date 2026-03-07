@@ -45,24 +45,54 @@ export function PatientProvider({ children }) {
 
     const addDailyReport = useCallback((patientId, report) => {
         const result = dataService.addDailyReport(patientId, report);
+        // Assuming saveData(patients) was a placeholder for refreshPatients() or a new function
+        // Sticking to refreshPatients() as it's consistent with other add/remove operations
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const removeDailyReport = useCallback((patientId, reportId) => {
+        const result = dataService.removeDailyReport(patientId, reportId);
         refreshPatients();
         return result;
     }, [refreshPatients]);
 
     const addPhysicalExam = useCallback((patientId, exam) => {
         const result = dataService.addPhysicalExam(patientId, exam);
+        // Assuming saveData(patients) was a placeholder for refreshPatients() or a new function
+        // Sticking to refreshPatients() as it's consistent with other add/remove operations
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const removePhysicalExam = useCallback((patientId, examId) => {
+        const result = dataService.removePhysicalExam(patientId, examId);
         refreshPatients();
         return result;
     }, [refreshPatients]);
 
     const addSupportingExam = useCallback((patientId, exam) => {
         const result = dataService.addSupportingExam(patientId, exam);
+        // Assuming saveData(patients) was a placeholder for refreshPatients() or a new function
+        // Sticking to refreshPatients() as it's consistent with other add/remove operations
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const removeSupportingExam = useCallback((patientId, examId) => {
+        const result = dataService.removeSupportingExam(patientId, examId);
         refreshPatients();
         return result;
     }, [refreshPatients]);
 
     const addPrescription = useCallback((patientId, prescription) => {
         const result = dataService.addPrescription(patientId, prescription);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const removePrescription = useCallback((patientId, prescriptionId) => {
+        const result = dataService.removePrescription(patientId, prescriptionId);
         refreshPatients();
         return result;
     }, [refreshPatients]);
@@ -79,9 +109,13 @@ export function PatientProvider({ children }) {
             addSymptom,
             removeSymptom,
             addDailyReport,
+            removeDailyReport,
             addPhysicalExam,
+            removePhysicalExam,
             addSupportingExam,
+            removeSupportingExam,
             addPrescription,
+            removePrescription,
             refreshPatients,
         }}>
             {children}

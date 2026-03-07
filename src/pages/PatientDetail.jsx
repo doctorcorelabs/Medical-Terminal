@@ -10,7 +10,7 @@ import DDxRadar from '../components/visualization/DDxRadar';
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { patients, updatePatient, addSymptom, removeSymptom, addDailyReport, addPhysicalExam, addSupportingExam, addPrescription } = usePatients();
+    const { patients, updatePatient, addSymptom, removeSymptom, addDailyReport, removeDailyReport, addPhysicalExam, removePhysicalExam, addSupportingExam, removeSupportingExam, addPrescription, removePrescription } = usePatients();
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState('overview');
     const [aiLoading, setAiLoading] = useState({});
@@ -110,19 +110,23 @@ export default function PatientDetail() {
                     { key: 'findings', type: 'textarea', label: 'Temuan', placeholder: 'Temuan pemeriksaan fisik...' },
                 ]}
                 onAdd={(e) => { e.preventDefault(); if (!examInput.findings.trim()) return; addPhysicalExam(patient.id, examInput); setExamInput({ findings: '', system: 'umum' }); }}
+                onRemove={(examId) => removePhysicalExam(patient.id, examId)}
                 renderItem={(item) => <><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{item.findings}</p></>}
                 onAI={() => callAI('physical', () => getPhysicalExamInsight((patient.physicalExams || []).map(e => e.findings).join('; '), (patient.symptoms || []).map(s => s.name).join(', ')))}
                 aiResult={aiResults.physical} aiLoading={aiLoading.physical} />}
             {activeTab === 'labs' && <TabLab patient={patient} input={labInput} setInput={setLabInput}
                 onAdd={(e) => { e.preventDefault(); if (!labInput.testName.trim() && labInput.labKey !== 'custom') return; addSupportingExam(patient.id, { type: 'lab', ...labInput, result: checkLabValue(labInput.labKey, labInput.value, patient.gender) }); setLabInput({ testName: '', value: '', unit: '', labKey: '' }); }}
+                onRemove={(examId) => removeSupportingExam(patient.id, examId)}
                 onAI={() => callAI('labs', () => getSupportingExamInsight((patient.supportingExams || []).map(e => `${e.testName}: ${e.value} ${e.unit}`).join(', '), patient.diagnosis || ''))}
                 aiResult={aiResults.labs} aiLoading={aiLoading.labs} />}
             {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
                 onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, prescInput); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral' }); }}
+                onRemove={(prescId) => removePrescription(patient.id, prescId)}
                 onAI={() => callAI('drugs', () => getDrugInteraction((patient.prescriptions || []).map(p => `${p.name} ${p.dosage}`)))}
                 aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} />}
             {activeTab === 'reports' && <TabLaporan patient={patient} input={reportInput} setInput={setReportInput}
                 onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, reportInput); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '' }); }}
+                onRemove={(reportId) => removeDailyReport(patient.id, reportId)}
                 onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
                 aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
             {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} />}
@@ -246,21 +250,30 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
     const handleCancelDelete = () => setConfirmingId(null);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
-            <div className="lg:col-span-7 space-y-5 min-w-0">
-                <Kartu judul="Tambah Gejala" headerIcon="add_circle">
-                    <form onSubmit={onAdd} className="space-y-3">
-                        <input type="text" value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} required placeholder="Nama gejala (cth. Demam, Batuk, Nyeri Dada)"
-                            className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm" />
-                        <div className="flex gap-3">
-                            <select value={input.severity} onChange={e => setInput(p => ({ ...p, severity: e.target.value }))}
-                                className="rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm flex-1">
-                                <option value="ringan">Ringan</option><option value="sedang">Sedang</option><option value="berat">Berat</option>
-                            </select>
-                            <button type="submit" className="bg-primary text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors flex-shrink-0">Tambah</button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="space-y-5">
+                <Kartu judul="Tambah Gejala" aksi={<button className="p-1 rounded-full text-slate-400 hover:text-primary transition-colors hover:bg-slate-50"><span className="material-symbols-outlined text-xl">add_circle</span></button>}>
+                    <form onSubmit={onAdd} className="space-y-4">
+                        <textarea value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} rows={2} required placeholder="Nama gejala (cth. Demam, Batuk, Nyeri Dada)"
+                            className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keparahan</label>
+                            <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl gap-1">
+                                {[
+                                    { v: 'ringan', l: 'Ringan', c: 'text-green-600 bg-green-50 border-green-200' },
+                                    { v: 'sedang', l: 'Sedang', c: 'text-amber-600 bg-amber-50 border-amber-200' },
+                                    { v: 'berat', l: 'Berat', c: 'text-red-600 bg-red-50 border-red-200' }
+                                ].map(opt => (
+                                    <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, severity: opt.v }))}
+                                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all border ${input.severity === opt.v ? `${opt.c} shadow-sm scale-[1.02]` : 'text-slate-500 border-transparent hover:bg-white/50 dark:hover:bg-slate-800'}`}>
+                                        {opt.l}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <textarea value={input.notes} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="Catatan tambahan (opsional)"
-                            className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm" />
+
+                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Tambah Gejala</button>
                     </form>
                 </Kartu>
                 <Kartu judul={`Daftar Gejala (${(patient.symptoms || []).length})`}>
@@ -313,22 +326,34 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
 }
 
 /* ====== TAB DATA UMUM ====== */
-function TabDataUmum({ judul, items, input, setInput, fields, onAdd, renderItem, onAI, aiResult, aiLoading }) {
+function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, renderItem, onAI, aiResult, aiLoading }) {
+    const [confirmingId, setConfirmingId] = useState(null);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
             <div className="space-y-5 min-w-0">
                 <Kartu judul={`Tambah ${judul}`}>
-                    <form onSubmit={onAdd} className="space-y-3">
+                    <form onSubmit={onAdd} className="space-y-4">
                         {fields.map(f => f.type === 'select' ? (
-                            <select key={f.key} value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))}
-                                className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm capitalize">
-                                {f.options.map(o => <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>)}
-                            </select>
+                            <div key={f.key} className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+                                    {f.options.map(o => (
+                                        <button key={o} type="button" onClick={() => setInput(p => ({ ...p, [f.key]: o }))}
+                                            className={`py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${input[f.key] === o ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800 border border-transparent'}`}>
+                                            {o}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         ) : (
-                            <textarea key={f.key} value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))} rows={4} required placeholder={f.placeholder}
-                                className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm" />
+                            <div key={f.key} className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
+                                <textarea value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))} rows={4} required placeholder={f.placeholder}
+                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
+                            </div>
                         ))}
-                        <button type="submit" className="w-full bg-primary text-white py-2.5 rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors">Simpan</button>
+                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan</button>
                     </form>
                 </Kartu>
                 <TombolAI label="Analisis AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={items.length === 0} />
@@ -337,9 +362,20 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, renderItem,
                 <Kartu judul={`Riwayat (${items.length})`}>
                     <div className="space-y-3">
                         {items.length === 0 ? <Kosong /> : items.map(item => (
-                            <div key={item.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1">
-                                <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
-                                {renderItem(item)}
+                            <div key={item.id}>
+                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
+                                    <div className="flex justify-between items-start">
+                                        <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
+                                        <button type="button" onClick={() => setConfirmingId(item.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0">
+                                            <span className="material-symbols-outlined text-sm">close</span>
+                                        </button>
+                                    </div>
+                                    {renderItem(item)}
+                                </div>
+                                {confirmingId === item.id && (
+                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(item.id); setConfirmingId(null); }} label="Hapus data ini?" />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -349,25 +385,53 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, renderItem,
     );
 }
 
+function ConfirmPanel({ onCancel, onConfirm, label }) {
+    return (
+        <div className="mt-1 flex items-center justify-end gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+            <span className="text-xs text-red-600 dark:text-red-400 font-medium flex-1">{label}</span>
+            <button type="button" onClick={onCancel}
+                className="px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                Batal
+            </button>
+            <button type="button" onClick={onConfirm}
+                className="px-3 py-1 text-xs font-bold rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors">
+                Hapus
+            </button>
+        </div>
+    );
+}
+
 /* ====== TAB LAB ====== */
-function TabLab({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading }) {
+function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+    const [confirmingId, setConfirmingId] = useState(null);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
             <div className="space-y-5 min-w-0">
                 <Kartu judul="Pesan Pemeriksaan Lab">
-                    <form onSubmit={onAdd} className="space-y-3">
-                        <select value={input.labKey} onChange={e => { const ref = labReferences[e.target.value]; setInput(p => ({ ...p, labKey: e.target.value, testName: ref?.name || p.testName, unit: ref?.unit || p.unit })); }}
-                            className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm">
-                            <option value="">-- Pilih Jenis Pemeriksaan --</option>
-                            {Object.entries(labReferences).map(([k, v]) => <option key={k} value={k}>{v.name} ({v.unit})</option>)}
-                            <option value="custom">Lainnya (Custom)</option>
-                        </select>
-                        {input.labKey === 'custom' && <input type="text" value={input.testName} onChange={e => setInput(p => ({ ...p, testName: e.target.value }))} placeholder="Nama pemeriksaan" required className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />}
-                        <div className="flex gap-3">
-                            <input type="text" value={input.value} onChange={e => setInput(p => ({ ...p, value: e.target.value }))} placeholder="Nilai" required className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm min-w-0" />
-                            <input type="text" value={input.unit} onChange={e => setInput(p => ({ ...p, unit: e.target.value }))} placeholder="Satuan" className="w-20 sm:w-24 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm flex-shrink-0" />
+                    <form onSubmit={onAdd} className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis Pemeriksaan</label>
+                            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl max-h-48 overflow-y-auto custom-scrollbar">
+                                {Object.entries(labReferences).map(([k, v]) => (
+                                    <button key={k} type="button" onClick={() => { setInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit })) }}
+                                        className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center ${input.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800'}`}>
+                                        <span className="truncate">{v.name}</span>
+                                        <span className={`text-[9px] font-black ml-2 ${input.labKey === k ? 'text-white/80' : 'text-slate-400'}`}>{v.unit}</span>
+                                    </button>
+                                ))}
+                                <button type="button" onClick={() => { setInput(p => ({ ...p, labKey: 'custom', testName: '', unit: '' })) }}
+                                    className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center ${input.labKey === 'custom' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800'}`}>
+                                    Lainnya (Custom)
+                                </button>
+                            </div>
                         </div>
-                        <button type="submit" className="w-full bg-primary text-white py-2.5 rounded-lg font-bold text-sm">Simpan Hasil</button>
+                        {input.labKey === 'custom' && <input type="text" value={input.testName} onChange={e => setInput(p => ({ ...p, testName: e.target.value }))} placeholder="Nama pemeriksaan" required className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 transition-all shadow-sm" />}
+                        <div className="flex gap-3">
+                            <input type="text" value={input.value} onChange={e => setInput(p => ({ ...p, value: e.target.value }))} placeholder="Nilai (Hasil)" required className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 min-w-0 transition-all shadow-sm" />
+                            <input type="text" value={input.unit} onChange={e => setInput(p => ({ ...p, unit: e.target.value }))} placeholder="Satuan" className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 flex-shrink-0 transition-all shadow-sm" />
+                        </div>
+                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan Hasil</button>
                     </form>
                 </Kartu>
                 <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} />
@@ -376,15 +440,26 @@ function TabLab({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading }) 
                 <Kartu judul={`Hasil Lab (${(patient.supportingExams || []).length})`}>
                     <div className="space-y-2">
                         {(patient.supportingExams || []).length === 0 ? <Kosong /> : (patient.supportingExams || []).map(e => (
-                            <div key={e.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold truncate">{e.testName}</p>
-                                    <p className="text-[10px] text-slate-400">{formatDateTime(e.date)}</p>
+                            <div key={e.id}>
+                                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold truncate">{e.testName}</p>
+                                        <p className="text-[10px] text-slate-400">{formatDateTime(e.date)}</p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0 flex items-center gap-3">
+                                        <div>
+                                            <span className="text-sm font-bold block">{e.value} {e.unit}</span>
+                                            {e.result && <span className={`block text-[10px] font-bold ${e.result.status === 'high' ? 'text-red-500' : e.result.status === 'low' ? 'text-amber-500' : 'text-green-500'}`}>{e.result.label}</span>}
+                                        </div>
+                                        <button type="button" onClick={() => setConfirmingId(e.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                            <span className="material-symbols-outlined text-sm">close</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="text-right flex-shrink-0">
-                                    <span className="text-sm font-bold">{e.value} {e.unit}</span>
-                                    {e.result && <span className={`block text-[10px] font-bold ${e.result.status === 'high' ? 'text-red-500' : e.result.status === 'low' ? 'text-amber-500' : 'text-green-500'}`}>{e.result.label}</span>}
-                                </div>
+                                {confirmingId === e.id && (
+                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(e.id); setConfirmingId(null); }} label={`Hapus hasil ${e.testName}?`} />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -395,7 +470,9 @@ function TabLab({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading }) 
 }
 
 /* ====== TAB OBAT ====== */
-function TabObat({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading }) {
+function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+    const [confirmingId, setConfirmingId] = useState(null);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
             <div className="space-y-5 min-w-0">
@@ -403,13 +480,31 @@ function TabObat({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading })
                     <form onSubmit={onAdd} className="space-y-3">
                         <input type="text" value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama obat (cth. Amoxicillin)" required className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
                         <div className="flex gap-3">
-                            <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (500mg)" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm min-w-0" />
-                            <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (3x/hari)" className="flex-1 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm min-w-0" />
+                            <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
+                            <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
                         </div>
-                        <select value={input.route} onChange={e => setInput(p => ({ ...p, route: e.target.value }))} className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
-                            <option value="oral">Oral</option><option value="iv">Intravena (IV)</option><option value="im">Intramuskular (IM)</option><option value="sc">Subkutan (SC)</option><option value="topikal">Topikal</option><option value="inhalasi">Inhalasi</option>
-                        </select>
-                        <button type="submit" className="w-full bg-primary text-white py-2.5 rounded-lg font-bold text-sm">Tambah Obat</button>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute Pemberian</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { v: 'oral', l: 'Oral', i: 'pill' },
+                                    { v: 'iv', l: 'IV', i: 'vaccines' },
+                                    { v: 'im', l: 'IM', i: 'syringe' },
+                                    { v: 'sc', l: 'SC', i: 'colorize' },
+                                    { v: 'topikal', l: 'Topikal', i: 'shampoo' },
+                                    { v: 'inhalasi', l: 'Inhalasi', i: 'air' }
+                                ].map(opt => (
+                                    <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, route: opt.v }))}
+                                        className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all ${input.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
+                                        <span className="material-symbols-outlined text-lg mb-0.5">{opt.i}</span>
+                                        <span className="text-[10px] font-black uppercase">{opt.l}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Tambah Obat</button>
                     </form>
                 </Kartu>
                 <TombolAI label="Cek Interaksi Obat" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.prescriptions || []).length < 2} />
@@ -418,12 +513,23 @@ function TabObat({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading })
                 <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>
                     <div className="space-y-3">
                         {(patient.prescriptions || []).length === 0 ? <Kosong /> : (patient.prescriptions || []).map(p => (
-                            <div key={p.id} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
-                                    <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
+                            <div key={p.id}>
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 group">
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
+                                        <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button type="button" onClick={() => setConfirmingId(p.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                            <span className="material-symbols-outlined text-sm">close</span>
+                                        </button>
+                                        <span className="material-symbols-outlined text-slate-400 text-sm flex-shrink-0 group-hover:hidden">info</span>
+                                    </div>
                                 </div>
-                                <span className="material-symbols-outlined text-slate-400 text-sm flex-shrink-0">info</span>
+                                {confirmingId === p.id && (
+                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(p.id); setConfirmingId(null); }} label={`Hapus resep ${p.name}?`} />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -434,20 +540,35 @@ function TabObat({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading })
 }
 
 /* ====== TAB LAPORAN ====== */
-function TabLaporan({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading }) {
+function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+    const [confirmingId, setConfirmingId] = useState(null);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
             <div className="space-y-5 min-w-0">
                 <Kartu judul="Laporan Harian Baru">
-                    <form onSubmit={onAdd} className="space-y-3">
+                    <form onSubmit={onAdd} className="space-y-4">
                         <textarea value={input.notes} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={5} required placeholder="Catatan perkembangan pasien hari ini..."
-                            className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm" />
-                        <select value={input.condition} onChange={e => setInput(p => ({ ...p, condition: e.target.value }))}
-                            className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm">
-                            <option value="">-- Perbarui Kondisi (opsional) --</option>
-                            <option value="critical">Kritis</option><option value="urgent">Mendesak</option><option value="stable">Stabil</option><option value="improving">Membaik</option>
-                        </select>
-                        <button type="submit" className="w-full bg-primary text-white py-2.5 rounded-lg font-bold text-sm">Simpan Laporan</button>
+                            className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm" />
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perbarui Kondisi Pasien</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {[
+                                    { v: 'critical', l: 'Kritis', c: 'border-red-500 text-red-500 bg-red-50' },
+                                    { v: 'urgent', l: 'Mendesak', c: 'border-amber-500 text-amber-500 bg-amber-50' },
+                                    { v: 'stable', l: 'Stabil', c: 'border-blue-500 text-blue-500 bg-blue-50' },
+                                    { v: 'improving', l: 'Membaik', c: 'border-green-500 text-green-500 bg-green-50' }
+                                ].map(opt => (
+                                    <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, condition: opt.v }))}
+                                        className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${input.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                                        {opt.l}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Simpan Laporan</button>
                     </form>
                 </Kartu>
                 <TombolAI label="Evaluasi Harian AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.dailyReports || []).length < 1} />
@@ -456,12 +577,23 @@ function TabLaporan({ patient, input, setInput, onAdd, onAI, aiResult, aiLoading
                 <Kartu judul={`Riwayat Laporan (${(patient.dailyReports || []).length})`}>
                     <div className="space-y-3">
                         {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].reverse().map(r => (
-                            <div key={r.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1">
-                                <div className="flex justify-between items-center gap-3">
-                                    <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
-                                    {r.condition && <KondisiBadge kondisi={r.condition} />}
+                            <div key={r.id}>
+                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
+                                    <div className="flex justify-between items-center gap-3">
+                                        <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
+                                        <div className="flex items-center gap-2">
+                                            {r.condition && <KondisiBadge kondisi={r.condition} />}
+                                            <button type="button" onClick={() => setConfirmingId(r.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
                                 </div>
-                                <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
+                                {confirmingId === r.id && (
+                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(r.id); setConfirmingId(null); }} label="Hapus laporan ini?" />
+                                )}
                             </div>
                         ))}
                     </div>

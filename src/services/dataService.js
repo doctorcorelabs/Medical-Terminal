@@ -30,12 +30,12 @@ export function addPatient(patient) {
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        dailyReports: [],
-        symptoms: [],
-        physicalExams: [],
-        supportingExams: [],
-        prescriptions: [],
-        aiInsights: [],
+        dailyReports: patient.dailyReports || [],
+        symptoms: patient.symptoms || [],
+        physicalExams: patient.physicalExams || [],
+        supportingExams: patient.supportingExams || [],
+        prescriptions: patient.prescriptions || [],
+        aiInsights: patient.aiInsights || [],
     };
     patients.push(newPatient);
     saveData(patients);
@@ -79,6 +79,17 @@ export function addDailyReport(patientId, report) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newReport;
+}
+
+export function removeDailyReport(patientId, reportId) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.dailyReports) return null;
+
+    patient.dailyReports = patient.dailyReports.filter(r => r.id !== reportId);
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return true;
 }
 
 export function addSymptom(patientId, symptom) {
@@ -128,6 +139,17 @@ export function addPhysicalExam(patientId, exam) {
     return newExam;
 }
 
+export function removePhysicalExam(patientId, examId) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.physicalExams) return null;
+
+    patient.physicalExams = patient.physicalExams.filter(e => e.id !== examId);
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return true;
+}
+
 export function addSupportingExam(patientId, exam) {
     const patients = getStoredData();
     const patient = patients.find(p => p.id === patientId);
@@ -146,6 +168,17 @@ export function addSupportingExam(patientId, exam) {
     return newExam;
 }
 
+export function removeSupportingExam(patientId, examId) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.supportingExams) return null;
+
+    patient.supportingExams = patient.supportingExams.filter(e => e.id !== examId);
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return true;
+}
+
 export function addPrescription(patientId, prescription) {
     const patients = getStoredData();
     const patient = patients.find(p => p.id === patientId);
@@ -162,6 +195,17 @@ export function addPrescription(patientId, prescription) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newPrescription;
+}
+
+export function removePrescription(patientId, prescriptionId) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.prescriptions) return null;
+
+    patient.prescriptions = patient.prescriptions.filter(p => p.id !== prescriptionId);
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return true;
 }
 
 // Lab reference values
