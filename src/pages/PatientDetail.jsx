@@ -8,13 +8,20 @@ import TimelineChart from '../components/visualization/TimelineChart';
 import DDxRadar from '../components/visualization/DDxRadar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { exportPatientPDF } from '../services/pdfExportService';
 
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { patients, updatePatient, addSymptom, removeSymptom, addDailyReport, removeDailyReport, addPhysicalExam, removePhysicalExam, addSupportingExam, removeSupportingExam, addPrescription, removePrescription } = usePatients();
     const patient = patients.find(p => p.id === id);
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('patientDetailActiveTab') || 'overview';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('patientDetailActiveTab', activeTab);
+    }, [activeTab]);
     const [aiLoading, setAiLoading] = useState({});
     const [aiResults, setAiResults] = useState(patient?.aiInsights || {});
 
@@ -98,6 +105,12 @@ export default function PatientDetail() {
                     </button>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{patient.name}</h1>
                     <KondisiBadge kondisi={patient.condition} />
+                    <button onClick={() => exportPatientPDF(patient)}
+                        className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold flex-shrink-0"
+                        title="Export laporan medis ke PDF">
+                        <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+                        <span className="hidden sm:inline">Export PDF</span>
+                    </button>
                 </div>
                 <nav className="flex text-sm text-slate-500 gap-2 ml-12">
                     <span>Pasien</span><span>/</span><span className="text-primary font-medium truncate">{patient.name}</span>
@@ -228,10 +241,10 @@ function TabRingkasan({ patient, navigate }) {
                 {/* Visualisasi */}
                 {(patient.symptoms || []).length > 0 && (
                     <>
-                        <Kartu judul="Peta Gejala" headerIcon="hub">
+                        <Kartu judul="Peta Gejala" headerIcon="hub" id="grafik-gejala">
                             <div className="h-[300px] lg:h-[350px]"><SymptomGraph symptoms={patient.symptoms} aiResult={patient.aiInsights?.symptoms} /></div>
                         </Kartu>
-                        <Kartu judul="Timeline Gejala" headerIcon="timeline">
+                        <Kartu judul="Timeline Gejala" headerIcon="timeline" id="timeline-gejala">
                             <TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} />
                         </Kartu>
                     </>
@@ -349,8 +362,8 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
             <div className="lg:col-span-5 space-y-5 min-w-0">
                 {(patient.symptoms || []).length > 0 && (
                     <>
-                        <Kartu judul="Node Gejala"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
-                        <Kartu judul="Timeline"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
+                        <Kartu judul="Node Gejala" id="grafik-gejala-tab"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
+                        <Kartu judul="Timeline" id="timeline-gejala-tab"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
                     </>
                 )}
             </div>
@@ -672,7 +685,7 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
             </div>
 
             {(patient.symptoms || []).length > 0 && (
-                <Kartu judul="Radar Diagnosis Banding"><DDxRadar symptoms={patient.symptoms} aiResult={aiResults.symptoms} /></Kartu>
+                <Kartu judul="Radar Diagnosis Banding" id="radar-diagnosis"><DDxRadar symptoms={patient.symptoms} aiResult={aiResults.symptoms} /></Kartu>
             )}
 
             {['summary', 'soap', 'symptoms'].map(key => {
@@ -695,9 +708,9 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
 }
 
 /* ====== KOMPONEN BERSAMA ====== */
-function Kartu({ judul, headerIcon, children }) {
+function Kartu({ judul, headerIcon, children, id }) {
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div id={id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 gap-3">
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{judul}</h3>
                 {headerIcon && <span className="material-symbols-outlined text-slate-400 flex-shrink-0">{headerIcon}</span>}

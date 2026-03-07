@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { checkLabValue, labReferences, formatDateTime } from '../services/dataService';
@@ -7,7 +7,13 @@ export default function AddPatient() {
     const navigate = useNavigate();
     const { addPatient } = usePatients();
 
-    const [activeTab, setActiveTab] = useState('ringkasan');
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('addPatientActiveTab') || 'ringkasan';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('addPatientActiveTab', activeTab);
+    }, [activeTab]);
     const [form, setForm] = useState({
         name: '', age: '', gender: 'male', bloodType: '', admissionDate: new Date().toISOString().split('T')[0],
         targetDays: '', chiefComplaint: '', diagnosis: '', condition: 'stable', status: 'active',
