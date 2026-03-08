@@ -40,7 +40,7 @@ export default function Login() {
                         <div className="inline-flex items-center justify-center size-16 rounded-2xl bg-primary/10 text-primary mb-4 shadow-sm border border-primary/20">
                             <span className="material-symbols-outlined text-4xl">medical_services</span>
                         </div>
-                        <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">MedTerminal</h1>
+                        <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">MedxTerminal</h1>
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                             Masuk untuk melanjutkan ke terminal klinis Anda.
                         </p>

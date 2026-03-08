@@ -3,13 +3,13 @@ import autoTable from 'jspdf-autotable';
 import { parseAIDiagnoses } from './dataService';
 
 const PRIMARY = [37, 99, 235];
-const DARK    = [30, 41, 59];
-const MUTED   = [100, 116, 139];
-const WHITE   = [255, 255, 255];
-const STRIPE  = [248, 250, 252];
+const DARK = [30, 41, 59];
+const MUTED = [100, 116, 139];
+const WHITE = [255, 255, 255];
+const STRIPE = [248, 250, 252];
 const SUCCESS = [34, 197, 94];
 const WARNING = [245, 158, 11];
-const DANGER  = [239, 68, 68];
+const DANGER = [239, 68, 68];
 
 function fmtDate(d) {
     if (!d) return '-';
@@ -57,7 +57,7 @@ function addFooters(doc) {
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Dicetak dari MedTerminal - ${now}`, 14, 290);
+        doc.text(`Dicetak dari MedxTerminal - ${now}`, 14, 290);
         doc.text(`Halaman ${i} / ${pageCount}`, 196, 290, { align: 'right' });
         doc.setDrawColor(226, 232, 240);
         doc.line(14, 286, 196, 286);
@@ -82,7 +82,7 @@ export function exportPatientPDF(patient) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         doc.setTextColor(...WHITE);
-        doc.text('MedTerminal', 14, 14);
+        doc.text('MedxTerminal', 14, 14);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         doc.text('LAPORAN MEDIS PASIEN', 14, 21);
@@ -330,7 +330,7 @@ export function exportPatientPDF(patient) {
             const sevCol = {
                 ringan: { bg: [209, 250, 229], border: [16, 185, 129], text: [6, 95, 70] },
                 sedang: { bg: [254, 243, 199], border: [245, 158, 11], text: [146, 64, 14] },
-                berat:  { bg: [254, 226, 226], border: [239, 68, 68], text: [153, 27, 27] },
+                berat: { bg: [254, 226, 226], border: [239, 68, 68], text: [153, 27, 27] },
             };
 
             const angleStep = (2 * Math.PI) / symptoms2.length;

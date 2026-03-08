@@ -108,7 +108,7 @@ async function fetchDirect(url) {
         const res = await fetch(url, {
             signal: controller.signal,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; MedTerminalBot/1.0)',
+                'User-Agent': 'Mozilla/5.0 (compatible; MedxTerminalBot/1.0)',
                 'Accept': 'application/rss+xml, application/xml, application/atom+xml, text/xml, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Cache-Control': 'no-cache',

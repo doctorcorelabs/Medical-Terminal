@@ -107,7 +107,7 @@ export default function Settings() {
             {/* Info */}
             <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-5 lg:p-6">
                 <h4 className="font-bold text-primary mb-2 flex items-center gap-2 text-sm">
-                    <span className="material-symbols-outlined text-lg">info</span>Tentang MedTerminal
+                    <span className="material-symbols-outlined text-lg">info</span>Tentang MedxTerminal
                 </h4>
                 <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
                     <p>Versi: 1.0.0-MVP (localStorage)</p>

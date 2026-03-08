@@ -17,7 +17,7 @@ export default function Reports() {
     };
 
     const exportLogbook = () => {
-        let text = 'LOGBOOK COASS - MedTerminal\n';
+        let text = 'LOGBOOK COASS - MedxTerminal\n';
         text += `Dibuat: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}\n\n`;
         patients.forEach((p, i) => {
             text += `${i + 1}. ${p.name} (${p.age || '-'} th, ${p.gender === 'female' ? 'P' : 'L'})\n`;

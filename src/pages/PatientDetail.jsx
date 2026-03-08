@@ -297,77 +297,81 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
     const handleCancelDelete = () => setConfirmingId(null);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-            <div className="space-y-5">
-                <Kartu judul="Tambah Gejala" aksi={<button className="p-1 rounded-full text-slate-400 hover:text-primary transition-colors hover:bg-slate-50"><span className="material-symbols-outlined text-xl">add_circle</span></button>}>
-                    <form onSubmit={onAdd} className="space-y-4">
-                        <textarea value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} rows={2} required placeholder="Nama gejala (cth. Demam, Batuk, Nyeri Dada)"
-                            className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
+        <div className="space-y-5 lg:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                <div className="space-y-5 min-w-0">
+                    <Kartu judul="Tambah Gejala" aksi={<button className="p-1 rounded-full text-slate-400 hover:text-primary transition-colors hover:bg-slate-50"><span className="material-symbols-outlined text-xl">add_circle</span></button>}>
+                        <form onSubmit={onAdd} className="space-y-4">
+                            <textarea value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} rows={2} required placeholder="Nama gejala (cth. Demam, Batuk, Nyeri Dada)"
+                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keparahan</label>
-                            <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl gap-1">
-                                {[
-                                    { v: 'ringan', l: 'Ringan', c: 'text-green-600 bg-green-50 border-green-200' },
-                                    { v: 'sedang', l: 'Sedang', c: 'text-amber-600 bg-amber-50 border-amber-200' },
-                                    { v: 'berat', l: 'Berat', c: 'text-red-600 bg-red-50 border-red-200' }
-                                ].map(opt => (
-                                    <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, severity: opt.v }))}
-                                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all border ${input.severity === opt.v ? `${opt.c} shadow-sm scale-[1.02]` : 'text-slate-500 border-transparent hover:bg-white/50 dark:hover:bg-slate-800'}`}>
-                                        {opt.l}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Tambah Gejala</button>
-                    </form>
-                </Kartu>
-                <Kartu judul={`Daftar Gejala (${(patient.symptoms || []).length})`}>
-                    <div className="space-y-2">
-                        {(patient.symptoms || []).length === 0 ? <Kosong /> :
-                            (patient.symptoms || []).map(s => (
-                                <div key={s.id}>
-                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold truncate">{s.name}</p>
-                                            {s.notes && <p className="text-xs text-slate-400 truncate">{s.notes}</p>}
-                                        </div>
-                                        <BadgeKeparahan keparahan={s.severity} />
-                                        <span className="text-[10px] text-slate-400 flex-shrink-0 hidden sm:block">{formatDateTime(s.recordedAt)}</span>
-                                        <button type="button" onClick={() => handleDeleteClick(s.id)}
-                                            className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0">
-                                            <span className="material-symbols-outlined text-sm">close</span>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keparahan</label>
+                                <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl gap-1">
+                                    {[
+                                        { v: 'ringan', l: 'Ringan', c: 'text-green-600 bg-green-50 border-green-200' },
+                                        { v: 'sedang', l: 'Sedang', c: 'text-amber-600 bg-amber-50 border-amber-200' },
+                                        { v: 'berat', l: 'Berat', c: 'text-red-600 bg-red-50 border-red-200' }
+                                    ].map(opt => (
+                                        <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, severity: opt.v }))}
+                                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all border ${input.severity === opt.v ? `${opt.c} shadow-sm scale-[1.02]` : 'text-slate-500 border-transparent hover:bg-white/50 dark:hover:bg-slate-800'}`}>
+                                            {opt.l}
                                         </button>
-                                    </div>
-                                    {confirmingId === s.id && (
-                                        <div className="mt-1 flex items-center justify-end gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                                            <span className="text-xs text-red-600 dark:text-red-400 font-medium flex-1">Hapus gejala <strong>{s.name}</strong>?</span>
-                                            <button type="button" onClick={handleCancelDelete}
-                                                className="px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                                Batal
-                                            </button>
-                                            <button type="button" onClick={() => handleConfirmDelete(s.id)}
-                                                className="px-3 py-1 text-xs font-bold rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors">
-                                                Hapus
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Tambah Gejala</button>
+                        </form>
+                    </Kartu>
+                </div>
+                <div className="space-y-5 min-w-0">
+                    <Kartu judul={`Daftar Gejala (${(patient.symptoms || []).length})`}>
+                        <div className="space-y-2">
+                            {(patient.symptoms || []).length === 0 ? <Kosong /> :
+                                (patient.symptoms || []).map(s => (
+                                    <div key={s.id}>
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold truncate">{s.name}</p>
+                                                {s.notes && <p className="text-xs text-slate-400 truncate">{s.notes}</p>}
+                                            </div>
+                                            <BadgeKeparahan keparahan={s.severity} />
+                                            <span className="text-[10px] text-slate-400 flex-shrink-0 hidden sm:block">{formatDateTime(s.recordedAt)}</span>
+                                            <button type="button" onClick={() => handleDeleteClick(s.id)}
+                                                className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0">
+                                                <span className="material-symbols-outlined text-sm">close</span>
                                             </button>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
-                    </div>
-                </Kartu>
-                <TombolAI label="Analisis Gejala" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.symptoms || []).length === 0} />
+                                        {confirmingId === s.id && (
+                                            <div className="mt-1 flex items-center justify-end gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                                                <span className="text-xs text-red-600 dark:text-red-400 font-medium flex-1">Hapus gejala <strong>{s.name}</strong>?</span>
+                                                <button type="button" onClick={handleCancelDelete}
+                                                    className="px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                                    Batal
+                                                </button>
+                                                <button type="button" onClick={() => handleConfirmDelete(s.id)}
+                                                    className="px-3 py-1 text-xs font-bold rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors">
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                        </div>
+                    </Kartu>
+                </div>
             </div>
-            <div className="lg:col-span-5 space-y-5 min-w-0">
-                {(patient.symptoms || []).length > 0 && (
-                    <>
-                        <Kartu judul="Node Gejala" id="grafik-gejala-tab"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
-                        <Kartu judul="Timeline" id="timeline-gejala-tab"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
-                    </>
-                )}
-            </div>
+
+            <TombolAI label="Analisis Gejala" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.symptoms || []).length === 0} />
+
+            {(patient.symptoms || []).length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                    <Kartu judul="Node Gejala" id="grafik-gejala-tab"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
+                    <Kartu judul="Timeline" id="timeline-gejala-tab"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
+                </div>
+            )}
         </div>
     );
 }
@@ -377,57 +381,59 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
     const [confirmingId, setConfirmingId] = useState(null);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-            <div className="space-y-5 min-w-0">
-                <Kartu judul={`Tambah ${judul}`}>
-                    <form onSubmit={onAdd} className="space-y-4">
-                        {fields.map(f => f.type === 'select' ? (
-                            <div key={f.key} className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
-                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
-                                    {f.options.map(o => (
-                                        <button key={o} type="button" onClick={() => setInput(p => ({ ...p, [f.key]: o }))}
-                                            className={`py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${input[f.key] === o ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800 border border-transparent'}`}>
-                                            {o}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div key={f.key} className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
-                                <textarea value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))} rows={4} required placeholder={f.placeholder}
-                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
-                            </div>
-                        ))}
-                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan</button>
-                    </form>
-                </Kartu>
-                <TombolAI label="Analisis AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={items.length === 0} />
-            </div>
-            <div className="min-w-0">
-                <Kartu judul={`Riwayat (${items.length})`}>
-                    <div className="space-y-3">
-                        {items.length === 0 ? <Kosong /> : items.map(item => (
-                            <div key={item.id}>
-                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
-                                    <div className="flex justify-between items-start">
-                                        <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
-                                        <button type="button" onClick={() => setConfirmingId(item.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0">
-                                            <span className="material-symbols-outlined text-sm">close</span>
-                                        </button>
+        <div className="space-y-5 lg:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                <div className="space-y-5 min-w-0">
+                    <Kartu judul={`Tambah ${judul}`}>
+                        <form onSubmit={onAdd} className="space-y-4">
+                            {fields.map(f => f.type === 'select' ? (
+                                <div key={f.key} className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+                                        {f.options.map(o => (
+                                            <button key={o} type="button" onClick={() => setInput(p => ({ ...p, [f.key]: o }))}
+                                                className={`py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${input[f.key] === o ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800 border border-transparent'}`}>
+                                                {o}
+                                            </button>
+                                        ))}
                                     </div>
-                                    {renderItem(item)}
                                 </div>
-                                {confirmingId === item.id && (
-                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(item.id); setConfirmingId(null); }} label="Hapus data ini?" />
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </Kartu>
+                            ) : (
+                                <div key={f.key} className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
+                                    <textarea value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))} rows={4} required placeholder={f.placeholder}
+                                        className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
+                                </div>
+                            ))}
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan</button>
+                        </form>
+                    </Kartu>
+                </div>
+                <div className="min-w-0">
+                    <Kartu judul={`Riwayat (${items.length})`}>
+                        <div className="space-y-3">
+                            {items.length === 0 ? <Kosong /> : items.map(item => (
+                                <div key={item.id}>
+                                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
+                                            <button type="button" onClick={() => setConfirmingId(item.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0">
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                        </div>
+                                        {renderItem(item)}
+                                    </div>
+                                    {confirmingId === item.id && (
+                                        <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(item.id); setConfirmingId(null); }} label="Hapus data ini?" />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Kartu>
+                </div>
             </div>
+            <TombolAI label="Analisis AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={items.length === 0} />
         </div>
     );
 }
@@ -473,7 +479,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
         : [];
 
     return (
-        <>
+        <div className="space-y-5 lg:space-y-6">
             {showRefModal && <LabReferenceModal onClose={() => setShowRefModal(false)} />}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
@@ -560,7 +566,6 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                             <button type="submit" disabled={!input.value || (!input.testName && activeLabCat !== 'custom')} className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">Simpan Hasil</button>
                         </form>
                     </Kartu>
-                    <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} />
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Hasil Lab (${(patient.supportingExams || []).length})`} aksi={
@@ -603,7 +608,8 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                     </Kartu>
                 </div>
             </div>
-        </>
+            <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} />
+        </div>
     );
 }
 
@@ -612,67 +618,69 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
     const [confirmingId, setConfirmingId] = useState(null);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-            <div className="space-y-5 min-w-0">
-                <Kartu judul="Tambah Obat">
-                    <form onSubmit={onAdd} className="space-y-3">
-                        <input type="text" value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama obat (cth. Amoxicillin)" required className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
-                        <div className="flex gap-3">
-                            <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
-                            <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute Pemberian</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[
-                                    { v: 'oral', l: 'Oral', i: 'pill' },
-                                    { v: 'iv', l: 'IV', i: 'vaccines' },
-                                    { v: 'im', l: 'IM', i: 'syringe' },
-                                    { v: 'sc', l: 'SC', i: 'colorize' },
-                                    { v: 'topikal', l: 'Topikal', i: 'dermatology' },
-                                    { v: 'inhalasi', l: 'Inhalasi', i: 'air' }
-                                ].map(opt => (
-                                    <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, route: opt.v }))}
-                                        className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all ${input.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
-                                        <span className="material-symbols-outlined text-lg mb-0.5">{opt.i}</span>
-                                        <span className="text-[10px] font-black uppercase">{opt.l}</span>
-                                    </button>
-                                ))}
+        <div className="space-y-5 lg:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                <div className="space-y-5 min-w-0">
+                    <Kartu judul="Tambah Obat">
+                        <form onSubmit={onAdd} className="space-y-3">
+                            <input type="text" value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama obat (cth. Amoxicillin)" required className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                            <div className="flex gap-3">
+                                <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
+                                <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
                             </div>
-                        </div>
 
-                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Tambah Obat</button>
-                    </form>
-                </Kartu>
-                <TombolAI label="Rekomendasi Obat AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={!(patient.symptoms || []).length && !patient.diagnosis} />
-            </div>
-            <div className="min-w-0">
-                <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>
-                    <div className="space-y-3">
-                        {(patient.prescriptions || []).length === 0 ? <Kosong /> : (patient.prescriptions || []).map(p => (
-                            <div key={p.id}>
-                                <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 group">
-                                    <div className="min-w-0">
-                                        <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
-                                        <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button type="button" onClick={() => setConfirmingId(p.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                            <span className="material-symbols-outlined text-sm">close</span>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute Pemberian</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { v: 'oral', l: 'Oral', i: 'pill' },
+                                        { v: 'iv', l: 'IV', i: 'vaccines' },
+                                        { v: 'im', l: 'IM', i: 'syringe' },
+                                        { v: 'sc', l: 'SC', i: 'colorize' },
+                                        { v: 'topikal', l: 'Topikal', i: 'dermatology' },
+                                        { v: 'inhalasi', l: 'Inhalasi', i: 'air' }
+                                    ].map(opt => (
+                                        <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, route: opt.v }))}
+                                            className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all ${input.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
+                                            <span className="material-symbols-outlined text-lg mb-0.5">{opt.i}</span>
+                                            <span className="text-[10px] font-black uppercase">{opt.l}</span>
                                         </button>
-                                        <span className="material-symbols-outlined text-slate-400 text-sm flex-shrink-0 group-hover:hidden">info</span>
-                                    </div>
+                                    ))}
                                 </div>
-                                {confirmingId === p.id && (
-                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(p.id); setConfirmingId(null); }} label={`Hapus resep ${p.name}?`} />
-                                )}
                             </div>
-                        ))}
-                    </div>
-                </Kartu>
+
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Tambah Obat</button>
+                        </form>
+                    </Kartu>
+                </div>
+                <div className="min-w-0">
+                    <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>
+                        <div className="space-y-3">
+                            {(patient.prescriptions || []).length === 0 ? <Kosong /> : (patient.prescriptions || []).map(p => (
+                                <div key={p.id}>
+                                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 group">
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
+                                            <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button type="button" onClick={() => setConfirmingId(p.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                            <span className="material-symbols-outlined text-slate-400 text-sm flex-shrink-0 group-hover:hidden">info</span>
+                                        </div>
+                                    </div>
+                                    {confirmingId === p.id && (
+                                        <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(p.id); setConfirmingId(null); }} label={`Hapus resep ${p.name}?`} />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Kartu>
+                </div>
             </div>
+            <TombolAI label="Rekomendasi Obat AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={!(patient.symptoms || []).length && !patient.diagnosis} />
         </div>
     );
 }
@@ -682,61 +690,63 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
     const [confirmingId, setConfirmingId] = useState(null);
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-            <div className="space-y-5 min-w-0">
-                <Kartu judul="Laporan Harian Baru">
-                    <form onSubmit={onAdd} className="space-y-4">
-                        <textarea value={input.notes} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={5} required placeholder="Catatan perkembangan pasien hari ini..."
-                            className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm" />
+        <div className="space-y-5 lg:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                <div className="space-y-5 min-w-0">
+                    <Kartu judul="Laporan Harian Baru">
+                        <form onSubmit={onAdd} className="space-y-4">
+                            <textarea value={input.notes} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={5} required placeholder="Catatan perkembangan pasien hari ini..."
+                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm" />
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perbarui Kondisi Pasien</label>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {[
-                                    { v: 'critical', l: 'Kritis', c: 'border-red-500 text-red-500 bg-red-50' },
-                                    { v: 'urgent', l: 'Mendesak', c: 'border-amber-500 text-amber-500 bg-amber-50' },
-                                    { v: 'stable', l: 'Stabil', c: 'border-blue-500 text-blue-500 bg-blue-50' },
-                                    { v: 'improving', l: 'Membaik', c: 'border-green-500 text-green-500 bg-green-50' }
-                                ].map(opt => (
-                                    <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, condition: opt.v }))}
-                                        className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${input.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
-                                        {opt.l}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Simpan Laporan</button>
-                    </form>
-                </Kartu>
-                <TombolAI label="Evaluasi Harian AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.dailyReports || []).length < 1} />
-            </div>
-            <div className="min-w-0">
-                <Kartu judul={`Riwayat Laporan (${(patient.dailyReports || []).length})`}>
-                    <div className="space-y-3">
-                        {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].reverse().map(r => (
-                            <div key={r.id}>
-                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
-                                    <div className="flex justify-between items-center gap-3">
-                                        <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
-                                        <div className="flex items-center gap-2">
-                                            {r.condition && <KondisiBadge kondisi={r.condition} />}
-                                            <button type="button" onClick={() => setConfirmingId(r.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                                <span className="material-symbols-outlined text-sm">close</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perbarui Kondisi Pasien</label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {[
+                                        { v: 'critical', l: 'Kritis', c: 'border-red-500 text-red-500 bg-red-50' },
+                                        { v: 'urgent', l: 'Mendesak', c: 'border-amber-500 text-amber-500 bg-amber-50' },
+                                        { v: 'stable', l: 'Stabil', c: 'border-blue-500 text-blue-500 bg-blue-50' },
+                                        { v: 'improving', l: 'Membaik', c: 'border-green-500 text-green-500 bg-green-50' }
+                                    ].map(opt => (
+                                        <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, condition: opt.v }))}
+                                            className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${input.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                                            {opt.l}
+                                        </button>
+                                    ))}
                                 </div>
-                                {confirmingId === r.id && (
-                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(r.id); setConfirmingId(null); }} label="Hapus laporan ini?" />
-                                )}
                             </div>
-                        ))}
-                    </div>
-                </Kartu>
+
+                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Simpan Laporan</button>
+                        </form>
+                    </Kartu>
+                </div>
+                <div className="min-w-0">
+                    <Kartu judul={`Riwayat Laporan (${(patient.dailyReports || []).length})`}>
+                        <div className="space-y-3">
+                            {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].reverse().map(r => (
+                                <div key={r.id}>
+                                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
+                                        <div className="flex justify-between items-center gap-3">
+                                            <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
+                                            <div className="flex items-center gap-2">
+                                                {r.condition && <KondisiBadge kondisi={r.condition} />}
+                                                <button type="button" onClick={() => setConfirmingId(r.id)}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
+                                    </div>
+                                    {confirmingId === r.id && (
+                                        <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(r.id); setConfirmingId(null); }} label="Hapus laporan ini?" />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Kartu>
+                </div>
             </div>
+            <TombolAI label="Evaluasi Harian AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.dailyReports || []).length < 1} />
         </div>
     );
 }
@@ -813,17 +823,29 @@ function Kartu({ judul, headerIcon, aksi, children, id }) {
 }
 
 function TombolAI({ label, onGenerate, loading, result, disabled }) {
+    const [isMinimized, setIsMinimized] = useState(false);
+
     return (
-        <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-4 lg:p-5">
-            <h4 className="font-bold text-primary mb-3 flex items-center gap-2 text-sm">
-                <span className="material-symbols-outlined text-lg">auto_awesome</span>Analisis AI
-            </h4>
-            <button onClick={onGenerate} disabled={disabled || loading}
-                className="w-full bg-primary text-white py-2.5 rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3">
-                {loading ? <><span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>Menganalisis...</> :
-                    <><span className="material-symbols-outlined text-lg">auto_awesome</span>{label}</>}
-            </button>
-            {result && <div className="mt-3 p-3 lg:p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>}
+        <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-4 lg:p-5 transition-all">
+            <div className="flex justify-between items-center mb-3">
+                <h4 className="font-bold text-primary flex items-center gap-2 text-sm">
+                    <span className="material-symbols-outlined text-lg">auto_awesome</span>Analisis AI
+                </h4>
+                <button onClick={() => setIsMinimized(!isMinimized)} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1 rounded-lg text-primary/60 hover:text-primary hover:bg-primary/10 transition-colors">
+                    <span className="material-symbols-outlined text-sm">{isMinimized ? 'expand_more' : 'expand_less'}</span>
+                </button>
+            </div>
+
+            {!isMinimized && (
+                <div className="animate-[fadeIn_0.2s_ease-out]">
+                    <button onClick={onGenerate} disabled={disabled || loading}
+                        className="w-full bg-primary text-white py-2.5 rounded-lg font-bold text-sm hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3">
+                        {loading ? <><span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>Menganalisis...</> :
+                            <><span className="material-symbols-outlined text-lg">auto_awesome</span>{label}</>}
+                    </button>
+                    {result && <div className="mt-3 p-3 lg:p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>}
+                </div>
+            )}
         </div>
     );
 }

@@ -34,7 +34,7 @@ export default {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
                     'HTTP-Referer': 'https://medterminal.app',
-                    'X-Title': 'MedTerminal Clinical AI',
+                    'X-Title': 'MedxTerminal Clinical AI',
                 },
                 body: JSON.stringify({
                     model: body.model || 'google/gemini-2.5-flash-lite-preview-09-2025',
