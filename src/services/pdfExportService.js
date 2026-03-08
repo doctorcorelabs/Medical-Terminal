@@ -11,6 +11,12 @@ const SUCCESS = [34, 197, 94];
 const WARNING = [245, 158, 11];
 const DANGER = [239, 68, 68];
 
+// Strip Unicode symbols not supported by jsPDF default font (e.g. ↑ ↓ ✓ ⚠)
+function cleanLabel(label) {
+    if (!label) return '-';
+    return label.replace(/[^\x00-\x7E\u00C0-\u024F]/g, '').trim() || label.trim();
+}
+
 function fmtDate(d) {
     if (!d) return '-';
     return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -67,6 +73,157 @@ function addFooters(doc) {
 function tbl(doc, opts) {
     const res = autoTable(doc, opts);
     return res?.finalY ?? doc.lastAutoTable?.finalY ?? opts.startY + 20;
+}
+
+/**
+ * Render markdown text to PDF with:
+ * - Justified alignment for paragraphs
+ * - Bold for lines starting with ## or wrapped in **...**
+ * - Italic for lines wrapped in *...*
+ * - Inline bold prefix detection (e.g. **Label:** rest of text)
+ * - Automatic page breaks
+ */
+function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
+    const LH = 4.2;          // line height mm
+    const FS = 8.5;           // base font size
+    const INDENT = 2;         // extra left indent for body text
+
+    // Helper: render a single wrapped line with justify (except last line)
+    function renderWrapped(lines, curY, fontStyle, fontSize, color, indentX) {
+        doc.setFont('helvetica', fontStyle);
+        doc.setFontSize(fontSize);
+        doc.setTextColor(...color);
+        lines.forEach((l, idx) => {
+            if (curY > pageBottomY) { doc.addPage(); curY = 20; }
+            const isLast = idx === lines.length - 1;
+            const isList = /^(\d+[.)]|[-•*])\s/.test(l.trimStart());
+            const tooShort = l.trim().length < 25;  // don't justify very short lines
+            if (!isLast && !isList && !tooShort) {
+                doc.text(l, indentX, curY, { align: 'justify', maxWidth });
+            } else {
+                doc.text(l, indentX, curY);
+            }
+            curY += LH;
+        });
+        return curY;
+    }
+
+    const rawLines = rawText.split('\n');
+    let paragraphBuffer = [];
+
+    function flushBuffer(curY) {
+        if (paragraphBuffer.length === 0) return curY;
+        const joined = paragraphBuffer.join(' ');
+        paragraphBuffer = [];
+        const wrapped = doc.splitTextToSize(joined, maxWidth);
+        return renderWrapped(wrapped, curY, 'normal', FS, DARK, x + INDENT);
+    }
+
+    for (let i = 0; i < rawLines.length; i++) {
+        const raw = rawLines[i];
+        const trimmed = raw.trim();
+
+        // Empty line => flush buffer + add spacing
+        if (!trimmed) {
+            y = flushBuffer(y);
+            y += LH * 0.4;
+            continue;
+        }
+
+        // Heading: ## Title or # Title
+        const headingMatch = trimmed.match(/^#{1,6}\s+(.+)/);
+        if (headingMatch) {
+            y = flushBuffer(y);
+            const content = headingMatch[1].replace(/\*\*/g, '').replace(/\*/g, '');
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            const wrapped = doc.splitTextToSize(content, maxWidth);
+            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT);
+            continue;
+        }
+
+        // All-bold line: **...**  or __...__
+        const allBoldMatch = trimmed.match(/^\*\*(.+)\*\*$/) || trimmed.match(/^__(.+)__$/);
+        if (allBoldMatch) {
+            y = flushBuffer(y);
+            const content = allBoldMatch[1];
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            const wrapped = doc.splitTextToSize(content, maxWidth);
+            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT);
+            continue;
+        }
+
+        // All-italic line: *...* or _..._
+        const allItalicMatch = trimmed.match(/^\*([^*]+)\*$/) || trimmed.match(/^_([^_]+)_$/);
+        if (allItalicMatch) {
+            y = flushBuffer(y);
+            const content = allItalicMatch[1];
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            const wrapped = doc.splitTextToSize(content, maxWidth);
+            y = renderWrapped(wrapped, y, 'italic', FS, MUTED, x + INDENT);
+            continue;
+        }
+
+        // Inline bold prefix: **Label:** rest of text (e.g. **Temuan Kritis:** blah blah)
+        const boldPrefixMatch = trimmed.match(/^\*\*([^*]+)\*\*[:\s](.*)$/);
+        if (boldPrefixMatch) {
+            y = flushBuffer(y);
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            const boldPart = boldPrefixMatch[1] + ':';
+            const restPart = boldPrefixMatch[2].replace(/\*\*/g, '').replace(/\*/g, '').trim();
+
+            // Measure bold prefix width
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(FS);
+            doc.setTextColor(...DARK);
+            const boldW = doc.getTextWidth(boldPart + ' ');
+            doc.text(boldPart, x + INDENT, y);
+
+            if (restPart) {
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(...DARK);
+                const restMaxW = maxWidth - boldW;
+                const restLines = doc.splitTextToSize(restPart, restMaxW);
+                // First sub-line on same line as bold prefix
+                doc.text(restLines[0], x + INDENT + boldW, y);
+                y += LH;
+                // Remaining sub-lines, justified
+                if (restLines.length > 1) {
+                    const remaining = restLines.slice(1);
+                    y = renderWrapped(remaining, y, 'normal', FS, DARK, x + INDENT);
+                }
+            } else {
+                y += LH;
+            }
+            continue;
+        }
+
+        // List item: starts with number+dot, dash, bullet
+        const listMatch = trimmed.match(/^(\d+[.)\s]|[-•*]\s)(.+)/);
+        if (listMatch) {
+            y = flushBuffer(y);
+            const clean = trimmed.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(FS);
+            doc.setTextColor(...DARK);
+            const wrapped = doc.splitTextToSize(clean, maxWidth);
+            // List items: left aligned (no justify)
+            wrapped.forEach(l => {
+                if (y > pageBottomY) { doc.addPage(); y = 20; }
+                doc.text(l, x + INDENT, y);
+                y += LH;
+            });
+            continue;
+        }
+
+        // Regular paragraph text — accumulate into buffer for justification
+        const clean = trimmed.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
+        paragraphBuffer.push(clean);
+    }
+
+    // Flush any remaining buffer
+    y = flushBuffer(y);
+    return y;
 }
 
 export function exportPatientPDF(patient) {
@@ -204,19 +361,19 @@ export function exportPatientPDF(patient) {
             y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Pemeriksaan', 'Nilai', 'Satuan', 'Status', 'Tanggal']],
-                body: labs.map((e, i) => [i + 1, e.testName || '-', e.value || '-', e.unit || '-', e.result?.label || '-', fmtDateTime(e.date)]),
+                body: labs.map((e, i) => [i + 1, e.testName || '-', e.value || '-', e.unit || '-', cleanLabel(e.result?.label), fmtDateTime(e.date)]),
                 theme: 'grid',
                 headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
+                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK, overflow: 'linebreak' },
                 alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 22, halign: 'center' }, 5: { cellWidth: 35 } },
+                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 26, halign: 'center' }, 5: { cellWidth: 32 } },
                 margin: { left: 14, right: 14 },
                 didParseCell: (data) => {
                     if (data.section === 'body' && data.column.index === 4) {
                         const val = data.cell.raw;
                         if (val && val.includes('Tinggi')) data.cell.styles.textColor = DANGER;
                         else if (val && val.includes('Rendah')) data.cell.styles.textColor = WARNING;
-                        else if (val === 'Normal') data.cell.styles.textColor = SUCCESS;
+                        else if (val && val.includes('Normal')) data.cell.styles.textColor = SUCCESS;
                         data.cell.styles.fontStyle = 'bold';
                     }
                 },
@@ -276,35 +433,20 @@ export function exportPatientPDF(patient) {
                 { key: 'soap', title: 'Catatan SOAP' },
                 { key: 'symptoms', title: 'Diagnosis Banding' },
             ];
+            const textMaxWidth = pageWidth - 32; // 16mm margin each side
             for (const sec of aiSections) {
                 const text = ai[sec.key];
                 if (!text) continue;
                 if (y > 255) { doc.addPage(); y = 20; }
+                // Section sub-header bar
                 doc.setFillColor(241, 245, 249);
                 doc.rect(14, y, pageWidth - 28, 7, 'F');
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...PRIMARY);
                 doc.text(`> ${sec.title}`, 16, y + 5);
                 y += 10;
-                const clean = text.replace(/#{1,6}\s/g, '').replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
-                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
-                const lines = doc.splitTextToSize(clean, pageWidth - 32);
-                const lineHeight = 3.8;
-                const totalHeight = lines.length * lineHeight;
-                if (y + totalHeight > 280) {
-                    let remaining = lines;
-                    while (remaining.length > 0) {
-                        const available = Math.floor((280 - y) / lineHeight);
-                        if (available <= 0) { doc.addPage(); y = 20; continue; }
-                        const batch = remaining.slice(0, available);
-                        doc.text(batch, 16, y);
-                        remaining = remaining.slice(available);
-                        if (remaining.length > 0) { doc.addPage(); y = 20; }
-                        else { y += batch.length * lineHeight + 4; }
-                    }
-                } else {
-                    doc.text(lines, 16, y);
-                    y += totalHeight + 6;
-                }
+                // Render with justified + bold/italic markdown support
+                y = renderMarkdownPDF(doc, text, 16, y, textMaxWidth);
+                y += 4; // gap after section
             }
         }
 
