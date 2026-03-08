@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
-import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences } from '../services/dataService';
+import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences, labCategories } from '../services/dataService';
+import LabReferenceModal from '../components/LabReferenceModal';
 import { getSmartSummary, getSymptomInsight, getDailyEvaluation, getPhysicalExamInsight, getSupportingExamInsight, getMedicationRecommendation, getSOAPNote } from '../services/aiService';
 import SymptomGraph from '../components/visualization/SymptomGraph';
 import TimelineChart from '../components/visualization/TimelineChart';
@@ -450,68 +451,159 @@ function ConfirmPanel({ onCancel, onConfirm, label }) {
 /* ====== TAB LAB ====== */
 function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
     const [confirmingId, setConfirmingId] = useState(null);
+    const [showRefModal, setShowRefModal] = useState(false);
+    const [activeLabCat, setActiveLabCat] = useState(labCategories[0].key);
+
+    const selectedRef = input.labKey && input.labKey !== 'custom' ? labReferences[input.labKey] : null;
+
+    // Get display range for the selected test
+    function getRefDisplay(ref, gender = patient.gender || 'male') {
+        if (!ref) return null;
+        if (ref.qualitative) return { text: ref.normalValue || 'Negatif', type: 'qualitative' };
+        if (ref.infoRanges) return { text: ref.infoRanges.map(r => `${r.label}: ${r.value}`).join(' | '), type: 'info' };
+        const range = (ref.male && ref.female) ? (ref[gender] || ref.male) : ref;
+        if (!range) return null;
+        if (range.low === 0 && range.high === 999) return { text: `≥ ${range.low} ${ref.unit}`, type: 'range' };
+        return { text: `${range.low} – ${range.high} ${ref.unit}`, type: 'range' };
+    }
+
+    const refDisplay = selectedRef ? getRefDisplay(selectedRef) : null;
+    const catItems = labCategories.find(c => c.key === activeLabCat)?.key
+        ? Object.entries(labReferences).filter(([, v]) => v.category === activeLabCat)
+        : [];
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-            <div className="space-y-5 min-w-0">
-                <Kartu judul="Pesan Pemeriksaan Lab">
-                    <form onSubmit={onAdd} className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis Pemeriksaan</label>
-                            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl max-h-48 overflow-y-auto custom-scrollbar">
-                                {Object.entries(labReferences).map(([k, v]) => (
-                                    <button key={k} type="button" onClick={() => { setInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit })) }}
-                                        className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center ${input.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800'}`}>
-                                        <span className="truncate">{v.name}</span>
-                                        <span className={`text-[9px] font-black ml-2 ${input.labKey === k ? 'text-white/80' : 'text-slate-400'}`}>{v.unit}</span>
-                                    </button>
-                                ))}
-                                <button type="button" onClick={() => { setInput(p => ({ ...p, labKey: 'custom', testName: '', unit: '' })) }}
-                                    className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center ${input.labKey === 'custom' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800'}`}>
-                                    Lainnya (Custom)
-                                </button>
-                            </div>
-                        </div>
-                        {input.labKey === 'custom' && <input type="text" value={input.testName} onChange={e => setInput(p => ({ ...p, testName: e.target.value }))} placeholder="Nama pemeriksaan" required className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 transition-all shadow-sm" />}
-                        <div className="flex gap-3">
-                            <input type="text" value={input.value} onChange={e => setInput(p => ({ ...p, value: e.target.value }))} placeholder="Nilai (Hasil)" required className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 min-w-0 transition-all shadow-sm" />
-                            <input type="text" value={input.unit} onChange={e => setInput(p => ({ ...p, unit: e.target.value }))} placeholder="Satuan" className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 flex-shrink-0 transition-all shadow-sm" />
-                        </div>
-                        <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan Hasil</button>
-                    </form>
-                </Kartu>
-                <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} />
-            </div>
-            <div className="min-w-0">
-                <Kartu judul={`Hasil Lab (${(patient.supportingExams || []).length})`}>
-                    <div className="space-y-2">
-                        {(patient.supportingExams || []).length === 0 ? <Kosong /> : (patient.supportingExams || []).map(e => (
-                            <div key={e.id}>
-                                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold truncate">{e.testName}</p>
-                                        <p className="text-[10px] text-slate-400">{formatDateTime(e.date)}</p>
-                                    </div>
-                                    <div className="text-right flex-shrink-0 flex items-center gap-3">
-                                        <div>
-                                            <span className="text-sm font-bold block">{e.value} {e.unit}</span>
-                                            {e.result && <span className={`block text-[10px] font-bold ${e.result.status === 'high' ? 'text-red-500' : e.result.status === 'low' ? 'text-amber-500' : 'text-green-500'}`}>{e.result.label}</span>}
-                                        </div>
-                                        <button type="button" onClick={() => setConfirmingId(e.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                            <span className="material-symbols-outlined text-sm">close</span>
+        <>
+            {showRefModal && <LabReferenceModal onClose={() => setShowRefModal(false)} />}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+                <div className="space-y-5 min-w-0">
+                    <Kartu judul="Input Hasil Lab" aksi={
+                        <button
+                            type="button"
+                            onClick={() => setShowRefModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-all text-[11px] font-bold"
+                            title="Lihat tabel nilai rujukan resmi"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                            Nilai Rujukan
+                        </button>
+                    }>
+                        <form onSubmit={onAdd} className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Pemeriksaan</label>
+                                <div className="flex gap-1 overflow-x-auto pb-1">
+                                    {labCategories.map(cat => (
+                                        <button key={cat.key} type="button" onClick={() => setActiveLabCat(cat.key)}
+                                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                                            <span className="material-symbols-outlined text-[12px]">{cat.icon}</span>
+                                            {cat.label.split(' ')[0]}
                                         </button>
+                                    ))}
+                                    <button type="button" onClick={() => setActiveLabCat('custom')}
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
+                                        <span className="material-symbols-outlined text-[12px]">add</span>
+                                        Custom
+                                    </button>
+                                </div>
+                            </div>
+
+                            {activeLabCat === 'custom' ? (
+                                <input type="text" value={input.testName} onChange={e => setInput(p => ({ ...p, testName: e.target.value, labKey: 'custom' }))} placeholder="Nama pemeriksaan" required className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 transition-all shadow-sm" />
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parameter</label>
+                                    <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl max-h-44 overflow-y-auto custom-scrollbar">
+                                        {catItems.map(([k, v]) => (
+                                            <button key={k} type="button" onClick={() => setInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit, value: v.qualitative ? '' : p.value }))}
+                                                className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center gap-1 ${input.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-800 border border-transparent'}`}>
+                                                <span className="truncate text-[11px]">{v.name}</span>
+                                                <span className={`text-[9px] font-mono flex-shrink-0 ${input.labKey === k ? 'text-white/70' : 'text-slate-400'}`}>{v.unit !== '-' ? v.unit : ''}</span>
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                                {confirmingId === e.id && (
-                                    <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(e.id); setConfirmingId(null); }} label={`Hapus hasil ${e.testName}?`} />
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </Kartu>
+                            )}
+
+                            {/* Inline reference hint */}
+                            {selectedRef && refDisplay && (
+                                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
+                                    <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 flex-shrink-0">info</span>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] text-primary font-black uppercase tracking-wide">Nilai Rujukan</p>
+                                        <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 break-words">{refDisplay.text}</p>
+                                        {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5">Metode: {selectedRef.metode}</p>}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Value input */}
+                            {(input.labKey || activeLabCat === 'custom') && (
+                                <div className="flex gap-3">
+                                    <input
+                                        type="text"
+                                        value={input.value}
+                                        onChange={e => setInput(p => ({ ...p, value: e.target.value }))}
+                                        placeholder={selectedRef?.qualitative ? `Nilai (cth: ${selectedRef.normalValue || 'Negatif/Positif'})` : 'Nilai (Hasil)'}
+                                        required
+                                        className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 min-w-0 transition-all shadow-sm"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={input.unit}
+                                        onChange={e => setInput(p => ({ ...p, unit: e.target.value }))}
+                                        placeholder="Satuan"
+                                        className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 flex-shrink-0 transition-all shadow-sm"
+                                    />
+                                </div>
+                            )}
+
+                            <button type="submit" disabled={!input.value || (!input.testName && activeLabCat !== 'custom')} className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">Simpan Hasil</button>
+                        </form>
+                    </Kartu>
+                    <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} />
+                </div>
+                <div className="min-w-0">
+                    <Kartu judul={`Hasil Lab (${(patient.supportingExams || []).length})`} aksi={
+                        <button type="button" onClick={() => setShowRefModal(true)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors">
+                            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                            Rujukan
+                        </button>
+                    }>
+                        <div className="space-y-2">
+                            {(patient.supportingExams || []).length === 0 ? <Kosong /> : (patient.supportingExams || []).map(e => (
+                                <div key={e.id}>
+                                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold truncate">{e.testName}</p>
+                                            <p className="text-[10px] text-slate-400">{formatDateTime(e.date)}</p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0 flex items-center gap-3">
+                                            <div>
+                                                <span className="text-sm font-bold block">{e.value} <span className="text-[10px] font-medium text-slate-400">{e.unit}</span></span>
+                                                {e.result && (
+                                                    <span className={`block text-[10px] font-bold ${e.result.status === 'high' ? 'text-red-500' :
+                                                        e.result.status === 'low' ? 'text-amber-500' :
+                                                            e.result.status === 'normal' ? 'text-green-500' : 'text-slate-400'
+                                                        }`}>{e.result.label}</span>
+                                                )}
+                                            </div>
+                                            <button type="button" onClick={() => setConfirmingId(e.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {confirmingId === e.id && (
+                                        <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(e.id); setConfirmingId(null); }} label={`Hapus hasil ${e.testName}?`} />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Kartu>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
 
@@ -538,7 +630,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                                     { v: 'iv', l: 'IV', i: 'vaccines' },
                                     { v: 'im', l: 'IM', i: 'syringe' },
                                     { v: 'sc', l: 'SC', i: 'colorize' },
-                                    { v: 'topikal', l: 'Topikal', i: 'shampoo' },
+                                    { v: 'topikal', l: 'Topikal', i: 'dermatology' },
                                     { v: 'inhalasi', l: 'Inhalasi', i: 'air' }
                                 ].map(opt => (
                                     <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, route: opt.v }))}
@@ -708,12 +800,12 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
 }
 
 /* ====== KOMPONEN BERSAMA ====== */
-function Kartu({ judul, headerIcon, children, id }) {
+function Kartu({ judul, headerIcon, aksi, children, id }) {
     return (
         <div id={id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 gap-3">
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{judul}</h3>
-                {headerIcon && <span className="material-symbols-outlined text-slate-400 flex-shrink-0">{headerIcon}</span>}
+                {aksi || (headerIcon && <span className="material-symbols-outlined text-slate-400 flex-shrink-0">{headerIcon}</span>)}
             </div>
             <div className="p-4 lg:p-6">{children}</div>
         </div>

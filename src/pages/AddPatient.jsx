@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
-import { checkLabValue, labReferences, formatDateTime } from '../services/dataService';
+import { checkLabValue, labReferences, labCategories, formatDateTime } from '../services/dataService';
+import LabReferenceModal from '../components/LabReferenceModal';
 
 export default function AddPatient() {
     const navigate = useNavigate();
@@ -227,44 +228,12 @@ export default function AddPatient() {
                     )}
 
                     {activeTab === 'lab' && (
-                        <TabContent title="Hasil Laboratorium" icon="biotech"
-                            onAdd={() => { if (!labInput.testName && labInput.labKey !== 'custom') return; addItem('supportingExams', { type: 'lab', ...labInput, result: checkLabValue(labInput.labKey, labInput.value, form.gender) }, setLabInput, { testName: '', value: '', unit: '', labKey: '' }) }}
-                            items={form.supportingExams} onRemove={(id) => removeItem('supportingExams', id)}
-                            renderForm={
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Jenis Pemeriksaan</label>
-                                        <div className="grid grid-cols-2 gap-1 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 max-h-48 overflow-y-auto custom-scrollbar">
-                                            {Object.entries(labReferences).map(([k, v]) => (
-                                                <button key={k} type="button" onClick={() => setLabInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit }))}
-                                                    className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center ${labInput.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent'}`}>
-                                                    <span className="truncate">{v.name}</span>
-                                                    <span className={`text-[9px] font-black ml-2 ${labInput.labKey === k ? 'text-white/80' : 'text-slate-400'}`}>{v.unit}</span>
-                                                </button>
-                                            ))}
-                                            <button type="button" onClick={() => setLabInput(p => ({ ...p, labKey: 'custom', testName: '', unit: '' }))}
-                                                className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center ${labInput.labKey === 'custom' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent'}`}>
-                                                Lainnya (Custom)
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {labInput.labKey === 'custom' && <input type="text" value={labInput.testName} onChange={e => setLabInput(p => ({ ...p, testName: e.target.value }))} placeholder="Nama pemeriksaan" required className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 transition-all" />}
-                                    <div className="flex gap-2">
-                                        <input type="text" value={labInput.value} onChange={e => setLabInput(p => ({ ...p, value: e.target.value }))} placeholder="Nilai (Hasil)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
-                                        <input type="text" value={labInput.unit} onChange={e => setLabInput(p => ({ ...p, unit: e.target.value }))} placeholder="Satuan" className="w-24 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 flex-shrink-0" />
-                                    </div>
-                                    <button onClick={() => { if (!labInput.testName && labInput.labKey !== 'custom') return; addItem('supportingExams', { type: 'lab', ...labInput, result: checkLabValue(labInput.labKey, labInput.value, form.gender) }, setLabInput, { testName: '', value: '', unit: '', labKey: '' }) }} type="button" className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 font-bold py-3 rounded-xl text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"><span className="material-symbols-outlined text-sm">add</span> Tambah Lab</button>
-                                </div>
-                            }
-                            renderItem={(l) => (
-                                <div className="flex justify-between items-center w-full">
-                                    <span className="text-sm font-bold">{l.testName}</span>
-                                    <div className="text-right">
-                                        <span className="text-sm font-black">{l.value} {l.unit}</span>
-                                        {l.result && <span className={`block text-[8px] font-bold ${l.result.status === 'high' ? 'text-red-500' : l.result.status === 'low' ? 'text-amber-500' : 'text-green-500'}`}>{l.result.label}</span>}
-                                    </div>
-                                </div>
-                            )}
+                        <LabTabAddPatient
+                            form={form}
+                            labInput={labInput}
+                            setLabInput={setLabInput}
+                            addItem={addItem}
+                            removeItem={removeItem}
                         />
                     )}
 
@@ -415,3 +384,161 @@ function TabContent({ title, icon, onAdd, items, onRemove, renderForm, renderIte
     );
 }
 
+/* ====== LAB TAB (AddPatient) ====== */
+function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) {
+    const [showRefModal, setShowRefModal] = useState(false);
+    const [activeLabCat, setActiveLabCat] = useState(labCategories[0].key);
+
+    const selectedRef = labInput.labKey && labInput.labKey !== 'custom' ? labReferences[labInput.labKey] : null;
+
+    function getRefDisplay(ref, gender) {
+        gender = gender || form.gender || 'male';
+        if (!ref) return null;
+        if (ref.qualitative) return { text: ref.normalValue || 'Negatif', type: 'qualitative' };
+        if (ref.infoRanges) return { text: ref.infoRanges.map(r => r.label + ': ' + r.value).join(' | '), type: 'info' };
+        const range = (ref.male && ref.female) ? (ref[gender] || ref.male) : ref;
+        if (!range) return null;
+        if (range.low === 0 && range.high === 999) return { text: '>= ' + range.low + ' ' + ref.unit, type: 'range' };
+        return { text: range.low + ' - ' + range.high + ' ' + ref.unit, type: 'range' };
+    }
+
+    const refDisplay = selectedRef ? getRefDisplay(selectedRef) : null;
+    const catItems = Object.entries(labReferences).filter(function(entry) { return entry[1].category === activeLabCat; });
+
+    function doAdd() {
+        if (!labInput.value) return;
+        if (!labInput.testName && activeLabCat !== 'custom') return;
+        addItem('supportingExams',
+            Object.assign({ type: 'lab' }, labInput, { result: checkLabValue(labInput.labKey, labInput.value, form.gender) }),
+            setLabInput,
+            { testName: '', value: '', unit: '', labKey: '' }
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-[fadeIn_0.2s_ease-out]">
+            {showRefModal && <LabReferenceModal onClose={() => setShowRefModal(false)} />}
+            <div className="space-y-6">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary">biotech</span>
+                            Hasil Laboratorium
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">Gunakan form di bawah untuk menambahkan data awal.</p>
+                    </div>
+                    <button type="button" onClick={() => setShowRefModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-all text-[11px] font-bold flex-shrink-0">
+                        <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                        Nilai Rujukan
+                    </button>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Pemeriksaan</label>
+                        <div className="flex gap-1 overflow-x-auto pb-1">
+                            {labCategories.map(cat => (
+                                <button key={cat.key} type="button"
+                                    onClick={() => { setActiveLabCat(cat.key); setLabInput(p => ({ ...p, labKey: '', testName: '', unit: '' })); }}
+                                    className={"flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border " + (activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700')}>
+                                    <span className="material-symbols-outlined text-[12px]">{cat.icon}</span>
+                                    {cat.label.split(' ')[0]}
+                                </button>
+                            ))}
+                            <button type="button"
+                                onClick={() => { setActiveLabCat('custom'); setLabInput(p => ({ ...p, labKey: 'custom', testName: '', unit: '' })); }}
+                                className={"flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border " + (activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-white dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100')}>
+                                <span className="material-symbols-outlined text-[12px]">add</span>
+                                Custom
+                            </button>
+                        </div>
+                    </div>
+
+                    {activeLabCat === 'custom' ? (
+                        <input type="text" value={labInput.testName}
+                            onChange={e => setLabInput(p => ({ ...p, testName: e.target.value, labKey: 'custom' }))}
+                            placeholder="Nama pemeriksaan"
+                            className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 transition-all" />
+                    ) : (
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parameter</label>
+                            <div className="grid grid-cols-2 gap-1 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 max-h-44 overflow-y-auto custom-scrollbar">
+                                {catItems.map(([k, v]) => (
+                                    <button key={k} type="button"
+                                        onClick={() => setLabInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit }))}
+                                        className={"py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center gap-1 " + (labInput.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent')}>
+                                        <span className="truncate text-[11px]">{v.name}</span>
+                                        <span className={"text-[9px] font-mono flex-shrink-0 " + (labInput.labKey === k ? 'text-white/70' : 'text-slate-400')}>{v.unit !== '-' ? v.unit : ''}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {selectedRef && refDisplay && (
+                        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
+                            <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 flex-shrink-0">info</span>
+                            <div className="min-w-0">
+                                <p className="text-[10px] text-primary font-black uppercase tracking-wide">Nilai Rujukan</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 break-words">{refDisplay.text}</p>
+                                {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5">Metode: {selectedRef.metode}</p>}
+                            </div>
+                        </div>
+                    )}
+
+                    {(labInput.labKey || activeLabCat === 'custom') && (
+                        <div className="flex gap-2">
+                            <input type="text" value={labInput.value}
+                                onChange={e => setLabInput(p => ({ ...p, value: e.target.value }))}
+                                placeholder={selectedRef && selectedRef.qualitative ? 'Nilai (cth: ' + (selectedRef.normalValue || 'Negatif/Positif') + ')' : 'Nilai (Hasil)'}
+                                className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
+                            <input type="text" value={labInput.unit}
+                                onChange={e => setLabInput(p => ({ ...p, unit: e.target.value }))}
+                                placeholder="Satuan"
+                                className="w-24 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 flex-shrink-0" />
+                        </div>
+                    )}
+
+                    <button type="button" onClick={doAdd}
+                        disabled={!labInput.value || (!labInput.testName && activeLabCat !== 'custom')}
+                        className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 transition-all">
+                        <span className="material-symbols-outlined">add</span> Tambah Lab
+                    </button>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Data yang Akan Disimpan ({(form.supportingExams && form.supportingExams.length) || 0})
+                    </h4>
+                </div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                    {(!form.supportingExams || !form.supportingExams.length) ? (
+                        <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 opacity-50">
+                            <span className="material-symbols-outlined text-4xl mb-2">biotech</span>
+                            <p className="text-xs font-bold">Belum ada hasil lab ditambahkan</p>
+                        </div>
+                    ) : form.supportingExams.map(l => (
+                        <div key={l.id} className="group relative flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 transition-all">
+                            <div className="flex-1 flex items-center justify-between gap-2">
+                                <span className="text-sm font-bold truncate">{l.testName}</span>
+                                <div className="text-right flex-shrink-0">
+                                    <span className="text-sm font-black">{l.value} <span className="text-[10px] font-medium text-slate-400">{l.unit}</span></span>
+                                    {l.result && (
+                                        <span className={"block text-[9px] font-bold " + (l.result.status === 'high' ? 'text-red-500' : l.result.status === 'low' ? 'text-amber-500' : l.result.status === 'normal' ? 'text-green-500' : 'text-slate-400')}>{l.result.label}</span>
+                                    )}
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => removeItem('supportingExams', l.id)}
+                                className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all">
+                                <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}

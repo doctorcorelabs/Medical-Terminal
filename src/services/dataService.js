@@ -244,37 +244,489 @@ export function removePrescription(patientId, prescriptionId) {
     return true;
 }
 
-// Lab reference values
+// ============================================================
+// LAB REFERENCES – RSUD Ki Ageng Brondong (Official)
+// Organized by: category, with metode, satuan, and gender ranges
+// ============================================================
+export const labCategories = [
+    { key: 'hematologi', label: 'Hematologi', icon: 'bloodtype' },
+    { key: 'diffCount', label: 'Diff Count', icon: 'scatter_plot' },
+    { key: 'kimiaKlinik', label: 'Kimia Klinik', icon: 'science' },
+    { key: 'elektrolit', label: 'Elektrolit', icon: 'electric_bolt' },
+    { key: 'imunoserologi', label: 'Imunoserologi', icon: 'vaccines' },
+    { key: 'urinalisis', label: 'Urinalisis', icon: 'water_drop' },
+    { key: 'feses', label: 'Feses', icon: 'biotech' },
+    { key: 'labRujukan', label: 'Lab Rujukan (IBL/ABC)', icon: 'local_hospital' },
+];
+
 export const labReferences = {
-    hemoglobin: { name: 'Hemoglobin', unit: 'g/dL', male: { low: 13.5, high: 17.5 }, female: { low: 12.0, high: 16.0 } },
-    hematocrit: { name: 'Hematocrit', unit: '%', male: { low: 38.3, high: 48.6 }, female: { low: 35.5, high: 44.9 } },
-    wbc: { name: 'WBC', unit: '×10³/µL', low: 4.5, high: 11.0 },
-    platelet: { name: 'Platelet', unit: '×10³/µL', low: 150, high: 400 },
-    glucose: { name: 'Glukosa', unit: 'mg/dL', low: 70, high: 100 },
-    creatinine: { name: 'Kreatinin', unit: 'mg/dL', male: { low: 0.7, high: 1.3 }, female: { low: 0.6, high: 1.1 } },
-    sodium: { name: 'Natrium', unit: 'mEq/L', low: 136, high: 145 },
-    potassium: { name: 'Kalium', unit: 'mEq/L', low: 3.5, high: 5.0 },
-    sgot: { name: 'SGOT/AST', unit: 'U/L', low: 0, high: 40 },
-    sgpt: { name: 'SGPT/ALT', unit: 'U/L', low: 0, high: 41 },
-    albumin: { name: 'Albumin', unit: 'g/dL', low: 3.5, high: 5.5 },
-    bilirubin: { name: 'Bilirubin Total', unit: 'mg/dL', low: 0.1, high: 1.2 },
-    ureum: { name: 'Ureum', unit: 'mg/dL', low: 15, high: 40 },
-    cholesterol: { name: 'Kolesterol Total', unit: 'mg/dL', low: 0, high: 200 },
-    triglyceride: { name: 'Trigliserida', unit: 'mg/dL', low: 0, high: 150 },
-    uricAcid: { name: 'Asam Urat', unit: 'mg/dL', male: { low: 3.4, high: 7.0 }, female: { low: 2.4, high: 6.0 } },
+    // ---- HEMATOLOGI ----
+    lekosit: {
+        name: 'Lekosit', category: 'hematologi', metode: 'Hema Auto', unit: '10³/mm³',
+        // Dewasa default
+        low: 4.0, high: 10.0,
+        ranges: [
+            { label: 'Bayi baru lahir', low: 9.0, high: 30.0 },
+            { label: 'Bayi/Anak', low: 9.0, high: 12.0 },
+            { label: 'Dewasa', low: 4.0, high: 10.0 },
+        ],
+    },
+    eritrosit: {
+        name: 'Eritrosit', category: 'hematologi', metode: 'Hema Auto', unit: '10⁶/L',
+        male: { low: 4.4, high: 5.6 }, female: { low: 3.8, high: 5.0 },
+        ranges: [
+            { label: 'Bayi', low: 3.7, high: 6.5 },
+            { label: '< 2 mgg', low: 3.9, high: 5.9 },
+            { label: '1 th', low: 3.1, high: 4.3 },
+            { label: 'Anak > 1 th', low: 3.9, high: 5.2 },
+            { label: 'Laki-laki', low: 4.4, high: 5.6 },
+            { label: 'Wanita', low: 3.8, high: 5.0 },
+        ],
+    },
+    hemoglobin: {
+        name: 'Hemoglobin', category: 'hematologi', metode: 'Hema Auto', unit: 'gr/dl',
+        male: { low: 13.0, high: 18.0 }, female: { low: 12.0, high: 16.0 },
+        ranges: [
+            { label: 'Bayi', low: 14.9, high: 23.7 },
+            { label: '< 2 mgg', low: 13.4, high: 19.8 },
+            { label: '1 th', low: 9.4, high: 13.0 },
+            { label: 'Anak > 1 th', low: 11.5, high: 15.5 },
+            { label: 'Pria', low: 13.0, high: 18.0 },
+            { label: 'Wanita', low: 12.0, high: 16.0 },
+        ],
+    },
+    hematokrit: {
+        name: 'Hematokrit', category: 'hematologi', metode: 'Hema Auto', unit: '%',
+        male: { low: 40, high: 50 }, female: { low: 35, high: 45 },
+        ranges: [
+            { label: 'Bayi', low: 47, high: 75 },
+            { label: '< 2 mgg', low: 41, high: 75 },
+            { label: '1 th', low: 28, high: 42 },
+            { label: 'Anak > 1 th', low: 34, high: 45 },
+            { label: 'Pria', low: 40, high: 50 },
+            { label: 'Wanita', low: 35, high: 45 },
+        ],
+    },
+    trombosit: {
+        name: 'Trombosit', category: 'hematologi', metode: 'Hema Auto', unit: '10³/mm³',
+        low: 150, high: 450,
+    },
+    mcv: {
+        name: 'MCV', category: 'hematologi', metode: 'Hema Auto', unit: 'fL',
+        low: 80, high: 100,
+    },
+    mch: {
+        name: 'MCH', category: 'hematologi', metode: 'Hema Auto', unit: 'pg',
+        low: 26.0, high: 33.5,
+    },
+    mchc: {
+        name: 'MCHC', category: 'hematologi', metode: 'Hema Auto', unit: 'g/dl',
+        low: 31.5, high: 35.0,
+    },
+    rdw: {
+        name: 'RDW', category: 'hematologi', metode: 'Hema Auto', unit: '%',
+        low: 10.0, high: 15.0,
+    },
+    mpv: {
+        name: 'MPV', category: 'hematologi', metode: 'Hema Auto', unit: 'μm³',
+        low: 6.5, high: 11.0,
+    },
+    pdw: {
+        name: 'PDW', category: 'hematologi', metode: 'Hema Auto', unit: '%',
+        low: 10.0, high: 18.0,
+    },
+    // ---- DIFF COUNT ----
+    limfosit: {
+        name: 'Limfosit', category: 'diffCount', metode: 'Hema Auto', unit: '%',
+        low: 17.0, high: 48.0,
+    },
+    monosit: {
+        name: 'Monosit', category: 'diffCount', metode: 'Hema Auto', unit: '%',
+        low: 4.0, high: 10.0,
+    },
+    granulosit: {
+        name: 'Granulosit', category: 'diffCount', metode: 'Hema Auto', unit: '%',
+        low: 43.0, high: 76.0,
+    },
+    led: {
+        name: 'LED I', category: 'diffCount', metode: 'Westergren', unit: 'mm/jam',
+        low: 0, high: 15,
+    },
+    bt: {
+        name: 'BT (Bleeding Time)', category: 'diffCount', metode: 'Ivy', unit: 'Menit',
+        low: 1, high: 6,
+    },
+    ct: {
+        name: 'CT (Clotting Time)', category: 'diffCount', metode: 'Lee & White', unit: 'Menit',
+        low: 6, high: 15,
+    },
+    // ---- KIMIA KLINIK ----
+    gdpuasa: {
+        name: 'Gula Darah Puasa', category: 'kimiaKlinik', metode: 'GOD PAP', unit: 'mg/dl',
+        low: 70, high: 126,
+    },
+    gd2jpp: {
+        name: 'Gula Darah 2 JPP', category: 'kimiaKlinik', metode: 'GOD PAP', unit: 'mg/dl',
+        low: 70, high: 180,
+    },
+    gdSewaktu: {
+        name: 'Gula Darah Sewaktu', category: 'kimiaKlinik', metode: 'GOD PAP', unit: 'mg/dl',
+        low: 70, high: 200,
+        ranges: [
+            { label: 'Dewasa', low: 70, high: 200 },
+            { label: '1-6 Th', low: 74, high: 127 },
+        ],
+    },
+    sgot: {
+        name: 'SGOT', category: 'kimiaKlinik', metode: 'IFCC', unit: 'U/L',
+        male: { low: 0, high: 37 }, female: { low: 0, high: 31 },
+        ranges: [
+            { label: 'Pria', low: 0, high: 37 },
+            { label: 'Wanita', low: 0, high: 31 },
+        ],
+    },
+    sgpt: {
+        name: 'SGPT', category: 'kimiaKlinik', metode: 'IFCC', unit: 'U/L',
+        male: { low: 0, high: 42 }, female: { low: 0, high: 31 },
+        ranges: [
+            { label: 'Pria', low: 0, high: 42 },
+            { label: 'Wanita', low: 0, high: 31 },
+        ],
+    },
+    bilirubinTotal: {
+        name: 'Bilirubin Total', category: 'kimiaKlinik', metode: 'Modified Jendrasik/Grof', unit: 'mg/dl',
+        low: 0, high: 1.2,
+    },
+    bilirubinDirek: {
+        name: 'Bilirubin Direk', category: 'kimiaKlinik', metode: 'Modified Jendrasik/Grof', unit: 'mg/dl',
+        low: 0, high: 0.3,
+    },
+    ureum: {
+        name: 'Ureum', category: 'kimiaKlinik', metode: 'Enzymatic CLR', unit: 'mg/dl',
+        low: 10, high: 50,
+    },
+    kreatinin: {
+        name: 'Kreatinin', category: 'kimiaKlinik', metode: 'Photo CLR', unit: 'mg/dl',
+        male: { low: 0.6, high: 1.1 }, female: { low: 0.5, high: 0.9 },
+        ranges: [
+            { label: 'Pria', low: 0.6, high: 1.1 },
+            { label: 'Wanita', low: 0.5, high: 0.9 },
+        ],
+    },
+    asamUrat: {
+        name: 'Asam Urat', category: 'kimiaKlinik', unit: 'mg/dl',
+        male: { low: 0.34, high: 7.2 }, female: { low: 0.34, high: 6.0 },
+        ranges: [
+            { label: 'Pria', low: 0.34, high: 7.2 },
+            { label: 'Wanita', low: 0.34, high: 5.7 },
+        ],
+    },
+    totalProtein: {
+        name: 'Total Protein', category: 'kimiaKlinik', metode: 'Biuret', unit: 'gr/dl',
+        low: 6.6, high: 8.7,
+    },
+    albumin: {
+        name: 'Albumin', category: 'kimiaKlinik', unit: 'gr/dl',
+        low: 3.8, high: 5.1,
+    },
+    kolesterol: {
+        name: 'Kolesterol Total', category: 'kimiaKlinik', metode: 'CHOD PAP', unit: 'mg/dl',
+        low: 0, high: 200,
+    },
+    trigliserida: {
+        name: 'Trigliserida', category: 'kimiaKlinik', metode: 'CLR Enzymatic GPO', unit: 'mg/dl',
+        low: 0, high: 200,
+    },
+    hdl: {
+        name: 'HDL Kolesterol', category: 'kimiaKlinik', unit: 'mg/dl',
+        low: 35, high: 999,
+    },
+    ldl: {
+        name: 'LDL Kolesterol', category: 'kimiaKlinik', unit: 'mg/dl',
+        low: 0, high: 115,
+    },
+    ckmb: {
+        name: 'CKMB', category: 'kimiaKlinik', metode: 'DGKC dan IFCC', unit: 'U/L',
+        low: 0, high: 24,
+    },
+    // ---- ELEKTROLIT ----
+    kalium: {
+        name: 'Kalium', category: 'elektrolit', metode: 'ISE', unit: 'mEq/L',
+        low: 3.6, high: 5.5,
+    },
+    natrium: {
+        name: 'Natrium', category: 'elektrolit', metode: 'ISE', unit: 'mEq/L',
+        low: 135, high: 145,
+    },
+    klorida: {
+        name: 'Klorida', category: 'elektrolit', metode: 'ISE', unit: 'mEq/L',
+        low: 98, high: 108,
+    },
+    // ---- IMUNOSEROLOGI ----
+    hbsag: {
+        name: 'HBsAg', category: 'imunoserologi', metode: 'Rapid', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    antiHcv: {
+        name: 'Anti HCV', category: 'imunoserologi', metode: 'ICT', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    igmHav: {
+        name: 'IgM HAV', category: 'imunoserologi', metode: 'ICT', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    dengueNs1: {
+        name: 'Dengue NS1 Ag', category: 'imunoserologi', metode: 'ICT', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    dengueIgg: {
+        name: 'Dengue IgG', category: 'imunoserologi', metode: 'ICT', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    dengueIgm: {
+        name: 'Dengue IgM', category: 'imunoserologi', metode: 'ICT', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    igmSalmonella: {
+        name: 'IgM Salmonella', category: 'imunoserologi', metode: 'IMBI', unit: '-',
+        low: 0, high: 1.9, infoRanges: [{ label: 'Negatif', value: '< 2' }, { label: 'Positif', value: '≥ 4' }],
+    },
+    widalO: {
+        name: 'Widal O', category: 'imunoserologi', metode: 'Aglutinasi', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    widalH: {
+        name: 'Widal H', category: 'imunoserologi', metode: 'Aglutinasi', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    widalAh: {
+        name: 'Widal AH', category: 'imunoserologi', metode: 'Aglutinasi', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    widalBh: {
+        name: 'Widal BH', category: 'imunoserologi', metode: 'Aglutinasi', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    malaria: {
+        name: 'Malaria', category: 'imunoserologi', metode: 'ICT', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    // ---- URINALISIS ----
+    urinWarna: {
+        name: 'Warna Urin', category: 'urinalisis', metode: 'Makroskopis', unit: '-',
+        qualitative: true, normalValue: 'Kuning Jernih',
+    },
+    urinBj: {
+        name: 'Berat Jenis Urin', category: 'urinalisis', metode: 'Makroskopis', unit: 'g/dl',
+        low: 1.003, high: 1.030,
+    },
+    urinPh: {
+        name: 'pH Urin', category: 'urinalisis', metode: 'Makroskopis', unit: '-',
+        low: 4.8, high: 7.5,
+    },
+    urinProtein: {
+        name: 'Protein Urin', category: 'urinalisis', metode: 'Imm. chromatograf', unit: 'mg/dl',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    urinGlukosa: {
+        name: 'Glukosa Urin', category: 'urinalisis', metode: 'Imm. chromatograf', unit: 'mg/dl',
+        qualitative: true, normalValue: 'Normal',
+    },
+    urinUrobilin: {
+        name: 'Urobilin Urin', category: 'urinalisis', metode: 'Imm. chromatograf', unit: 'mg/dl',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    urinBilirubin: {
+        name: 'Bilirubin Urin', category: 'urinalisis', metode: 'Imm. chromatograf', unit: 'mg/dl',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    urinLekosit: {
+        name: 'Lekosit Urin', category: 'urinalisis', metode: 'Mikroskopis', unit: 'LPB',
+        low: 1, high: 4,
+    },
+    urinEritrosit: {
+        name: 'Eritrosit Urin', category: 'urinalisis', metode: 'Mikroskopis', unit: 'LPB',
+        low: 0, high: 1,
+    },
+    urinEpithel: {
+        name: 'Epithel Urin', category: 'urinalisis', metode: 'Mikroskopis', unit: 'LPK',
+        low: 1, high: 15,
+    },
+    urinCilinder: {
+        name: 'Silinder Urin', category: 'urinalisis', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    urinKristal: {
+        name: 'Kristal Urin', category: 'urinalisis', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    urinNitrit: {
+        name: 'Nitrit Urin', category: 'urinalisis', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    // ---- FESES ----
+    fesesLekosit: {
+        name: 'Lekosit Feses', category: 'feses', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    fesesEritrosit: {
+        name: 'Eritrosit Feses', category: 'feses', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    fesesDarahSamar: {
+        name: 'Darah Samar Feses', category: 'feses', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    fesesKarbohidrat: {
+        name: 'Karbohidrat Feses', category: 'feses', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    fesesLemak: {
+        name: 'Lemak Feses', category: 'feses', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    fesesAmoeba: {
+        name: 'Amoeba Feses', category: 'feses', metode: 'Mikroskopis', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    // ---- LAB RUJUKAN (IBL/ABC) ----
+    hba1c: {
+        name: 'HbA1C', category: 'labRujukan', unit: '%',
+        infoRanges: [
+            { label: 'Baik', value: '< 6,5' },
+            { label: 'Sedang', value: '6,6 – 8,0' },
+            { label: 'Buruk', value: '> 8,0' },
+        ],
+        low: 0, high: 6.5,
+    },
+    retikulosit: {
+        name: 'Retikulosit', category: 'labRujukan', unit: '%',
+        low: 0.5, high: 1.5,
+    },
+    fibrinogen: {
+        name: 'Fibrinogen', category: 'labRujukan', unit: 'mg/dl',
+        low: 200, high: 400,
+    },
+    gammaGt: {
+        name: 'Gamma GT', category: 'labRujukan', unit: 'U/L',
+        male: { low: 11, high: 62 }, female: { low: 9, high: 39 },
+        ranges: [
+            { label: 'Pria', low: 11, high: 62 },
+            { label: 'Wanita', low: 9, high: 39 },
+        ],
+    },
+    alkFosfatase: {
+        name: 'Alk. Phosphatase', category: 'labRujukan', unit: 'U/L',
+        low: 42, high: 141,
+    },
+    kalsium: {
+        name: 'Kalsium', category: 'labRujukan', unit: 'mg/dl',
+        low: 8.1, high: 10.4,
+    },
+    magnesium: {
+        name: 'Magnesium', category: 'labRujukan', unit: 'mg/dl',
+        low: 1.9, high: 2.5,
+    },
+    ldh: {
+        name: 'LDH', category: 'labRujukan', unit: 'U/L',
+        low: 160, high: 320,
+    },
+    asto: {
+        name: 'ASTO', category: 'labRujukan', unit: 'IU/mL',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    astoSemiKuantitatif: {
+        name: 'ASTO Semi Kuantitatif', category: 'labRujukan', unit: 'IU/mL',
+        low: 0, high: 199,
+    },
+    rf: {
+        name: 'Rhematoid Faktor', category: 'labRujukan', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    crp: {
+        name: 'CRP', category: 'labRujukan', unit: '-',
+        qualitative: true, normalValue: 'Negatif',
+    },
+    hiv: {
+        name: 'HIV', category: 'labRujukan', unit: 'INDEX',
+        qualitative: true, normalValue: 'Non Reaktif',
+    },
+    antiHbs: {
+        name: 'Anti HBs', category: 'labRujukan', unit: 'UI/ml',
+        low: 0, high: 9.9,
+    },
+    tshs: {
+        name: 'TSHs', category: 'labRujukan', unit: 'μIU/mL',
+        low: 0.27, high: 4.2,
+        infoRanges: [
+            { label: 'Euthyroid', value: '0,27 – 4,2' },
+            { label: 'Hyperthyroid', value: '< 0,27' },
+            { label: 'Hypothyroid', value: '> 4,2' },
+        ],
+    },
+    t3: {
+        name: 'T3', category: 'labRujukan', unit: 'nmol/L',
+        low: 1.6, high: 4.3,
+    },
+    t4: {
+        name: 'T4', category: 'labRujukan', unit: 'nmol/L',
+        low: 105.5, high: 208.5,
+    },
+    freeT4: {
+        name: 'Free T4', category: 'labRujukan', unit: 'ng/dl',
+        low: 0.93, high: 1.7,
+    },
+    aptt: {
+        name: 'APTT', category: 'labRujukan', unit: 'Detik',
+        low: 27, high: 42,
+    },
+    ppt: {
+        name: 'PPT', category: 'labRujukan', unit: 'Detik',
+        low: 12, high: 19,
+    },
+    besiSerum: {
+        name: 'Besi Serum (Fe)', category: 'labRujukan', unit: 'μg/dl',
+        low: 40, high: 158,
+    },
+    tibc: {
+        name: 'TIBC', category: 'labRujukan', unit: 'μg/dl',
+        low: 250, high: 410,
+    },
+    psa: {
+        name: 'PSA', category: 'labRujukan', unit: 'ng/mL',
+        low: 0, high: 4,
+    },
 };
+
+// Get range for a specific lab key and gender
+function getRange(ref, gender = 'male') {
+    if (ref.qualitative) return null;
+    if (ref.male && ref.female) return ref[gender] || ref.male;
+    return { low: ref.low, high: ref.high };
+}
 
 export function checkLabValue(labKey, value, gender = 'male') {
     const ref = labReferences[labKey];
-    if (!ref) return { status: 'unknown', label: 'Unknown' };
+    if (!ref) return { status: 'unknown', label: '–' };
 
-    const range = ref.male ? ref[gender] : ref;
-    const numValue = parseFloat(value);
+    // Qualitative result (non-numeric)
+    if (ref.qualitative) {
+        const v = String(value).toLowerCase().trim();
+        const isNormal = ['negatif', 'negative', 'normal', 'kuning jernih', 'steril', 'non reaktif'].some(n => v.includes(n));
+        return isNormal
+            ? { status: 'normal', label: 'Normal' }
+            : { status: 'high', label: '⚠ Abnormal' };
+    }
 
-    if (isNaN(numValue)) return { status: 'unknown', label: '-' };
-    if (numValue < range.low) return { status: 'low', label: '↓ Rendah' };
-    if (numValue > range.high) return { status: 'high', label: '↑ Tinggi' };
-    return { status: 'normal', label: 'Normal' };
+    const range = getRange(ref, gender);
+    if (!range) return { status: 'unknown', label: '–' };
+
+    const numValue = parseFloat(String(value).replace(',', '.'));
+    if (isNaN(numValue)) return { status: 'unknown', label: '–' };
+
+    if (typeof range.low === 'number' && numValue < range.low) return { status: 'low', label: '↓ Rendah' };
+    if (typeof range.high === 'number' && numValue > range.high) return { status: 'high', label: '↑ Tinggi' };
+    return { status: 'normal', label: '✓ Normal' };
 }
 
 export function calculateDaysInHospital(admissionDate) {
