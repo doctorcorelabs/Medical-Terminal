@@ -16,11 +16,11 @@ import Login from './pages/Login';
 import News from './pages/News';
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, isRecoveryMode } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  if (!user) {
+  if (!user || isRecoveryMode) {
     return <Login />;
   }
 

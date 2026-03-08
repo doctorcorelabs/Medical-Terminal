@@ -6,6 +6,7 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
     useEffect(() => {
         // Check active sessions and sets the user
@@ -15,7 +16,12 @@ export function AuthProvider({ children }) {
         });
 
         // Listen for changes on auth state (logged in, signed out, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                setIsRecoveryMode(true);
+            } else {
+                setIsRecoveryMode(false);
+            }
             setUser(session?.user ?? null);
             setLoading(false);
         });
@@ -30,7 +36,13 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('medterminal_patients');
             return supabase.auth.signOut();
         },
+        resetPassword: (email) => supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin,
+        }),
+        updatePassword: (newPassword) => supabase.auth.updateUser({ password: newPassword }),
         user,
+        isRecoveryMode,
+        setIsRecoveryMode,
     };
 
     return (
