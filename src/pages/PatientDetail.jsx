@@ -145,13 +145,13 @@ export default function PatientDetail() {
             </div>
 
             {/* Konten */}
-            {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} />}
+            {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} updatePatient={updatePatient} />}
             {activeTab === 'symptoms' && <TabGejala patient={patient} input={symptomInput} setInput={setSymptomInput}
                 onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, symptomInput); setSymptomInput({ name: '', severity: 'sedang', notes: '' }); }}
                 onRemove={(symptomId) => removeSymptom(patient.id, symptomId)}
                 onAI={() => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun`))}
                 aiResult={aiResults.symptoms} aiLoading={aiLoading.symptoms} />}
-            {activeTab === 'physical' && <TabDataUmum judul="Pemeriksaan Fisik" items={patient.physicalExams || []} input={examInput} setInput={setExamInput}
+            {activeTab === 'physical' && <TabDataUmum judul="Pemeriksaan Fisik" storageKey="physical" items={patient.physicalExams || []} input={examInput} setInput={setExamInput}
                 fields={[
                     { key: 'system', type: 'select', label: 'Sistem', options: ['umum', 'kepala', 'leher', 'thorax', 'abdomen', 'ekstremitas', 'neurologis', 'kulit'] },
                     { key: 'findings', type: 'textarea', label: 'Temuan', placeholder: 'Temuan pemeriksaan fisik...' },
@@ -182,12 +182,83 @@ export default function PatientDetail() {
 }
 
 /* ====== TAB RINGKASAN ====== */
-function TabRingkasan({ patient, navigate }) {
+function TabRingkasan({ patient, navigate, updatePatient }) {
+    const [headerEditing, setHeaderEditing] = useState(false);
+    const [headerTemp, setHeaderTemp] = useState({});
+
+    const startHeaderEdit = () => {
+        setHeaderTemp({
+            name: patient.name || '',
+            age: patient.age || '',
+            gender: patient.gender || 'male',
+            admissionDate: patient.admissionDate ? (new Date(patient.admissionDate)).toISOString().slice(0, 10) : '',
+            room: patient.room || '',
+            bloodType: patient.bloodType || '',
+            condition: patient.condition || 'stable',
+            weight: patient.weight || '',
+            height: patient.height || '',
+            targetDays: patient.targetDays || '',
+            allergies: patient.allergies || '',
+            heartRate: patient.heartRate || '',
+            bloodPressure: patient.bloodPressure || '',
+            temperature: patient.temperature || '',
+            respRate: patient.respRate || '',
+            spO2: patient.spO2 || '',
+            chiefComplaint: patient.chiefComplaint || '',
+            diagnosis: patient.diagnosis || '',
+            medicalHistory: patient.medicalHistory || '',
+        });
+        setHeaderEditing(true);
+    };
+
+    const cancelHeaderEdit = () => setHeaderEditing(false);
+
+    const saveHeaderEdit = () => {
+        const toNum = (v) => v === '' ? null : (isNaN(Number(v)) ? v : Number(v));
+        const payload = {
+            name: headerTemp.name || patient.name,
+            age: toNum(String(headerTemp.age)),
+            gender: headerTemp.gender,
+            admissionDate: headerTemp.admissionDate || null,
+            room: headerTemp.room || null,
+            bloodType: headerTemp.bloodType || null,
+            condition: headerTemp.condition || patient.condition,
+            weight: toNum(String(headerTemp.weight)),
+            height: toNum(String(headerTemp.height)),
+            targetDays: toNum(String(headerTemp.targetDays)),
+            allergies: headerTemp.allergies || null,
+            heartRate: toNum(String(headerTemp.heartRate)),
+            bloodPressure: headerTemp.bloodPressure || null,
+            temperature: toNum(String(headerTemp.temperature)),
+            respRate: toNum(String(headerTemp.respRate)),
+            spO2: toNum(String(headerTemp.spO2)),
+            chiefComplaint: headerTemp.chiefComplaint || null,
+            diagnosis: headerTemp.diagnosis || null,
+            medicalHistory: headerTemp.medicalHistory || null,
+        };
+        updatePatient(patient.id, payload);
+        setHeaderEditing(false);
+    };
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
+            {headerEditing && (
+                <EditPatientModal
+                    patient={patient}
+                    headerTemp={headerTemp}
+                    setHeaderTemp={setHeaderTemp}
+                    onSave={saveHeaderEdit}
+                    onCancel={cancelHeaderEdit}
+                />
+            )}
             <div className="lg:col-span-8 space-y-5 lg:space-y-6 min-w-0">
                 {/* Kartu Pasien */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 lg:p-6">
+                <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 lg:p-6">
+                    <div className="absolute top-3 right-3 z-10">
+                        <button onClick={startHeaderEdit} title="Edit data pasien" className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20">
+                            <span className="material-symbols-outlined text-base">edit</span>
+                        </button>
+                    </div>
                     <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-6">
                         <div className="size-16 sm:size-20 rounded-full bg-primary/10 flex items-center justify-center text-primary border-4 border-white dark:border-slate-800 shadow-sm shrink-0">
                             <span className="text-xl sm:text-2xl font-black">{patient.name?.substring(0, 2).toUpperCase()}</span>
@@ -199,19 +270,19 @@ function TabRingkasan({ patient, navigate }) {
                                 {patient.allergies && <span className="flex items-center gap-1 text-xs text-red-500 font-bold"><span className="material-symbols-outlined text-sm">warning</span>{patient.allergies}</span>}
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-2">
-                                {[
-                                    { label: 'Umur', value: patient.age ? `${patient.age} Tahun` : '-' },
-                                    { label: 'J. Kelamin', value: patient.gender === 'female' ? 'Perempuan' : 'Laki-laki' },
-                                    { label: 'Tgl Masuk', value: formatDate(patient.admissionDate) },
-                                    { label: 'Ruang Rawat', value: patient.room || '-', className: 'text-primary font-bold bg-primary/10 px-1 inline-block rounded' },
-                                    { label: 'Gol', value: patient.bloodType || '-', className: 'text-red-500 font-bold' },
-                                ].map(item => (
-                                    <div key={item.label} className="min-w-0">
-                                        <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">{item.label}</p>
-                                        <p className={`font-semibold text-sm truncate ${item.className || ''}`}>{item.value}</p>
-                                    </div>
-                                ))}
-                            </div>
+                            {[
+                                { label: 'Umur', value: patient.age ? `${patient.age} Tahun` : '-' },
+                                { label: 'J. Kelamin', value: patient.gender === 'female' ? 'Perempuan' : 'Laki-laki' },
+                                { label: 'Tgl Masuk', value: formatDate(patient.admissionDate) },
+                                { label: 'Ruang Rawat', value: patient.room || '-', className: 'text-primary font-bold bg-primary/10 px-1 inline-block rounded' },
+                                { label: 'Gol', value: patient.bloodType || '-', className: 'text-red-500 font-bold' },
+                            ].map(item => (
+                                <div key={item.label} className="min-w-0">
+                                    <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">{item.label}</p>
+                                    <p className={`font-semibold text-sm truncate ${item.className || ''}`}>{item.value}</p>
+                                </div>
+                            ))}
+                        </div>
                         </div>
                     </div>
                     {/* Tanda Vital */}
@@ -226,7 +297,7 @@ function TabRingkasan({ patient, navigate }) {
                         ].map(v => (
                             <div key={v.label} className="p-2 lg:p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/10 text-center flex flex-col h-full">
                                 <p className="text-[10px] sm:text-xs text-primary font-bold leading-tight min-h-7 flex items-start justify-center mb-1">{v.label}</p>
-                                <div className="flex flex-col items-center justify-center mt-auto">
+                                <div className="flex flex-col items-center justify-center mt-auto min-h-11">
                                     <span className="text-base sm:text-[1.1rem] font-black text-slate-800 dark:text-slate-100 leading-none mb-0.5">{v.value || '-'}</span>
                                     <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold tracking-wide">{v.unit}</span>
                                 </div>
@@ -236,7 +307,13 @@ function TabRingkasan({ patient, navigate }) {
                 </div>
 
                 {/* Keluhan Utama */}
-                <Kartu judul="Keluhan Utama">
+                <Kartu judul="Keluhan Utama" aksi={
+                    <button onClick={startHeaderEdit}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20"
+                        title="Edit keluhan utama">
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                    </button>
+                }>
                     <p className="text-sm text-slate-600 dark:text-slate-400">{patient.chiefComplaint || 'Belum dicatat'}</p>
                 </Kartu>
 
@@ -256,8 +333,13 @@ function TabRingkasan({ patient, navigate }) {
             {/* Kolom Kanan */}
             <div className="lg:col-span-4 space-y-5 lg:space-y-6 min-w-0">
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
                         <h3 className="font-bold text-sm">Ringkasan Pasien</h3>
+                        <button onClick={startHeaderEdit}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20"
+                            title="Edit data pasien">
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                        </button>
                     </div>
                     <div className="p-4 space-y-1">
                         {[
@@ -269,7 +351,7 @@ function TabRingkasan({ patient, navigate }) {
                             { label: 'Resep Obat', value: (patient.prescriptions || []).length },
                             { label: 'Laporan Harian', value: (patient.dailyReports || []).length },
                         ].map(item => (
-                            <div key={item.label} className="flex justify-between items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm">
+                            <div key={item.label} className="flex justify-between items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm">
                                 <span className="text-slate-500 shrink-0">{item.label}</span>
                                 <span className="font-semibold text-right truncate min-w-0">{item.value}</span>
                             </div>
@@ -285,6 +367,174 @@ function TabRingkasan({ patient, navigate }) {
                     </p>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/* ====== EDIT PATIENT MODAL ====== */
+function EditPatientModal({ patient, headerTemp, setHeaderTemp, onSave, onCancel }) {
+    const set = (key) => (e) => setHeaderTemp(p => ({ ...p, [key]: e.target.value }));
+    const setVal = (key, val) => setHeaderTemp(p => ({ ...p, [key]: val }));
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-3 sm:p-5 lg:p-8"
+            onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+        >
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-5xl my-2 border border-slate-200 dark:border-slate-800 animate-[fadeIn_0.2s_ease-out]">
+
+                {/* Modal Header */}
+                <div className="sticky top-0 z-10 flex items-center justify-between px-5 sm:px-7 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-t-2xl gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="size-9 sm:size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-primary text-[20px]">edit_square</span>
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 truncate">Edit Data Pasien</h2>
+                            <p className="text-xs text-slate-500 truncate">{patient.name}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={onCancel}
+                            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-sm transition-all">
+                            <span className="material-symbols-outlined text-sm">close</span>
+                            <span className="hidden sm:inline">Batal</span>
+                        </button>
+                        <button onClick={onSave}
+                            className="flex items-center gap-1.5 bg-primary text-white px-4 sm:px-6 py-2 rounded-xl font-bold text-sm hover:brightness-110 transition-all shadow-lg shadow-primary/20 active:scale-[0.98]">
+                            <span className="material-symbols-outlined text-sm">save</span>
+                            Simpan
+                        </button>
+                    </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-5 sm:p-6 lg:p-8 space-y-7 lg:space-y-8">
+
+                    {/* Row 1: Data Dasar / Detail Medis / Registrasi */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
+                        <EditSection title="Data Dasar" icon="person">
+                            <div className="space-y-4">
+                                <EditInput label="Nama Lengkap" value={headerTemp.name || ''} onChange={set('name')} placeholder="Nama pasien" />
+                                <EditInput label="Ruang Rawat (Kamar)" value={headerTemp.room || ''} onChange={set('room')} placeholder="Cth: Mawar - Bed 3" />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <EditInput label="Umur (Tahun)" type="number" value={headerTemp.age || ''} onChange={set('age')} placeholder="56" min="0" />
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">J. Kelamin</label>
+                                        <div className="flex p-1 bg-slate-50 dark:bg-slate-800 rounded-xl gap-1 border border-slate-100 dark:border-slate-700 h-10.5">
+                                            {[{ v: 'male', i: 'male', l: 'Laki-laki' }, { v: 'female', i: 'female', l: 'Perempuan' }].map(opt => (
+                                                <button key={opt.v} type="button" onClick={() => setVal('gender', opt.v)} title={opt.l}
+                                                    className={`flex-1 rounded-lg transition-all flex items-center justify-center ${headerTemp.gender === opt.v ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
+                                                    <span className="material-symbols-outlined text-[20px]">{opt.i}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </EditSection>
+
+                        <EditSection title="Detail Medis" icon="clinical_notes">
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <EditSelect label="Gol. Darah" value={headerTemp.bloodType || ''} onChange={set('bloodType')}
+                                        options={[{ v: '', l: '-' }, { v: 'A+', l: 'A+' }, { v: 'B+', l: 'B+' }, { v: 'AB+', l: 'AB+' }, { v: 'O+', l: 'O+' }, { v: 'A-', l: 'A-' }, { v: 'B-', l: 'B-' }, { v: 'AB-', l: 'AB-' }, { v: 'O-', l: 'O-' }]} />
+                                    <EditSelect label="Kondisi" value={headerTemp.condition || 'stable'} onChange={set('condition')}
+                                        options={[{ v: 'stable', l: 'Stabil' }, { v: 'improving', l: 'Membaik' }, { v: 'urgent', l: 'Mendesak' }, { v: 'critical', l: 'Kritis' }]} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <EditInput label="BB (kg)" type="number" value={headerTemp.weight || ''} onChange={set('weight')} placeholder="70" min="0" />
+                                    <EditInput label="TB (cm)" type="number" value={headerTemp.height || ''} onChange={set('height')} placeholder="170" min="0" />
+                                </div>
+                                <EditInput label="Alergi" value={headerTemp.allergies || ''} onChange={set('allergies')} placeholder="Cth: Penicillin" />
+                            </div>
+                        </EditSection>
+
+                        <EditSection title="Registrasi" icon="calendar_today">
+                            <div className="space-y-4">
+                                <EditInput label="Tgl Masuk" type="date" value={headerTemp.admissionDate || ''} onChange={set('admissionDate')} />
+                                <EditInput label="Target Sembuh (Hari)" type="number" value={headerTemp.targetDays || ''} onChange={set('targetDays')} placeholder="7" min="1" />
+                            </div>
+                        </EditSection>
+                    </div>
+
+                    {/* Row 2: Tanda Vital */}
+                    <EditSection title="Tanda Vital" icon="ecg">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                            {[
+                                { key: 'heartRate', label: 'Detak Jantung', unit: 'bpm', placeholder: '80' },
+                                { key: 'bloodPressure', label: 'Tek. Darah', unit: 'mmHg', placeholder: '120/80' },
+                                { key: 'temperature', label: 'Suhu', unit: '°C', placeholder: '36.5' },
+                                { key: 'respRate', label: 'Frek. Napas', unit: '/min', placeholder: '18' },
+                                { key: 'spO2', label: 'SpO2', unit: '%', placeholder: '98' },
+                            ].map(v => (
+                                <div key={v.key} className="flex flex-col items-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide mb-2 text-center leading-tight">{v.label}</span>
+                                    <input
+                                        type="text"
+                                        value={headerTemp[v.key] || ''}
+                                        onChange={set(v.key)}
+                                        placeholder={v.placeholder}
+                                        className="w-full bg-transparent border-none p-0 text-center font-black text-xl focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                                    />
+                                    <span className="text-[9px] text-slate-400 font-bold mt-1">{v.unit}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </EditSection>
+
+                    {/* Row 3: Keluhan + Diagnosis */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
+                        <EditTextArea label="Keluhan Utama" value={headerTemp.chiefComplaint || ''} onChange={set('chiefComplaint')} rows={4} placeholder="Jelaskan alasan utama pasien masuk..." />
+                        <EditTextArea label="Diagnosis" value={headerTemp.diagnosis || ''} onChange={set('diagnosis')} rows={4} placeholder="Diagnosis awal atau temuan utama..." />
+                    </div>
+
+                    {/* Row 4: Riwayat */}
+                    <EditTextArea label="Riwayat Penyakit Dahulu" value={headerTemp.medicalHistory || ''} onChange={set('medicalHistory')} rows={3} placeholder="Riwayat medis relevan, komorbiditas, dll..." />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ====== EDIT HELPER COMPONENTS ====== */
+function EditSection({ title, icon, children }) {
+    return (
+        <div className="space-y-4">
+            <h3 className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-[2px]">
+                <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                {title}
+            </h3>
+            {children}
+        </div>
+    );
+}
+
+function EditInput({ label, ...props }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">{label}</label>
+            <input {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+        </div>
+    );
+}
+
+function EditTextArea({ label, ...props }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">{label}</label>
+            <textarea {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none" />
+        </div>
+    );
+}
+
+function EditSelect({ label, options, ...props }) {
+    return (
+        <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">{label}</label>
+            <select {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5">
+                {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+            </select>
         </div>
     );
 }
@@ -365,7 +615,7 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
                 </div>
             </div>
 
-            <TombolAI label="Analisis Gejala" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.symptoms || []).length === 0} />
+            <TombolAI label="Analisis Gejala" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.symptoms || []).length === 0} storageKey="gejala" />
 
             {(patient.symptoms || []).length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
@@ -378,7 +628,7 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
 }
 
 /* ====== TAB DATA UMUM ====== */
-function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, renderItem, onAI, aiResult, aiLoading }) {
+function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, renderItem, onAI, aiResult, aiLoading, storageKey }) {
     const [confirmingId, setConfirmingId] = useState(null);
 
     return (
@@ -434,7 +684,7 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
                     </Kartu>
                 </div>
             </div>
-            <TombolAI label="Analisis AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={items.length === 0} />
+            <TombolAI label="Analisis AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={items.length === 0} storageKey={storageKey} />
         </div>
     );
 }
@@ -609,7 +859,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                     </Kartu>
                 </div>
             </div>
-            <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} />
+            <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} storageKey="labs" />
         </div>
     );
 }
@@ -681,7 +931,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                     </Kartu>
                 </div>
             </div>
-            <TombolAI label="Rekomendasi Obat AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={!(patient.symptoms || []).length && !patient.diagnosis} />
+            <TombolAI label="Rekomendasi Obat AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={!(patient.symptoms || []).length && !patient.diagnosis} storageKey="drugs" />
         </div>
     );
 }
@@ -747,7 +997,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
                     </Kartu>
                 </div>
             </div>
-            <TombolAI label="Evaluasi Harian AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.dailyReports || []).length < 1} />
+            <TombolAI label="Evaluasi Harian AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.dailyReports || []).length < 1} storageKey="daily" />
         </div>
     );
 }
@@ -798,6 +1048,7 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
                 return (
                     <KartuAIDetail
                         key={key}
+                        storageKey={key}
                         judul={m.title}
                         result={aiResults[key]}
                         loading={aiLoading[key]}
@@ -823,8 +1074,16 @@ function Kartu({ judul, headerIcon, aksi, children, id }) {
     );
 }
 
-function TombolAI({ label, onGenerate, loading, result, disabled }) {
-    const [isMinimized, setIsMinimized] = useState(false);
+function TombolAI({ label, onGenerate, loading, result, disabled, storageKey }) {
+    const [isMinimized, setIsMinimized] = useState(() =>
+        storageKey ? localStorage.getItem(`ai-section-${storageKey}`) === 'true' : false
+    );
+
+    const handleToggle = () => {
+        const next = !isMinimized;
+        setIsMinimized(next);
+        if (storageKey) localStorage.setItem(`ai-section-${storageKey}`, String(next));
+    };
 
     return (
         <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-4 lg:p-5 transition-all">
@@ -832,7 +1091,7 @@ function TombolAI({ label, onGenerate, loading, result, disabled }) {
                 <h4 className="font-bold text-primary flex items-center gap-2 text-sm">
                     <span className="material-symbols-outlined text-lg">auto_awesome</span>Analisis AI
                 </h4>
-                <button onClick={() => setIsMinimized(!isMinimized)} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1 rounded-lg text-primary/60 hover:text-primary hover:bg-primary/10 transition-colors">
+                <button onClick={handleToggle} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1 rounded-lg text-primary/60 hover:text-primary hover:bg-primary/10 transition-colors">
                     <span className="material-symbols-outlined text-sm">{isMinimized ? 'expand_more' : 'expand_less'}</span>
                 </button>
             </div>
@@ -851,14 +1110,22 @@ function TombolAI({ label, onGenerate, loading, result, disabled }) {
     );
 }
 
-function KartuAIDetail({ judul, result, loading, onUpdate, onSave }) {
-    const [isMinimized, setIsMinimized] = useState(false);
+function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey }) {
+    const [isMinimized, setIsMinimized] = useState(() =>
+        storageKey ? localStorage.getItem(`ai-kartu-${storageKey}`) === 'true' : false
+    );
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(result || '');
 
     useEffect(() => {
         setEditText(result || '');
     }, [result]);
+
+    const handleToggle = () => {
+        const next = !isMinimized;
+        setIsMinimized(next);
+        if (storageKey) localStorage.setItem(`ai-kartu-${storageKey}`, String(next));
+    };
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -888,7 +1155,7 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave }) {
                             </button>
                         </>
                     )}
-                    <button onClick={() => setIsMinimized(!isMinimized)} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors ml-2 border border-slate-200 dark:border-slate-700">
+                    <button onClick={handleToggle} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors ml-2 border border-slate-200 dark:border-slate-700">
                         <span className="material-symbols-outlined text-sm">{isMinimized ? 'expand_more' : 'expand_less'}</span>
                     </button>
                 </div>
