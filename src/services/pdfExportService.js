@@ -607,3 +607,191 @@ export function exportPatientPDF(patient) {
         alert('Gagal membuat PDF: ' + err.message);
     }
 }
+
+// ================================================================
+// EXPORT DAFTAR PASIEN (ALL PATIENTS) TO PDF
+// ================================================================
+export function exportPatientListPDF(patients) {
+    try {
+        console.log('[PDF Export] Starting Patient List PDF generation for', patients.length, 'patients');
+        const doc = new jsPDF('l', 'mm', 'a4'); // landscape for more columns
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        let y = 14;
+
+        // ===== HEADER =====
+        doc.setFillColor(...PRIMARY);
+        doc.rect(0, 0, pageWidth, 28, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(...WHITE);
+        doc.text('MedxTerminal', 14, 13);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('DAFTAR PASIEN', 14, 19);
+        doc.setFontSize(8);
+        doc.text(`Dicetak: ${fmtDate(new Date().toISOString())}`, pageWidth - 14, 13, { align: 'right' });
+        doc.text(`Total: ${patients.length} pasien`, pageWidth - 14, 19, { align: 'right' });
+        doc.setFillColor(59, 130, 246);
+        doc.rect(0, 28, pageWidth, 1.5, 'F');
+        y = 36;
+
+        // ===== STATISTIK RINGKAS =====
+        const totalActive = patients.filter(p => p.status !== 'discharged').length;
+        const totalCritical = patients.filter(p => p.condition === 'critical').length;
+        const totalUrgent = patients.filter(p => p.condition === 'urgent').length;
+        const totalStable = patients.filter(p => p.condition === 'stable').length;
+        const totalImproving = patients.filter(p => p.condition === 'improving').length;
+        const patientsWithAdmission = patients.filter(p => p.admissionDate);
+        const avgDays = patientsWithAdmission.length > 0
+            ? Math.round(patientsWithAdmission.reduce((a, p) => {
+                const diff = Math.floor((new Date() - new Date(p.admissionDate)) / (1000 * 60 * 60 * 24));
+                return a + Math.max(0, diff);
+            }, 0) / patientsWithAdmission.length)
+            : 0;
+
+        // Stats boxes
+        const boxW = 42;
+        const boxH = 18;
+        const boxGap = 5;
+        const stats = [
+            { label: 'Total Pasien', value: `${patients.length}`, color: PRIMARY },
+            { label: 'Aktif', value: `${totalActive}`, color: [59, 130, 246] },
+            { label: 'Kritis', value: `${totalCritical}`, color: DANGER },
+            { label: 'Mendesak', value: `${totalUrgent}`, color: WARNING },
+            { label: 'Stabil', value: `${totalStable}`, color: MUTED },
+            { label: 'Membaik', value: `${totalImproving}`, color: SUCCESS },
+        ];
+        const totalBoxWidth = stats.length * boxW + (stats.length - 1) * boxGap;
+        let bx = (pageWidth - totalBoxWidth) / 2;
+        stats.forEach(s => {
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(...s.color);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(bx, y, boxW, boxH, 2, 2, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(...s.color);
+            doc.text(s.value, bx + boxW / 2, y + 10, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...MUTED);
+            doc.text(s.label, bx + boxW / 2, y + 15.5, { align: 'center' });
+            bx += boxW + boxGap;
+        });
+        y += boxH + 8;
+
+        // Average hospitalization box
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Rata-rata Lama Rawat: ${avgDays} hari`, 14, y);
+        y += 6;
+
+        // ===== TABEL PASIEN =====
+        y = sectionTitle(doc, 'Daftar Seluruh Pasien', y, pageWidth);
+
+        const tableBody = patients.map((p, index) => {
+            const genderStr = p.gender === 'female' ? 'P' : 'L';
+            const vitalStr = [
+                p.bloodPressure ? `TD ${p.bloodPressure}` : '',
+                p.heartRate ? `DJ ${p.heartRate}` : '',
+                p.temperature ? `S ${p.temperature}°` : '',
+                p.spO2 ? `SpO2 ${p.spO2}%` : '',
+            ].filter(Boolean).join(', ') || '-';
+
+            const symptomsStr = (p.symptoms && p.symptoms.length > 0)
+                ? p.symptoms.map(s => `${s.name} (${severityLabel(s.severity)})`).join(', ')
+                : '-';
+
+            const daysIn = p.admissionDate
+                ? `H${Math.max(0, Math.floor((new Date() - new Date(p.admissionDate)) / (1000 * 60 * 60 * 24)))}`
+                : '-';
+
+            return [
+                index + 1,
+                p.name || '-',
+                `${genderStr} / ${p.age || '-'}`,
+                vitalStr,
+                p.chiefComplaint || '-',
+                symptomsStr,
+                p.diagnosis || '-',
+                conditionLabel(p.condition),
+                daysIn,
+                fmtDate(p.admissionDate),
+            ];
+        });
+
+        tbl(doc, {
+            startY: y,
+            head: [['No', 'Nama Pasien', 'JK/Umur', 'Tanda Vital', 'Keluhan Utama', 'Gejala', 'Diagnosis', 'Kondisi', 'Rawat', 'Tgl Masuk']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: {
+                fillColor: PRIMARY,
+                textColor: WHITE,
+                fontStyle: 'bold',
+                fontSize: 8,
+                halign: 'center',
+                cellPadding: 2.5,
+            },
+            styles: {
+                fontSize: 7.5,
+                cellPadding: 2,
+                textColor: DARK,
+                overflow: 'linebreak',
+                lineWidth: 0.2,
+                lineColor: [226, 232, 240],
+            },
+            alternateRowStyles: { fillColor: STRIPE },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
+                1: { cellWidth: 30, fontStyle: 'bold' },
+                2: { cellWidth: 18, halign: 'center' },
+                3: { cellWidth: 38 },
+                4: { cellWidth: 40 },
+                5: { cellWidth: 45 },
+                6: { cellWidth: 32 },
+                7: { cellWidth: 20, halign: 'center' },
+                8: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+                9: { cellWidth: 28 },
+            },
+            margin: { left: 10, right: 10 },
+            didParseCell: (data) => {
+                // Color-code the "Kondisi" column
+                if (data.section === 'body' && data.column.index === 7) {
+                    const val = data.cell.raw;
+                    if (val === 'Kritis') data.cell.styles.textColor = DANGER;
+                    else if (val === 'Mendesak') data.cell.styles.textColor = WARNING;
+                    else if (val === 'Membaik') data.cell.styles.textColor = SUCCESS;
+                    else data.cell.styles.textColor = MUTED;
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            },
+        });
+
+        // ===== FOOTERS =====
+        const addListFooters = (d) => {
+            const pageCount = d.internal.getNumberOfPages();
+            const now = fmtDateTime(new Date().toISOString());
+            for (let i = 1; i <= pageCount; i++) {
+                d.setPage(i);
+                d.setFontSize(8);
+                d.setTextColor(...MUTED);
+                d.setFont('helvetica', 'normal');
+                d.text(`Dicetak dari MedxTerminal - ${now}`, 10, pageHeight - 7);
+                d.text(`Halaman ${i} / ${pageCount}`, pageWidth - 10, pageHeight - 7, { align: 'right' });
+                d.setDrawColor(226, 232, 240);
+                d.line(10, pageHeight - 11, pageWidth - 10, pageHeight - 11);
+            }
+        };
+        addListFooters(doc);
+
+        // ===== SAVE =====
+        doc.save(`Daftar_Pasien_MedxTerminal_${new Date().toISOString().slice(0, 10)}.pdf`);
+        console.log('[PDF Export] Patient List PDF generated successfully');
+    } catch (err) {
+        console.error('[PDF Export] Error generating Patient List PDF:', err);
+        alert('Gagal membuat PDF Daftar Pasien: ' + err.message);
+    }
+}

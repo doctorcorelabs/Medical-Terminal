@@ -16,7 +16,7 @@ export default function AddPatient() {
         localStorage.setItem('addPatientActiveTab', activeTab);
     }, [activeTab]);
     const [form, setForm] = useState({
-        name: '', age: '', gender: 'male', bloodType: '', admissionDate: new Date().toISOString().split('T')[0],
+        name: '', age: '', gender: 'male', room: '', bloodType: '', admissionDate: new Date().toISOString().split('T')[0],
         targetDays: '', chiefComplaint: '', diagnosis: '', condition: 'stable', status: 'active',
         heartRate: '', bloodPressure: '', temperature: '', respRate: '', spO2: '',
         weight: '', height: '', allergies: '', medicalHistory: '',
@@ -112,6 +112,7 @@ export default function AddPatient() {
                                 <FormSection title="Data Dasar" icon="person">
                                     <div className="space-y-4">
                                         <InputGroup label="Nama Lengkap *" name="name" value={form.name} onChange={handleChange} required placeholder="Masukkan nama" />
+                                        <InputGroup label="Ruang Rawat (Kamar)" name="room" value={form.room} onChange={handleChange} placeholder="Opsional (Cth: Mawar - Bed 3)" />
                                         <div className="grid grid-cols-2 gap-4">
                                             <InputGroup label="Umur" name="age" type="number" value={form.age} onChange={handleChange} placeholder="Tahun" />
                                             <div>

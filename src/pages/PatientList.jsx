@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { calculateDaysInHospital, getRelativeTime } from '../services/dataService';
+import { exportPatientListPDF } from '../services/pdfExportService';
 
 export default function PatientList() {
     const navigate = useNavigate();
@@ -9,6 +10,18 @@ export default function PatientList() {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('updatedAt');
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const filteredPatients = useMemo(() => {
         let result = [...patients];
@@ -50,20 +63,51 @@ export default function PatientList() {
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Dashboard klinis real-time dengan AI diagnostik.</p>
                 </div>
                 <div className="flex gap-2 sm:gap-3 flex-shrink-0">
-                    <button
-                        onClick={() => {
-                            const data = JSON.stringify(patients, null, 2);
-                            const blob = new Blob([data], { type: 'application/json' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url; a.download = `medterminal_export_${new Date().toISOString().split('T')[0]}.json`; a.click();
-                            URL.revokeObjectURL(url);
-                        }}
-                        className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors"
-                    >
-                        <span className="material-symbols-outlined text-lg">download</span>
-                        <span className="hidden sm:inline">Ekspor Data</span>
-                    </button>
+                    <div className="relative" ref={exportMenuRef}>
+                        <button
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-lg">download</span>
+                            <span className="hidden sm:inline">Ekspor Data</span>
+                            <span className="material-symbols-outlined text-sm transition-transform" style={{ transform: showExportMenu ? 'rotate(180deg)' : 'rotate(0deg)' }}>expand_more</span>
+                        </button>
+                        {showExportMenu && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-50 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+                                <button
+                                    onClick={() => {
+                                        exportPatientListPDF(patients);
+                                        setShowExportMenu(false);
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <span className="material-symbols-outlined text-red-500 text-xl">picture_as_pdf</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-800 dark:text-white">Export PDF</p>
+                                        <p className="text-[10px] text-slate-400">Laporan daftar pasien lengkap</p>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const data = JSON.stringify(patients, null, 2);
+                                        const blob = new Blob([data], { type: 'application/json' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url; a.download = `medterminal_export_${new Date().toISOString().split('T')[0]}.json`; a.click();
+                                        URL.revokeObjectURL(url);
+                                        setShowExportMenu(false);
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-blue-500 text-xl">data_object</span>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-800 dark:text-white">Export JSON</p>
+                                        <p className="text-[10px] text-slate-400">Data mentah untuk backup</p>
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button
                         onClick={() => navigate('/add-patient')}
                         className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors shadow-lg shadow-primary/20"
@@ -87,15 +131,15 @@ export default function PatientList() {
                             key={tab.key}
                             onClick={() => setFilter(tab.key)}
                             className={`flex items-center gap-1.5 border-b-2 pb-3 px-1 transition-all whitespace-nowrap ${filter === tab.key
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                         >
                             <span className="text-xs sm:text-sm font-bold">{tab.label}</span>
                             {tab.count > 0 && (
                                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${filter === tab.key
-                                        ? 'bg-primary/10 text-primary'
-                                        : tab.color || 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                    ? 'bg-primary/10 text-primary'
+                                    : tab.color || 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                                     }`}>{tab.count}</span>
                             )}
                         </button>
@@ -145,14 +189,14 @@ export default function PatientList() {
                             <table className="w-full text-left border-collapse min-w-[900px]">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-52">Info Pasien</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-14 text-center">Umur</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32">Tanda Vital</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Keluhan Utama</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-36">Diagnosis</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-24">Kondisi</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-16">Rawat</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right w-14">Aksi</th>
+                                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-56">Info Pasien</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12 text-center">Umur</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[18%]">Tanda Vital</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[280px]">Keluhan & Gejala</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32">Diagnosis</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-20">Kondisi</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-14">Rawat</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right w-12">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -162,43 +206,92 @@ export default function PatientList() {
                                             onClick={() => navigate(`/patient/${p.id}`)}
                                             className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
                                         >
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                            <td className="px-4 py-3 align-top">
+                                                <div className="flex items-start gap-3 mt-1">
+                                                    <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm">
                                                         <span className="material-symbols-outlined text-slate-500 text-lg">person</span>
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{p.name}</p>
-                                                        <p className="text-[10px] text-slate-500">{p.gender === 'female' ? 'P' : 'L'} • {getRelativeTime(p.updatedAt)}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm font-bold text-slate-900 dark:text-white truncate" title={p.name}>{p.name}</p>
+                                                            {p.allergies && (
+                                                                <span className="bg-red-100 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-200 flex-shrink-0 shadow-sm">Alergi</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
+                                                            {p.gender === 'female' ? 'P' : 'L'}
+                                                            {p.medicalRecordNo && ` • RM: ${p.medicalRecordNo}`}
+                                                            <span className="text-slate-400"> • {getRelativeTime(p.updatedAt)}</span>
+                                                        </p>
+                                                        {(p.room || p.dpjp) && (
+                                                            <div className="flex items-center gap-1 mt-1 truncate">
+                                                                {p.room && <span className="text-[10px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded flex-shrink-0">{p.room}</span>}
+                                                                {p.dpjp && <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 flex-shrink-0">{p.dpjp}</span>}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 text-xs text-center font-medium">{p.age || '-'}</td>
-                                            <td className="px-3 py-3">
-                                                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-semibold">
+                                            <td className="px-3 py-3 align-top"><div className="mt-1"><p className="text-xs text-center font-bold text-slate-700 dark:text-slate-300">{p.age || '-'}</p></div></td>
+                                            <td className="px-3 py-3 align-top">
+                                                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-bold bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg w-fit border border-slate-100 dark:border-slate-800 mt-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                                                     <span className={parseInt(p.bloodPressure) > 140 ? 'text-red-500' : 'text-slate-600 dark:text-slate-400'}>TD {p.bloodPressure || '-'}</span>
-                                                    <span className="text-slate-400">DJ {p.heartRate || '-'}</span>
-                                                    <span className={parseFloat(p.temperature) > 37.5 ? 'text-red-500' : 'text-slate-600 dark:text-slate-400'}>S {p.temperature || '-'}°C</span>
+                                                    <span className="text-slate-500">DJ {p.heartRate || '-'}</span>
+                                                    <span className={parseFloat(p.temperature) > 37.5 ? 'text-red-500' : 'text-slate-600 dark:text-slate-400'}>S {p.temperature || '-'}°</span>
                                                     <span className={parseFloat(p.spO2) < 95 ? 'text-red-500' : 'text-primary'}>SpO2 {p.spO2 || '-'}%</span>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3"><p className="text-xs font-medium truncate max-w-[180px]">{p.chiefComplaint || '-'}</p></td>
-                                            <td className="px-3 py-3">
-                                                {p.diagnosis ? (
-                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded inline-block truncate max-w-[140px]">{p.diagnosis}</span>
-                                                ) : <span className="text-xs text-slate-400">-</span>}
+                                            <td className="px-3 py-3 align-top pr-6">
+                                                <div className="space-y-2.5">
+                                                    {p.chiefComplaint && (
+                                                        <div>
+                                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Keluhan Utama</p>
+                                                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed text-wrap">{p.chiefComplaint}</p>
+                                                        </div>
+                                                    )}
+                                                    {p.symptoms && p.symptoms.length > 0 && (
+                                                        <div>
+                                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">symptoms</span> Gejala ({p.symptoms.length})</p>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {p.symptoms.slice(0, 3).map((s, i) => (
+                                                                    <span key={i} title={s.severity} className={`text-[9px] px-1.5 py-0.5 rounded font-bold border shadow-sm ${s.severity === 'berat' ? 'bg-red-50 text-red-600 border-red-100' : s.severity === 'sedang' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                                                        {s.name}
+                                                                    </span>
+                                                                ))}
+                                                                {p.symptoms.length > 3 && (
+                                                                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 shadow-sm border border-slate-200 dark:border-slate-700">
+                                                                        +{p.symptoms.length - 3}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {(!p.chiefComplaint && (!p.symptoms || p.symptoms.length === 0)) && <span className="text-xs text-slate-400 italic">Belum ada catatan utama</span>}
+                                                </div>
                                             </td>
-                                            <td className="px-3 py-3"><KondisiBadge kondisi={p.condition} /></td>
-                                            <td className="px-3 py-3 text-xs text-slate-500 font-medium">
-                                                {p.admissionDate ? `H${calculateDaysInHospital(p.admissionDate)}` : '-'}
+                                            <td className="px-3 py-3 align-top">
+                                                <div className="mt-1">
+                                                    {p.diagnosis ? (
+                                                        <span title={p.diagnosis} className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-lg inline-block text-wrap border border-slate-200 dark:border-slate-700 shadow-sm leading-relaxed max-w-full">{p.diagnosis}</span>
+                                                    ) : <span className="text-xs text-slate-400 italic">-</span>}
+                                                </div>
                                             </td>
-                                            <td className="px-3 py-3 text-right">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) deletePatient(p.id); }}
-                                                    className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"
-                                                >
-                                                    <span className="material-symbols-outlined text-lg">delete</span>
-                                                </button>
+                                            <td className="px-3 py-3 align-top"><div className="mt-1"><KondisiBadge kondisi={p.condition} /></div></td>
+                                            <td className="px-3 py-3 align-top">
+                                                <div className="mt-1 text-xs text-slate-500 font-bold bg-slate-50 dark:bg-slate-800 px-2 py-0.5 text-center rounded-md border border-slate-100 dark:border-slate-800 w-fit shrink-0">
+                                                    {p.admissionDate ? `H${calculateDaysInHospital(p.admissionDate)}` : '-'}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3 align-top text-right">
+                                                <div className="mt-1 flex justify-end">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) deletePatient(p.id); }}
+                                                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"
+                                                        title="Hapus Pasien"
+                                                    >
+                                                        <span className="material-symbols-outlined text-lg">delete</span>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
