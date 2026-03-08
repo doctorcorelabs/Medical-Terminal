@@ -77,19 +77,43 @@ function tbl(doc, opts) {
 
 /**
  * Render markdown text to PDF with:
- * - Justified alignment for paragraphs
+ * - MANUAL justified alignment for paragraphs (word-spacing calculation)
  * - Bold for lines starting with ## or wrapped in **...**
  * - Italic for lines wrapped in *...*
  * - Inline bold prefix detection (e.g. **Label:** rest of text)
  * - Automatic page breaks
  */
 function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
-    const LH = 4.2;          // line height mm
-    const FS = 8.5;           // base font size
-    const INDENT = 2;         // extra left indent for body text
+    const LH = 4.2;      // line height mm
+    const FS = 8.5;       // base font size
+    const INDENT = 2;     // extra left indent for body text
 
-    // Helper: render a single wrapped line with justify (except last line)
-    function renderWrapped(lines, curY, fontStyle, fontSize, color, indentX) {
+    /**
+     * Manual justify: distribute words across maxWidth using precise word spacing.
+     * For the last line of a paragraph, render left-aligned instead.
+     */
+    function justifyLine(doc, line, curX, curY, mw, isLastLine) {
+        const words = line.trim().split(/\s+/).filter(w => w.length > 0);
+        if (words.length <= 1 || isLastLine) {
+            // Last line or single word: just left-align
+            doc.text(line.trim(), curX, curY);
+            return;
+        }
+        const totalWordWidth = words.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
+        const totalSpace = mw - totalWordWidth;
+        const spacePerGap = totalSpace / (words.length - 1);
+        let wx = curX;
+        words.forEach((word, i) => {
+            doc.text(word, wx, curY);
+            wx += doc.getTextWidth(word) + spacePerGap;
+        });
+    }
+
+    /**
+     * Render an array of pre-wrapped lines with styling.
+     * Uses manual justification except for the last line and list items.
+     */
+    function renderWrapped(lines, curY, fontStyle, fontSize, color, indentX, doJustify = false) {
         doc.setFont('helvetica', fontStyle);
         doc.setFontSize(fontSize);
         doc.setTextColor(...color);
@@ -97,16 +121,19 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             if (curY > pageBottomY) { doc.addPage(); curY = 20; }
             const isLast = idx === lines.length - 1;
             const isList = /^(\d+[.)]|[-•*])\s/.test(l.trimStart());
-            const tooShort = l.trim().length < 25;  // don't justify very short lines
-            if (!isLast && !isList && !tooShort) {
-                doc.text(l, indentX, curY, { align: 'justify', maxWidth });
+            const tooShort = doc.getTextWidth(l.trim()) < mw * 0.6; // skip justify if line fills < 60% width
+            if (doJustify && !isLast && !isList && !tooShort) {
+                justifyLine(doc, l, indentX, curY, maxWidth, false);
             } else {
-                doc.text(l, indentX, curY);
+                doc.text(l.trim(), indentX, curY);
             }
             curY += LH;
         });
         return curY;
     }
+
+    // Alias for clarity inside closures
+    const mw = maxWidth;
 
     const rawLines = rawText.split('\n');
     let paragraphBuffer = [];
@@ -115,15 +142,30 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
         if (paragraphBuffer.length === 0) return curY;
         const joined = paragraphBuffer.join(' ');
         paragraphBuffer = [];
-        const wrapped = doc.splitTextToSize(joined, maxWidth);
-        return renderWrapped(wrapped, curY, 'normal', FS, DARK, x + INDENT);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FS);
+        doc.setTextColor(...DARK);
+        const wrapped = doc.splitTextToSize(joined, mw);
+        wrapped.forEach((l, idx) => {
+            if (curY > pageBottomY) { doc.addPage(); curY = 20; }
+            const isLast = idx === wrapped.length - 1;
+            const lineTextWidth = doc.getTextWidth(l.trim());
+            // Justify if not last line and fills > 60% of width
+            if (!isLast && lineTextWidth > mw * 0.6) {
+                justifyLine(doc, l, x + INDENT, curY, mw, false);
+            } else {
+                doc.text(l.trim(), x + INDENT, curY);
+            }
+            curY += LH;
+        });
+        return curY;
     }
 
     for (let i = 0; i < rawLines.length; i++) {
         const raw = rawLines[i];
         const trimmed = raw.trim();
 
-        // Empty line => flush buffer + add spacing
+        // Empty line => flush buffer + small vertical gap
         if (!trimmed) {
             y = flushBuffer(y);
             y += LH * 0.4;
@@ -136,8 +178,8 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             y = flushBuffer(y);
             const content = headingMatch[1].replace(/\*\*/g, '').replace(/\*/g, '');
             if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const wrapped = doc.splitTextToSize(content, maxWidth);
-            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT);
+            const wrapped = doc.splitTextToSize(content, mw);
+            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT, false);
             continue;
         }
 
@@ -147,8 +189,8 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             y = flushBuffer(y);
             const content = allBoldMatch[1];
             if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const wrapped = doc.splitTextToSize(content, maxWidth);
-            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT);
+            const wrapped = doc.splitTextToSize(content, mw);
+            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT, false);
             continue;
         }
 
@@ -158,12 +200,12 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             y = flushBuffer(y);
             const content = allItalicMatch[1];
             if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const wrapped = doc.splitTextToSize(content, maxWidth);
-            y = renderWrapped(wrapped, y, 'italic', FS, MUTED, x + INDENT);
+            const wrapped = doc.splitTextToSize(content, mw);
+            y = renderWrapped(wrapped, y, 'italic', FS, MUTED, x + INDENT, false);
             continue;
         }
 
-        // Inline bold prefix: **Label:** rest of text (e.g. **Temuan Kritis:** blah blah)
+        // Inline bold prefix: **Label:** rest of text
         const boldPrefixMatch = trimmed.match(/^\*\*([^*]+)\*\*[:\s](.*)$/);
         if (boldPrefixMatch) {
             y = flushBuffer(y);
@@ -171,7 +213,6 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             const boldPart = boldPrefixMatch[1] + ':';
             const restPart = boldPrefixMatch[2].replace(/\*\*/g, '').replace(/\*/g, '').trim();
 
-            // Measure bold prefix width
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(FS);
             doc.setTextColor(...DARK);
@@ -181,15 +222,12 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             if (restPart) {
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(...DARK);
-                const restMaxW = maxWidth - boldW;
+                const restMaxW = mw - boldW;
                 const restLines = doc.splitTextToSize(restPart, restMaxW);
-                // First sub-line on same line as bold prefix
-                doc.text(restLines[0], x + INDENT + boldW, y);
+                doc.text(restLines[0].trim(), x + INDENT + boldW, y);
                 y += LH;
-                // Remaining sub-lines, justified
                 if (restLines.length > 1) {
-                    const remaining = restLines.slice(1);
-                    y = renderWrapped(remaining, y, 'normal', FS, DARK, x + INDENT);
+                    y = renderWrapped(restLines.slice(1), y, 'normal', FS, DARK, x + INDENT, true);
                 }
             } else {
                 y += LH;
@@ -197,7 +235,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             continue;
         }
 
-        // List item: starts with number+dot, dash, bullet
+        // List item: starts with number, dash, or bullet
         const listMatch = trimmed.match(/^(\d+[.)\s]|[-•*]\s)(.+)/);
         if (listMatch) {
             y = flushBuffer(y);
@@ -206,22 +244,21 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(FS);
             doc.setTextColor(...DARK);
-            const wrapped = doc.splitTextToSize(clean, maxWidth);
-            // List items: left aligned (no justify)
+            const wrapped = doc.splitTextToSize(clean, mw);
             wrapped.forEach(l => {
                 if (y > pageBottomY) { doc.addPage(); y = 20; }
-                doc.text(l, x + INDENT, y);
+                doc.text(l.trim(), x + INDENT, y);
                 y += LH;
             });
             continue;
         }
 
-        // Regular paragraph text — accumulate into buffer for justification
+        // Regular paragraph text — buffer for justified rendering
         const clean = trimmed.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
         paragraphBuffer.push(clean);
     }
 
-    // Flush any remaining buffer
+    // Flush remaining buffer
     y = flushBuffer(y);
     return y;
 }

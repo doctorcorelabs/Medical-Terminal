@@ -27,7 +27,7 @@ export default function Dashboard() {
                     </div>
                     <button
                         onClick={() => navigate('/add-patient')}
-                        className="bg-primary text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all text-sm flex-shrink-0 w-full sm:w-auto"
+                        className="bg-primary text-white px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all text-sm shrink-0 w-full sm:w-auto"
                     >
                         <span className="material-symbols-outlined text-xl">add</span>
                         Pasien Baru
@@ -35,7 +35,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 lg:gap-6">
                     {/* Pasien Aktif */}
                     <div className="bg-white dark:bg-slate-900 p-5 lg:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-primary/50 transition-all">
                         <div className="flex justify-between items-start mb-4">
@@ -75,7 +75,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Pasien Pulang */}
-                    <div className="bg-white dark:bg-slate-900 p-5 lg:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-green-500/50 transition-all sm:col-span-2 lg:col-span-1">
+                    <div className="bg-white dark:bg-slate-900 p-5 lg:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-green-500/50 transition-all sm:col-span-2 md:col-span-1">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-3 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
                                 <span className="material-symbols-outlined">task_alt</span>
@@ -94,9 +94,9 @@ export default function Dashboard() {
                 </div>
             </section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
                 {/* Kolom Kiri */}
-                <div className="lg:col-span-2 space-y-6 lg:space-y-8 min-w-0">
+                <div className="md:col-span-2 space-y-6 lg:space-y-8 min-w-0">
                     {/* Aksi Cepat */}
                     <section>
                         <h3 className="text-lg lg:text-xl font-bold mb-4 flex items-center gap-2">
@@ -115,7 +115,7 @@ export default function Dashboard() {
                                     onClick={() => navigate(item.path)}
                                     className="flex flex-col items-start p-4 lg:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group"
                                 >
-                                    <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform flex-shrink-0">
+                                    <div className="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shrink-0">
                                         <span className="material-symbols-outlined">{item.icon}</span>
                                     </div>
                                     <span className="font-bold text-slate-900 dark:text-white text-sm">{item.title}</span>
@@ -147,7 +147,7 @@ export default function Dashboard() {
                                         onClick={() => navigate(`/patient/${patient.id}`)}
                                         className="p-3 lg:p-4 flex items-center gap-3 lg:gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                                     >
-                                        <div className="size-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary flex-shrink-0">
+                                        <div className="size-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary shrink-0">
                                             <span className="material-symbols-outlined">person</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -180,7 +180,7 @@ export default function Dashboard() {
                                         <div key={patient.id} className="space-y-1.5 cursor-pointer" onClick={() => navigate(`/patient/${patient.id}`)}>
                                             <div className="flex justify-between text-xs gap-2">
                                                 <span className="font-bold truncate min-w-0">{patient.name}</span>
-                                                <span className="text-slate-400 flex-shrink-0">Hari {recovery.daysIn}/{recovery.targetDays}</span>
+                                                <span className="text-slate-400 shrink-0">Hari {recovery.daysIn}/{recovery.targetDays}</span>
                                             </div>
                                             <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                 <div
@@ -239,7 +239,7 @@ function KondisiBadge({ kondisi }) {
     };
     const labels = { critical: 'Kritis', urgent: 'Mendesak', stable: 'Stabil', improving: 'Membaik' };
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex-shrink-0 ${styles[kondisi] || styles.stable}`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${styles[kondisi] || styles.stable}`}>
             {labels[kondisi] || 'Stabil'}
         </span>
     );

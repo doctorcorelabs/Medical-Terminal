@@ -24,7 +24,7 @@ export default function Sidebar({ isOpen, onClose }) {
             )}
 
             <aside className={`
-        fixed lg:relative z-50 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 transition-all duration-300 ease-in-out
+        fixed lg:relative z-50 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-all duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}>
@@ -39,8 +39,8 @@ export default function Sidebar({ isOpen, onClose }) {
                 </button>
 
                 {/* Logo */}
-                <div className={`p-6 flex items-center flex-shrink-0 ${isCollapsed ? 'justify-center px-4' : 'gap-3'}`}>
-                    <div className="bg-primary rounded-lg p-1.5 flex items-center justify-center flex-shrink-0">
+                <div className={`p-6 flex items-center shrink-0 ${isCollapsed ? 'justify-center px-4' : 'gap-3'}`}>
+                    <div className="bg-primary rounded-lg p-1.5 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-white">medical_services</span>
                     </div>
                     {!isCollapsed && (
@@ -63,28 +63,28 @@ export default function Sidebar({ isOpen, onClose }) {
                                 }`
                             }
                         >
-                            <span className="material-symbols-outlined text-[22px] flex-shrink-0">{item.icon}</span>
+                            <span className="material-symbols-outlined text-[22px] shrink-0">{item.icon}</span>
                             {!isCollapsed && <span className="text-sm whitespace-nowrap overflow-hidden">{item.label}</span>}
                         </NavLink>
                     ))}
                 </nav>
 
                 {/* Theme toggle */}
-                <div className="px-4 py-2 flex-shrink-0">
+                <div className="px-4 py-2 shrink-0">
                     <button
                         onClick={toggleTheme}
                         title={isCollapsed ? (isDark ? 'Mode Terang' : 'Mode Gelap') : ''}
                         className={`flex items-center px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
                     >
-                        <span className="material-symbols-outlined text-[22px] flex-shrink-0">{isDark ? 'light_mode' : 'dark_mode'}</span>
+                        <span className="material-symbols-outlined text-[22px] shrink-0">{isDark ? 'light_mode' : 'dark_mode'}</span>
                         {!isCollapsed && <span className="text-sm whitespace-nowrap overflow-hidden">{isDark ? 'Mode Terang' : 'Mode Gelap'}</span>}
                     </button>
                 </div>
 
                 {/* User info */}
-                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex-shrink-0 group relative">
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 group relative">
                     <div className={`flex items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${isCollapsed ? 'justify-center' : 'gap-3'}`} onClick={() => signOut()}>
-                        <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
+                        <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                             {user?.email?.charAt(0).toUpperCase() || 'U'}
                         </div>
                         {!isCollapsed && (

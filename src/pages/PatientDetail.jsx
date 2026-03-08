@@ -101,13 +101,13 @@ export default function PatientDetail() {
             {/* Header */}
             <div>
                 <div className="flex items-center gap-3 mb-1 flex-wrap">
-                    <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0">
+                    <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{patient.name}</h1>
                     <KondisiBadge kondisi={patient.condition} />
                     <button onClick={() => exportPatientPDF(patient)}
-                        className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold flex-shrink-0"
+                        className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold shrink-0"
                         title="Export laporan medis ke PDF">
                         <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
                         <span className="hidden sm:inline">Export PDF</span>
@@ -136,7 +136,7 @@ export default function PatientDetail() {
             <div className="flex border-b border-slate-200 dark:border-slate-800 gap-0.5 overflow-x-auto">
                 {tabs.map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                        className={`flex items-center gap-1 px-2.5 sm:px-3 py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        className={`flex items-center gap-1 px-2.5 sm:px-3 py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap border-b-2 transition-all shrink-0 ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                             }`}>
                         <span className="material-symbols-outlined text-[16px] sm:text-[18px]">{tab.icon}</span>
                         <span>{tab.label}</span>
@@ -189,7 +189,7 @@ function TabRingkasan({ patient, navigate }) {
                 {/* Kartu Pasien */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 lg:p-6">
                     <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 mb-6">
-                        <div className="size-16 sm:size-20 rounded-full bg-primary/10 flex items-center justify-center text-primary border-4 border-white dark:border-slate-800 shadow-sm flex-shrink-0">
+                        <div className="size-16 sm:size-20 rounded-full bg-primary/10 flex items-center justify-center text-primary border-4 border-white dark:border-slate-800 shadow-sm shrink-0">
                             <span className="text-xl sm:text-2xl font-black">{patient.name?.substring(0, 2).toUpperCase()}</span>
                         </div>
                         <div className="flex-1 min-w-0 w-full">
@@ -216,7 +216,7 @@ function TabRingkasan({ patient, navigate }) {
                     </div>
                     {/* Tanda Vital */}
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tanda Vital</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                         {[
                             { label: 'Detak Jantung', value: patient.heartRate, unit: 'bpm' },
                             { label: 'Tekanan Darah', value: patient.bloodPressure, unit: 'mmHg' },
@@ -225,7 +225,7 @@ function TabRingkasan({ patient, navigate }) {
                             { label: 'SpO2', value: patient.spO2, unit: '%' },
                         ].map(v => (
                             <div key={v.label} className="p-2 lg:p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/10 text-center flex flex-col h-full">
-                                <p className="text-[10px] sm:text-xs text-primary font-bold leading-tight min-h-[1.75rem] flex items-start justify-center mb-1">{v.label}</p>
+                                <p className="text-[10px] sm:text-xs text-primary font-bold leading-tight min-h-7 flex items-start justify-center mb-1">{v.label}</p>
                                 <div className="flex flex-col items-center justify-center mt-auto">
                                     <span className="text-base sm:text-[1.1rem] font-black text-slate-800 dark:text-slate-100 leading-none mb-0.5">{v.value || '-'}</span>
                                     <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold tracking-wide">{v.unit}</span>
@@ -244,7 +244,7 @@ function TabRingkasan({ patient, navigate }) {
                 {(patient.symptoms || []).length > 0 && (
                     <>
                         <Kartu judul="Peta Gejala" headerIcon="hub" id="grafik-gejala">
-                            <div className="h-[300px] lg:h-[350px]"><SymptomGraph symptoms={patient.symptoms} aiResult={patient.aiInsights?.symptoms} /></div>
+                            <div className="h-75 lg:h-87.5"><SymptomGraph symptoms={patient.symptoms} aiResult={patient.aiInsights?.symptoms} /></div>
                         </Kartu>
                         <Kartu judul="Timeline Gejala" headerIcon="timeline" id="timeline-gejala">
                             <TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} />
@@ -270,7 +270,7 @@ function TabRingkasan({ patient, navigate }) {
                             { label: 'Laporan Harian', value: (patient.dailyReports || []).length },
                         ].map(item => (
                             <div key={item.label} className="flex justify-between items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm">
-                                <span className="text-slate-500 flex-shrink-0">{item.label}</span>
+                                <span className="text-slate-500 shrink-0">{item.label}</span>
                                 <span className="font-semibold text-right truncate min-w-0">{item.value}</span>
                             </div>
                         ))}
@@ -299,7 +299,7 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
 
     return (
         <div className="space-y-5 lg:space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
                     <Kartu judul="Tambah Gejala" aksi={<button className="p-1 rounded-full text-slate-400 hover:text-primary transition-colors hover:bg-slate-50"><span className="material-symbols-outlined text-xl">add_circle</span></button>}>
                         <form onSubmit={onAdd} className="space-y-4">
@@ -333,15 +333,15 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
                                 (patient.symptoms || []).map(s => (
                                     <div key={s.id}>
                                         <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
+                                            <div className={`w-2 h-2 rounded-full shrink-0 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold truncate">{s.name}</p>
                                                 {s.notes && <p className="text-xs text-slate-400 truncate">{s.notes}</p>}
                                             </div>
                                             <BadgeKeparahan keparahan={s.severity} />
-                                            <span className="text-[10px] text-slate-400 flex-shrink-0 hidden sm:block">{formatDateTime(s.recordedAt)}</span>
+                                            <span className="text-[10px] text-slate-400 shrink-0 hidden sm:block">{formatDateTime(s.recordedAt)}</span>
                                             <button type="button" onClick={() => handleDeleteClick(s.id)}
-                                                className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex-shrink-0">
+                                                className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0">
                                                 <span className="material-symbols-outlined text-sm">close</span>
                                             </button>
                                         </div>
@@ -368,8 +368,8 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
             <TombolAI label="Analisis Gejala" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.symptoms || []).length === 0} />
 
             {(patient.symptoms || []).length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-                    <Kartu judul="Node Gejala" id="grafik-gejala-tab"><div className="h-[280px] lg:h-[300px]"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
+                    <Kartu judul="Node Gejala" id="grafik-gejala-tab"><div className="h-70 lg:h-75"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
                     <Kartu judul="Timeline" id="timeline-gejala-tab"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
                 </div>
             )}
@@ -383,7 +383,7 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
 
     return (
         <div className="space-y-5 lg:space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
                     <Kartu judul={`Tambah ${judul}`}>
                         <form onSubmit={onAdd} className="space-y-4">
@@ -419,7 +419,7 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
                                         <div className="flex justify-between items-start">
                                             <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
                                             <button type="button" onClick={() => setConfirmingId(item.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0">
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shrink-0">
                                                 <span className="material-symbols-outlined text-sm">close</span>
                                             </button>
                                         </div>
@@ -482,7 +482,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
     return (
         <div className="space-y-5 lg:space-y-6">
             {showRefModal && <LabReferenceModal onClose={() => setShowRefModal(false)} />}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
                     <Kartu judul="Input Hasil Lab" aksi={
                         <button
@@ -501,13 +501,13 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                                 <div className="flex gap-1 overflow-x-auto pb-1">
                                     {labCategories.map(cat => (
                                         <button key={cat.key} type="button" onClick={() => setActiveLabCat(cat.key)}
-                                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
                                             <span className="material-symbols-outlined text-[12px]">{cat.icon}</span>
                                             {cat.label.split(' ')[0]}
                                         </button>
                                     ))}
                                     <button type="button" onClick={() => setActiveLabCat('custom')}
-                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
                                         <span className="material-symbols-outlined text-[12px]">add</span>
                                         Custom
                                     </button>
@@ -524,7 +524,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                                             <button key={k} type="button" onClick={() => setInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit, value: v.qualitative ? '' : p.value }))}
                                                 className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center gap-1 ${input.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-800 border border-transparent'}`}>
                                                 <span className="truncate text-[11px]">{v.name}</span>
-                                                <span className={`text-[9px] font-mono flex-shrink-0 ${input.labKey === k ? 'text-white/70' : 'text-slate-400'}`}>{v.unit !== '-' ? v.unit : ''}</span>
+                                                <span className={`text-[9px] font-mono shrink-0 ${input.labKey === k ? 'text-white/70' : 'text-slate-400'}`}>{v.unit !== '-' ? v.unit : ''}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -534,10 +534,10 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                             {/* Inline reference hint */}
                             {selectedRef && refDisplay && (
                                 <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
-                                    <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 flex-shrink-0">info</span>
+                                    <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">info</span>
                                     <div className="min-w-0">
                                         <p className="text-[10px] text-primary font-black uppercase tracking-wide">Nilai Rujukan</p>
-                                        <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 break-words">{refDisplay.text}</p>
+                                        <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 wrap-break-word">{refDisplay.text}</p>
                                         {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5">Metode: {selectedRef.metode}</p>}
                                     </div>
                                 </div>
@@ -559,7 +559,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                                         value={input.unit}
                                         onChange={e => setInput(p => ({ ...p, unit: e.target.value }))}
                                         placeholder="Satuan"
-                                        className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 flex-shrink-0 transition-all shadow-sm"
+                                        className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 shrink-0 transition-all shadow-sm"
                                     />
                                 </div>
                             )}
@@ -584,7 +584,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                                             <p className="text-sm font-semibold truncate">{e.testName}</p>
                                             <p className="text-[10px] text-slate-400">{formatDateTime(e.date)}</p>
                                         </div>
-                                        <div className="text-right flex-shrink-0 flex items-center gap-3">
+                                        <div className="text-right shrink-0 flex items-center gap-3">
                                             <div>
                                                 <span className="text-sm font-bold block">{e.value} <span className="text-[10px] font-medium text-slate-400">{e.unit}</span></span>
                                                 {e.result && (
@@ -620,7 +620,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
 
     return (
         <div className="space-y-5 lg:space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
                     <Kartu judul="Tambah Obat">
                         <form onSubmit={onAdd} className="space-y-3">
@@ -669,7 +669,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                                                 className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
                                                 <span className="material-symbols-outlined text-sm">close</span>
                                             </button>
-                                            <span className="material-symbols-outlined text-slate-400 text-sm flex-shrink-0 group-hover:hidden">info</span>
+                                            <span className="material-symbols-outlined text-slate-400 text-sm shrink-0 group-hover:hidden">info</span>
                                         </div>
                                     </div>
                                     {confirmingId === p.id && (
@@ -692,7 +692,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
 
     return (
         <div className="space-y-5 lg:space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
                     <Kartu judul="Laporan Harian Baru">
                         <form onSubmit={onAdd} className="space-y-4">
@@ -778,7 +778,7 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
                 {aiMethods.map(item => (
                     <button key={item.key} onClick={item.fn} disabled={item.disabled || aiLoading[item.key]}
                         className="flex flex-col items-start p-4 lg:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group disabled:opacity-50">
-                        <div className={`size-10 rounded-lg bg-gradient-to-br ${item.color} text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform flex-shrink-0`}>
+                        <div className={`size-10 rounded-lg bg-linear-to-br ${item.color} text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shrink-0`}>
                             <span className="material-symbols-outlined">{item.icon}</span>
                         </div>
                         <span className="font-bold text-sm">{item.title}</span>
@@ -816,7 +816,7 @@ function Kartu({ judul, headerIcon, aksi, children, id }) {
         <div id={id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 gap-3">
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{judul}</h3>
-                {aksi || (headerIcon && <span className="material-symbols-outlined text-slate-400 flex-shrink-0">{headerIcon}</span>)}
+                {aksi || (headerIcon && <span className="material-symbols-outlined text-slate-400 shrink-0">{headerIcon}</span>)}
             </div>
             <div className="p-4 lg:p-6">{children}</div>
         </div>
@@ -906,7 +906,7 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave }) {
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
                             placeholder="Ketik detail diagnosis/catatan di sini..."
-                            className="w-full min-h-[350px] p-4 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-slate-700 dark:text-slate-300 font-mono leading-relaxed"
+                            className="w-full min-h-87.5 p-4 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-slate-700 dark:text-slate-300 font-mono leading-relaxed"
                         />
                     ) : (
                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify">
@@ -922,13 +922,13 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave }) {
 function KondisiBadge({ kondisi }) {
     const styles = { critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', urgent: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', stable: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400', improving: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
     const labels = { critical: 'Kritis', urgent: 'Mendesak', stable: 'Stabil', improving: 'Membaik' };
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex-shrink-0 ${styles[kondisi] || styles.stable}`}>{labels[kondisi] || 'Stabil'}</span>;
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${styles[kondisi] || styles.stable}`}>{labels[kondisi] || 'Stabil'}</span>;
 }
 
 function BadgeKeparahan({ keparahan }) {
     const styles = { berat: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', sedang: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', ringan: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' };
     const labels = { berat: 'Berat', sedang: 'Sedang', ringan: 'Ringan' };
-    return <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full flex-shrink-0 ${styles[keparahan] || styles.sedang}`}>{labels[keparahan] || keparahan}</span>;
+    return <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${styles[keparahan] || styles.sedang}`}>{labels[keparahan] || keparahan}</span>;
 }
 
 function Kosong() {

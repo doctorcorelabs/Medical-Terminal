@@ -28,7 +28,7 @@ export default function App() {
     <ThemeProvider>
       <PatientProvider>
         <Router>
-          <div className="flex h-screen overflow-hidden bg-[#f6f7f8] dark:bg-[#101822] text-slate-900 dark:text-slate-100">
+          <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
             {/* Sidebar - desktop always visible, mobile toggle */}
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

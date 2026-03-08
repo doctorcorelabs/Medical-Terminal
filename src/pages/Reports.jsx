@@ -41,13 +41,13 @@ export default function Reports() {
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Laporan</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Ringkasan data klinis dan ekspor logbook.</p>
                 </div>
-                <button onClick={exportLogbook} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors shadow-lg shadow-primary/20 flex-shrink-0 w-full sm:w-auto">
+                <button onClick={exportLogbook} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors shadow-lg shadow-primary/20 shrink-0 w-full sm:w-auto">
                     <span className="material-symbols-outlined text-lg">download</span>Ekspor Logbook
                 </button>
             </div>
 
             {/* Grid Statistik */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
                 {[
                     { label: 'Total Pasien', value: stats.total, icon: 'group', color: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
                     { label: 'Aktif', value: stats.active, icon: 'person', color: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
@@ -63,7 +63,7 @@ export default function Reports() {
             </div>
 
             {/* Detail Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 {/* Distribusi Kondisi */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                     <div className="px-5 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
@@ -79,7 +79,7 @@ export default function Reports() {
                             <div key={item.label} className="space-y-1">
                                 <div className="flex justify-between text-xs gap-3">
                                     <span className="font-medium text-slate-600 dark:text-slate-400">{item.label}</span>
-                                    <span className="font-bold flex-shrink-0">{item.value}</span>
+                                    <span className="font-bold shrink-0">{item.value}</span>
                                 </div>
                                 <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                     <div className={`h-full ${item.color} rounded-full transition-all`} style={{ width: `${stats.total > 0 ? (item.value / stats.total) * 100 : 0}%` }} />
@@ -103,10 +103,10 @@ export default function Reports() {
                         ].map(item => (
                             <div key={item.label} className="px-5 lg:px-6 py-4 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <span className="material-symbols-outlined text-primary text-xl flex-shrink-0">{item.icon}</span>
+                                    <span className="material-symbols-outlined text-primary text-xl shrink-0">{item.icon}</span>
                                     <span className="text-sm font-medium truncate">{item.label}</span>
                                 </div>
-                                <span className="text-sm font-bold flex-shrink-0">{item.value}</span>
+                                <span className="text-sm font-bold shrink-0">{item.value}</span>
                             </div>
                         ))}
                     </div>

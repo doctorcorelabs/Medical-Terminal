@@ -53,7 +53,7 @@ export default function TimelineChart({ symptoms, admissionDate }) {
                                             {symptom.severity}
                                         </span>
                                     </div>
-                                    <span className="text-[10px] text-slate-400 flex-shrink-0">{formatDateTime(symptom.recordedAt)}</span>
+                                    <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(symptom.recordedAt)}</span>
                                 </div>
                                 {symptom.notes && (
                                     <p className="text-xs text-slate-500 mt-1">{symptom.notes}</p>

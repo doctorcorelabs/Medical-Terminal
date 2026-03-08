@@ -35,7 +35,7 @@ export default function Settings() {
     };
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-6 lg:space-y-8 pb-20 lg:pb-8 max-w-3xl animate-[fadeIn_0.3s_ease-out]">
+        <div className="p-4 md:p-6 lg:p-8 space-y-6 lg:space-y-8 pb-20 lg:pb-8 max-w-3xl md:max-w-4xl animate-[fadeIn_0.3s_ease-out]">
             <div>
                 <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Pengaturan</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Konfigurasi aplikasi dan manajemen data.</p>
@@ -52,7 +52,7 @@ export default function Settings() {
                             <p className="font-semibold text-sm">Mode Gelap</p>
                             <p className="text-xs text-slate-500 mt-0.5">Ganti antara tema terang dan gelap.</p>
                         </div>
-                        <button onClick={toggleTheme} className={`relative w-12 h-7 rounded-full transition-colors flex-shrink-0 ${isDark ? 'bg-primary' : 'bg-slate-300'}`}>
+                        <button onClick={toggleTheme} className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${isDark ? 'bg-primary' : 'bg-slate-300'}`}>
                             <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-5' : ''}`} />
                         </button>
                     </div>
@@ -71,7 +71,7 @@ export default function Settings() {
                         <div className="flex gap-2">
                             <input type="url" value={workerUrl} onChange={e => setWorkerUrl(e.target.value)} placeholder="https://worker-anda.workers.dev"
                                 className="flex-1 min-w-0 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm" />
-                            <button onClick={saveWorkerUrl} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors flex-shrink-0">
+                            <button onClick={saveWorkerUrl} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors shrink-0">
                                 {saved ? '✓ Tersimpan' : 'Simpan'}
                             </button>
                         </div>

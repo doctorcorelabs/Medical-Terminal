@@ -62,7 +62,7 @@ export default function PatientList() {
                     <h1 className="text-slate-900 dark:text-white text-2xl md:text-3xl font-black leading-tight tracking-tight">Daftar Pasien</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Dashboard klinis real-time dengan AI diagnostik.</p>
                 </div>
-                <div className="flex gap-2 sm:gap-3 flex-shrink-0">
+                <div className="flex gap-2 sm:gap-3 shrink-0">
                     <div className="relative" ref={exportMenuRef}>
                         <button
                             onClick={() => setShowExportMenu(!showExportMenu)}
@@ -150,7 +150,7 @@ export default function PatientList() {
                 <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center sm:justify-between">
                     <div className="flex-1 min-w-0 max-w-xl">
                         <div className="flex w-full items-stretch rounded-xl h-11 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-                            <div className="text-slate-400 flex items-center justify-center pl-4 flex-shrink-0">
+                            <div className="text-slate-400 flex items-center justify-center pl-4 shrink-0">
                                 <span className="material-symbols-outlined text-xl">search</span>
                             </div>
                             <input
@@ -165,7 +165,7 @@ export default function PatientList() {
                     <select
                         value={sortBy}
                         onChange={e => setSortBy(e.target.value)}
-                        className="h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 flex-shrink-0"
+                        className="h-11 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 shrink-0"
                     >
                         <option value="updatedAt">Urutkan: Terbaru</option>
                         <option value="admission">Urutkan: Tanggal Masuk</option>
@@ -186,17 +186,17 @@ export default function PatientList() {
                     {/* Tabel Desktop */}
                     <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse min-w-[900px]">
+                            <table className="w-full text-left border-collapse min-w-175">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                                        <th className="px-4 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-56">Info Pasien</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12 text-center">Umur</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[18%]">Tanda Vital</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[280px]">Keluhan & Gejala</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32">Diagnosis</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-20">Kondisi</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-14">Rawat</th>
-                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right w-12">Aksi</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Info Pasien</th>
+                                        <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10 text-center">Umur</th>
+                                        <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32.5">Tanda Vital</th>
+                                        <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-45">Keluhan & Gejala</th>
+                                        <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-28">Diagnosis</th>
+                                        <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-20">Kondisi</th>
+                                        <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">Rawat</th>
+                                        <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right w-10">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -206,16 +206,16 @@ export default function PatientList() {
                                             onClick={() => navigate(`/patient/${p.id}`)}
                                             className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
                                         >
-                                            <td className="px-4 py-3 align-top">
-                                                <div className="flex items-start gap-3 mt-1">
-                                                    <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm">
+                                            <td className="px-3 py-3 align-top">
+                                                <div className="flex items-start gap-2 mt-1">
+                                                    <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm">
                                                         <span className="material-symbols-outlined text-slate-500 text-lg">person</span>
                                                     </div>
                                                     <div className="min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-sm font-bold text-slate-900 dark:text-white truncate" title={p.name}>{p.name}</p>
                                                             {p.allergies && (
-                                                                <span className="bg-red-100 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-200 flex-shrink-0 shadow-sm">Alergi</span>
+                                                                <span className="bg-red-100 text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-200 shrink-0 shadow-sm">Alergi</span>
                                                             )}
                                                         </div>
                                                         <p className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
@@ -225,20 +225,20 @@ export default function PatientList() {
                                                         </p>
                                                         {(p.room || p.dpjp) && (
                                                             <div className="flex items-center gap-1 mt-1 truncate">
-                                                                {p.room && <span className="text-[10px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded flex-shrink-0">{p.room}</span>}
-                                                                {p.dpjp && <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 flex-shrink-0">{p.dpjp}</span>}
+                                                                {p.room && <span className="text-[10px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded shrink-0">{p.room}</span>}
+                                                                {p.dpjp && <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 shrink-0">{p.dpjp}</span>}
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 align-top"><div className="mt-1"><p className="text-xs text-center font-bold text-slate-700 dark:text-slate-300">{p.age || '-'}</p></div></td>
-                                            <td className="px-3 py-3 align-top">
-                                                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-bold bg-slate-50 dark:bg-slate-800/50 p-1.5 rounded-lg w-fit border border-slate-100 dark:border-slate-800 mt-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                                                    <span className={parseInt(p.bloodPressure) > 140 ? 'text-red-500' : 'text-slate-600 dark:text-slate-400'}>TD {p.bloodPressure || '-'}</span>
-                                                    <span className="text-slate-500">DJ {p.heartRate || '-'}</span>
-                                                    <span className={parseFloat(p.temperature) > 37.5 ? 'text-red-500' : 'text-slate-600 dark:text-slate-400'}>S {p.temperature || '-'}°</span>
-                                                    <span className={parseFloat(p.spO2) < 95 ? 'text-red-500' : 'text-primary'}>SpO2 {p.spO2 || '-'}%</span>
+                                            <td className="px-2 py-3 align-top"><div className="mt-1"><p className="text-xs text-center font-bold text-slate-700 dark:text-slate-300">{p.age || '-'}</p></div></td>
+                                            <td className="px-2 py-3 align-top">
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    <span className={`whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${parseInt(p.bloodPressure) > 140 ? 'text-red-600 bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800' : 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'}`}>TD {p.bloodPressure || '-'}</span>
+                                                    <span className="whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-slate-500">DJ {p.heartRate || '-'}</span>
+                                                    <span className={`whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${parseFloat(p.temperature) > 37.5 ? 'text-red-600 bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800' : 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'}`}>S {p.temperature || '-'}°</span>
+                                                    <span className={`whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${parseFloat(p.spO2) < 95 ? 'text-red-600 bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800' : 'text-primary bg-primary/5 border-primary/20'}`}>SpO2 {p.spO2 || '-'}%</span>
                                                 </div>
                                             </td>
                                             <td className="px-3 py-3 align-top pr-6">
@@ -269,20 +269,20 @@ export default function PatientList() {
                                                     {(!p.chiefComplaint && (!p.symptoms || p.symptoms.length === 0)) && <span className="text-xs text-slate-400 italic">Belum ada catatan utama</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 align-top">
+                                            <td className="px-2 py-3 align-top">
                                                 <div className="mt-1">
                                                     {p.diagnosis ? (
                                                         <span title={p.diagnosis} className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-lg inline-block text-wrap border border-slate-200 dark:border-slate-700 shadow-sm leading-relaxed max-w-full">{p.diagnosis}</span>
                                                     ) : <span className="text-xs text-slate-400 italic">-</span>}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 align-top"><div className="mt-1"><KondisiBadge kondisi={p.condition} /></div></td>
-                                            <td className="px-3 py-3 align-top">
+                                            <td className="px-2 py-3 align-top"><div className="mt-1"><KondisiBadge kondisi={p.condition} /></div></td>
+                                            <td className="px-2 py-3 align-top">
                                                 <div className="mt-1 text-xs text-slate-500 font-bold bg-slate-50 dark:bg-slate-800 px-2 py-0.5 text-center rounded-md border border-slate-100 dark:border-slate-800 w-fit shrink-0">
                                                     {p.admissionDate ? `H${calculateDaysInHospital(p.admissionDate)}` : '-'}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 align-top text-right">
+                                            <td className="px-2 py-3 align-top text-right">
                                                 <div className="mt-1 flex justify-end">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) deletePatient(p.id); }}
@@ -313,7 +313,7 @@ export default function PatientList() {
                             >
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                        <div className="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
                                             <span className="material-symbols-outlined text-slate-500">person</span>
                                         </div>
                                         <div className="min-w-0">
@@ -402,7 +402,7 @@ function KondisiBadge({ kondisi }) {
     };
     const labels = { critical: 'Kritis', urgent: 'Mendesak', stable: 'Stabil', improving: 'Membaik' };
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex-shrink-0 ${styles[kondisi] || styles.stable}`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${styles[kondisi] || styles.stable}`}>
             {labels[kondisi] || 'Stabil'}
         </span>
     );

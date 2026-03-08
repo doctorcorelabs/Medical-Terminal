@@ -75,7 +75,7 @@ export default function DDxRadar({ symptoms, aiResult }) {
     // State: belum ada AI result sama sekali
     if (!aiResult) {
         return (
-            <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+            <div className="flex flex-col items-center justify-center h-75 gap-3">
                 <span className="material-symbols-outlined text-4xl text-slate-300">radar</span>
                 <p className="text-sm text-slate-400 text-center">
                     Klik <span className="font-bold text-primary">Diagnosis Banding</span> di atas untuk<br />
@@ -91,7 +91,7 @@ export default function DDxRadar({ symptoms, aiResult }) {
     }
 
     return (
-        <div className="w-full h-[400px] md:h-[440px]">
+        <div className="w-full h-100 md:h-110">
             <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={data} cx="50%" cy="50%" outerRadius="52%" margin={{ top: 30, right: 60, bottom: 30, left: 60 }}>
                     <PolarGrid stroke="#e2e8f0" />

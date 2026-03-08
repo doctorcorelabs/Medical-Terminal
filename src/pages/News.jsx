@@ -64,7 +64,7 @@ function NewsCard({ article, featured = false }) {
                 href={article.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group block rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-lg hover:border-primary/40 transition-all duration-300 h-full flex flex-col"
+                className="group rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-lg hover:border-primary/40 transition-all duration-300 h-full flex flex-col"
             >
                 <div className="p-5 flex flex-col h-full">
                     <div className="flex justify-between items-start mb-4">
@@ -89,10 +89,10 @@ function NewsCard({ article, featured = false }) {
 
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
                         <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="material-symbols-outlined text-[14px] text-slate-400 flex-shrink-0">source</span>
+                            <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">source</span>
                             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">{article.source}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-slate-400 flex-shrink-0 pl-2">
+                        <div className="flex items-center gap-1 text-slate-400 shrink-0 pl-2">
                             <span className="material-symbols-outlined text-[14px]">schedule</span>
                             <span className="text-xs font-medium">{getRelativeTime(article.pubDate)}</span>
                         </div>
@@ -109,7 +109,7 @@ function NewsCard({ article, featured = false }) {
             rel="noopener noreferrer"
             className="group flex flex-col sm:flex-row gap-4 p-4 lg:p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-md hover:border-primary/40 transition-all duration-300"
         >
-            <div className="flex-shrink-0 size-12 lg:size-14 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+            <div className="shrink-0 size-12 lg:size-14 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                 <span className="material-symbols-outlined text-[24px] lg:text-[28px]">{icon}</span>
             </div>
             <div className="min-w-0 flex-1">
@@ -125,7 +125,7 @@ function NewsCard({ article, featured = false }) {
                     {article.title}
                 </h3>
             </div>
-            <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-primary self-center transition-colors flex-shrink-0 hidden sm:block">
+            <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 group-hover:text-primary self-center transition-colors shrink-0 hidden sm:block">
                 open_in_new
             </span>
         </a>
@@ -148,7 +148,7 @@ function StatsBadge({ articles }) {
                 { label: 'Hari Ini', value: today, icon: 'today', bgColor: 'bg-amber-50 dark:bg-amber-900/30', color: 'text-amber-600 dark:text-amber-400' },
             ].map(stat => (
                 <div key={stat.label} className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-                    <div className={`size-12 rounded-lg ${stat.bgColor} ${stat.color} flex items-center justify-center flex-shrink-0`}>
+                    <div className={`size-12 rounded-lg ${stat.bgColor} ${stat.color} flex items-center justify-center shrink-0`}>
                         <span className="material-symbols-outlined text-[24px]">{stat.icon}</span>
                     </div>
                     <div>
@@ -169,7 +169,7 @@ function SourceFilter({ articles, selected, onSelect }) {
                 <button
                     key={src}
                     onClick={() => onSelect(src)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected === src
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected === src
                         ? 'bg-primary text-white shadow-sm shadow-primary/30'
                         : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                         }`}
@@ -191,7 +191,7 @@ function CategoryFilter({ articles, selected, onSelect }) {
                     <button
                         key={cat}
                         onClick={() => onSelect(cat)}
-                        className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected === cat
+                        className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selected === cat
                             ? styles
                                 ? `${styles.bg} ${styles.text} ring-2 ring-offset-1 ring-current`
                                 : 'bg-primary text-white'
@@ -484,7 +484,7 @@ export default function News() {
                         {viewMode === 'grid' ? (
                             <>
                                 {/* Featured 3 cards */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                                     {featured.map(article => (
                                         <NewsCard key={article.id} article={article} featured />
                                     ))}

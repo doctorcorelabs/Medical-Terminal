@@ -75,7 +75,7 @@ export default function AddPatient() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0">
+                            <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0">
                                 <span className="material-symbols-outlined">arrow_back</span>
                             </button>
                             <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Registrasi Pasien</h1>
@@ -95,7 +95,7 @@ export default function AddPatient() {
                 <div className="flex border-b border-slate-200 dark:border-slate-800 gap-0.5 overflow-x-auto bg-white dark:bg-slate-900 rounded-t-xl px-2">
                     {tabs.map(tab => (
                         <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center gap-2 px-4 py-4 text-sm font-bold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+                            className={`flex items-center gap-2 px-4 py-4 text-sm font-bold whitespace-nowrap border-b-2 transition-all shrink-0 ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                             <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
                             <span>{tab.label}</span>
                             {form[tab.key === 'ringkasan' ? 'none' : tab.key === 'gejala' ? 'symptoms' : tab.key === 'fisik' ? 'physicalExams' : tab.key === 'lab' ? 'supportingExams' : tab.key === 'obat' ? 'prescriptions' : 'dailyReports']?.length > 0 &&
@@ -105,7 +105,7 @@ export default function AddPatient() {
                     ))}
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-b-xl border-x border-b border-slate-200 dark:border-slate-800 p-5 lg:p-8 min-h-[500px]">
+                <div className="bg-white dark:bg-slate-900 rounded-b-xl border-x border-b border-slate-200 dark:border-slate-800 p-5 lg:p-8 min-h-125">
                     {activeTab === 'ringkasan' && (
                         <div className="space-y-8 animate-[fadeIn_0.2s_ease-out]">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -117,7 +117,7 @@ export default function AddPatient() {
                                             <InputGroup label="Umur" name="age" type="number" value={form.age} onChange={handleChange} placeholder="Tahun" />
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">J. Kelamin</label>
-                                                <div className="flex p-1 bg-slate-50 dark:bg-slate-900 rounded-xl gap-1 border border-slate-100 dark:border-slate-800 h-[42px]">
+                                                <div className="flex p-1 bg-slate-50 dark:bg-slate-900 rounded-xl gap-1 border border-slate-100 dark:border-slate-800 h-10.5">
                                                     {[{ v: 'male', l: 'Laki-laki', i: 'male' }, { v: 'female', l: 'Perempuan', i: 'female' }].map(opt => (
                                                         <button key={opt.v} type="button" onClick={() => setForm(p => ({ ...p, gender: opt.v }))}
                                                             title={opt.l}
@@ -348,7 +348,7 @@ function VitalInput({ label, unit, ...props }) {
 
 function TabContent({ title, icon, onAdd, items, onRemove, renderForm, renderItem }) {
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-[fadeIn_0.2s_ease-out]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-[fadeIn_0.2s_ease-out]">
             <div className="space-y-6">
                 <div>
                     <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -365,7 +365,7 @@ function TabContent({ title, icon, onAdd, items, onRemove, renderForm, renderIte
                 <div className="flex justify-between items-center">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data yang Akan Disimpan ({items?.length || 0})</h4>
                 </div>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                <div className="space-y-2 max-h-100 overflow-y-auto pr-2">
                     {items?.length === 0 ? (
                         <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 opacity-50">
                             <span className="material-symbols-outlined text-4xl mb-2">empty_dashboard</span>
@@ -429,7 +429,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                         <p className="text-sm text-slate-500 mt-1">Gunakan form di bawah untuk menambahkan data awal.</p>
                     </div>
                     <button type="button" onClick={() => setShowRefModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-all text-[11px] font-bold flex-shrink-0">
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-all text-[11px] font-bold shrink-0">
                         <span className="material-symbols-outlined text-[16px]">fact_check</span>
                         Nilai Rujukan
                     </button>
@@ -442,14 +442,14 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                             {labCategories.map(cat => (
                                 <button key={cat.key} type="button"
                                     onClick={() => { setActiveLabCat(cat.key); setLabInput(p => ({ ...p, labKey: '', testName: '', unit: '' })); }}
-                                    className={"flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border " + (activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700')}>
+                                    className={"flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap shrink-0 transition-all border " + (activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700')}>
                                     <span className="material-symbols-outlined text-[12px]">{cat.icon}</span>
                                     {cat.label.split(' ')[0]}
                                 </button>
                             ))}
                             <button type="button"
                                 onClick={() => { setActiveLabCat('custom'); setLabInput(p => ({ ...p, labKey: 'custom', testName: '', unit: '' })); }}
-                                className={"flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all border " + (activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-white dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100')}>
+                                className={"flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap shrink-0 transition-all border " + (activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-white dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100')}>
                                 <span className="material-symbols-outlined text-[12px]">add</span>
                                 Custom
                             </button>
@@ -470,7 +470,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                                         onClick={() => setLabInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit }))}
                                         className={"py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center gap-1 " + (labInput.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent')}>
                                         <span className="truncate text-[11px]">{v.name}</span>
-                                        <span className={"text-[9px] font-mono flex-shrink-0 " + (labInput.labKey === k ? 'text-white/70' : 'text-slate-400')}>{v.unit !== '-' ? v.unit : ''}</span>
+                                        <span className={"text-[9px] font-mono shrink-0 " + (labInput.labKey === k ? 'text-white/70' : 'text-slate-400')}>{v.unit !== '-' ? v.unit : ''}</span>
                                     </button>
                                 ))}
                             </div>
@@ -479,10 +479,10 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
 
                     {selectedRef && refDisplay && (
                         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
-                            <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 flex-shrink-0">info</span>
+                            <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">info</span>
                             <div className="min-w-0">
                                 <p className="text-[10px] text-primary font-black uppercase tracking-wide">Nilai Rujukan</p>
-                                <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 break-words">{refDisplay.text}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 wrap-break-word">{refDisplay.text}</p>
                                 {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5">Metode: {selectedRef.metode}</p>}
                             </div>
                         </div>
@@ -497,7 +497,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                             <input type="text" value={labInput.unit}
                                 onChange={e => setLabInput(p => ({ ...p, unit: e.target.value }))}
                                 placeholder="Satuan"
-                                className="w-24 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 flex-shrink-0" />
+                                className="w-24 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 shrink-0" />
                         </div>
                     )}
 
@@ -515,7 +515,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                         Data yang Akan Disimpan ({(form.supportingExams && form.supportingExams.length) || 0})
                     </h4>
                 </div>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                <div className="space-y-2 max-h-100 overflow-y-auto pr-2">
                     {(!form.supportingExams || !form.supportingExams.length) ? (
                         <div className="text-center py-12 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 opacity-50">
                             <span className="material-symbols-outlined text-4xl mb-2">biotech</span>
@@ -525,7 +525,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                         <div key={l.id} className="group relative flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 transition-all">
                             <div className="flex-1 flex items-center justify-between gap-2">
                                 <span className="text-sm font-bold truncate">{l.testName}</span>
-                                <div className="text-right flex-shrink-0">
+                                <div className="text-right shrink-0">
                                     <span className="text-sm font-black">{l.value} <span className="text-[10px] font-medium text-slate-400">{l.unit}</span></span>
                                     {l.result && (
                                         <span className={"block text-[9px] font-bold " + (l.result.status === 'high' ? 'text-red-500' : l.result.status === 'low' ? 'text-amber-500' : l.result.status === 'normal' ? 'text-green-500' : 'text-slate-400')}>{l.result.label}</span>

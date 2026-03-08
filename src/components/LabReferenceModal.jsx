@@ -72,10 +72,10 @@ export default function LabReferenceModal({ onClose }) {
         >
             <div className="relative bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full sm:max-w-4xl max-h-[90vh] flex flex-col animate-[slideUp_0.2s_ease-out]">
                 {/* Header */}
-                <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+                <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                                 <span className="material-symbols-outlined text-primary text-[18px]">fact_check</span>
                             </div>
                             <h2 className="font-black text-slate-900 dark:text-white text-base sm:text-lg">
@@ -86,13 +86,13 @@ export default function LabReferenceModal({ onClose }) {
                             RSUD Ki Ageng Brondong · Dokumen Resmi
                         </p>
                     </div>
-                    <button onClick={onClose} className="flex-shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <button onClick={onClose} className="shrink-0 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
                 {/* Controls */}
-                <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex-shrink-0 space-y-2.5">
+                <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0 space-y-2.5">
                     {/* Search */}
                     <div className="relative">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">search</span>
@@ -116,7 +116,7 @@ export default function LabReferenceModal({ onClose }) {
                         <div className="flex gap-1 overflow-x-auto pb-1 flex-1 min-w-0">
                             <button
                                 onClick={() => setActiveCategory('all')}
-                                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase whitespace-nowrap transition-all flex-shrink-0 ${activeCategory === 'all' ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase whitespace-nowrap transition-all shrink-0 ${activeCategory === 'all' ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                             >
                                 Semua
                             </button>
@@ -124,14 +124,14 @@ export default function LabReferenceModal({ onClose }) {
                                 <button
                                     key={cat.key}
                                     onClick={() => setActiveCategory(cat.key)}
-                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase whitespace-nowrap transition-all flex-shrink-0 ${activeCategory === cat.key ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase whitespace-nowrap transition-all shrink-0 ${activeCategory === cat.key ? 'bg-primary text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                                 >
                                     {cat.label}
                                 </button>
                             ))}
                         </div>
                         {/* Gender toggle */}
-                        <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg gap-0.5 flex-shrink-0">
+                        <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg gap-0.5 shrink-0">
                             {[{ v: 'male', l: 'Pria', i: 'male' }, { v: 'female', l: 'Wanita', i: 'female' }].map(opt => (
                                 <button key={opt.v} onClick={() => setGender(opt.v)}
                                     className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${gender === opt.v ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500'}`}>
@@ -261,7 +261,7 @@ export default function LabReferenceModal({ onClose }) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-shrink-0 bg-slate-50/50 dark:bg-slate-800/50">
+                <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0 bg-slate-50/50 dark:bg-slate-800/50">
                     <p className="text-[10px] text-slate-400">
                         Sumber: PDS PATKLIN – S1 Units & Pack Insert Reagent · RSUD Ki Ageng Brondong
                     </p>

@@ -10,7 +10,7 @@ const items = [
 
 export default function BottomNav() {
     return (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-14 px-1">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-around items-center h-14 md:h-16 px-1 md:px-4">
             {items.map(item => (
                 <NavLink
                     key={item.to}
@@ -20,8 +20,8 @@ export default function BottomNav() {
                         }`
                     }
                 >
-                    <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                    <span className="text-[10px] font-medium truncate">{item.label}</span>
+                    <span className="material-symbols-outlined text-xl md:text-2xl">{item.icon}</span>
+                    <span className="text-[10px] md:text-xs font-medium truncate">{item.label}</span>
                 </NavLink>
             ))}
         </nav>
