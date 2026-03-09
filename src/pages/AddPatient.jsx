@@ -59,6 +59,7 @@ export default function AddPatient() {
             targetDays: parseInt(form.targetDays) || null,
             updatedAt: new Date().toISOString()
         });
+        localStorage.setItem('patientDetailActiveTab', 'overview');
         navigate(`/patient/${newPatient.id}`);
     };
 

@@ -188,6 +188,21 @@ export function getPatientById(id) {
 
 export function addPatient(patient) {
     const patients = getStoredData();
+
+    // Auto-seed vitalSigns from snapshot fields if patient didn't already bring a history
+    const hasInitialVitals = patient.heartRate || patient.bloodPressure || patient.temperature || patient.respRate || patient.spO2;
+    const seedVitalSigns = patient.vitalSigns?.length > 0 ? patient.vitalSigns : (
+        hasInitialVitals ? [{
+            id: crypto.randomUUID(),
+            recordedAt: new Date().toISOString(),
+            heartRate: patient.heartRate ?? '',
+            bloodPressure: patient.bloodPressure ?? '',
+            temperature: patient.temperature ?? '',
+            respRate: patient.respRate ?? '',
+            spO2: patient.spO2 ?? '',
+        }] : []
+    );
+
     const newPatient = {
         ...patient,
         id: crypto.randomUUID(),
@@ -198,6 +213,7 @@ export function addPatient(patient) {
         physicalExams: patient.physicalExams || [],
         supportingExams: patient.supportingExams || [],
         prescriptions: patient.prescriptions || [],
+        vitalSigns: seedVitalSigns,
         aiInsights: patient.aiInsights || [],
     };
     patients.push(newPatient);
@@ -366,6 +382,53 @@ export function removePrescription(patientId, prescriptionId) {
     if (!patient || !patient.prescriptions) return null;
 
     patient.prescriptions = patient.prescriptions.filter(p => p.id !== prescriptionId);
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return true;
+}
+
+export function addVitalSign(patientId, vitals) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return null;
+
+    const newVitalSign = {
+        ...vitals,
+        id: crypto.randomUUID(),
+        recordedAt: vitals.recordedAt ? new Date(vitals.recordedAt).toISOString() : new Date().toISOString(),
+    };
+
+    if (!patient.vitalSigns) patient.vitalSigns = [];
+    patient.vitalSigns.push(newVitalSign);
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return newVitalSign;
+}
+
+export function updateVitalSign(patientId, vsId, updates) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.vitalSigns) return null;
+
+    const index = patient.vitalSigns.findIndex(v => v.id === vsId);
+    if (index === -1) return null;
+
+    patient.vitalSigns[index] = {
+        ...patient.vitalSigns[index],
+        ...updates,
+        recordedAt: updates.recordedAt ? new Date(updates.recordedAt).toISOString() : patient.vitalSigns[index].recordedAt,
+    };
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return patient.vitalSigns[index];
+}
+
+export function removeVitalSign(patientId, vsId) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.vitalSigns) return null;
+
+    patient.vitalSigns = patient.vitalSigns.filter(v => v.id !== vsId);
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return true;

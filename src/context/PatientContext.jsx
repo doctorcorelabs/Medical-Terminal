@@ -111,6 +111,24 @@ export function PatientProvider({ children }) {
         return result;
     }, [refreshPatients]);
 
+    const addVitalSign = useCallback((patientId, vitals) => {
+        const result = dataService.addVitalSign(patientId, vitals);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const updateVitalSign = useCallback((patientId, vsId, updates) => {
+        const result = dataService.updateVitalSign(patientId, vsId, updates);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const removeVitalSign = useCallback((patientId, vsId) => {
+        const result = dataService.removeVitalSign(patientId, vsId);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
     return (
         <PatientContext.Provider value={{
             patients,
@@ -130,6 +148,9 @@ export function PatientProvider({ children }) {
             removeSupportingExam,
             addPrescription,
             removePrescription,
+            addVitalSign,
+            updateVitalSign,
+            removeVitalSign,
             refreshPatients,
         }}>
             {children}

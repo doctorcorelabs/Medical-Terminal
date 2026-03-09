@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences, labCategories } from '../services/dataService';
@@ -6,6 +6,7 @@ import LabReferenceModal from '../components/LabReferenceModal';
 import { getSmartSummary, getSymptomInsight, getDailyEvaluation, getPhysicalExamInsight, getSupportingExamInsight, getMedicationRecommendation, getSOAPNote } from '../services/aiService';
 import SymptomGraph from '../components/visualization/SymptomGraph';
 import TimelineChart from '../components/visualization/TimelineChart';
+import VitalSignsChart from '../components/visualization/VitalSignsChart';
 import DDxRadar from '../components/visualization/DDxRadar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -14,7 +15,7 @@ import { exportPatientPDF } from '../services/pdfExportService';
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { patients, updatePatient, addSymptom, removeSymptom, addDailyReport, removeDailyReport, addPhysicalExam, removePhysicalExam, addSupportingExam, removeSupportingExam, addPrescription, removePrescription } = usePatients();
+    const { patients, updatePatient, addSymptom, removeSymptom, addDailyReport, removeDailyReport, addPhysicalExam, removePhysicalExam, addSupportingExam, removeSupportingExam, addPrescription, removePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('patientDetailActiveTab') || 'overview';
@@ -88,6 +89,7 @@ export default function PatientDetail() {
 
     const tabs = [
         { key: 'overview', label: 'Ringkasan', icon: 'dashboard' },
+        { key: 'vitals', label: 'Vital', icon: 'ecg_heart' },
         { key: 'symptoms', label: 'Gejala', icon: 'symptoms' },
         { key: 'physical', label: 'Fisik', icon: 'stethoscope' },
         { key: 'labs', label: 'Lab', icon: 'biotech' },
@@ -146,6 +148,10 @@ export default function PatientDetail() {
 
             {/* Konten */}
             {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} updatePatient={updatePatient} />}
+            {activeTab === 'vitals' && <TabVitalSigns patient={patient}
+                onAdd={(vitals) => addVitalSign(patient.id, vitals)}
+                onUpdate={(vsId, updates) => updateVitalSign(patient.id, vsId, updates)}
+                onRemove={(vsId) => removeVitalSign(patient.id, vsId)} />}
             {activeTab === 'symptoms' && <TabGejala patient={patient} input={symptomInput} setInput={setSymptomInput}
                 onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, symptomInput); setSymptomInput({ name: '', severity: 'sedang', notes: '' }); }}
                 onRemove={(symptomId) => removeSymptom(patient.id, symptomId)}
@@ -186,6 +192,17 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
     const [headerEditing, setHeaderEditing] = useState(false);
     const [headerTemp, setHeaderTemp] = useState({});
 
+    const latestVitals = useMemo(() => {
+        const vs = patient.vitalSigns || [];
+        if (vs.length === 0) return {
+            heartRate: patient.heartRate,
+            bloodPressure: patient.bloodPressure,
+            temperature: patient.temperature,
+            respRate: patient.respRate,
+            spO2: patient.spO2,
+        };
+        return [...vs].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))[0];
+    }, [patient]);
     const startHeaderEdit = () => {
         setHeaderTemp({
             name: patient.name || '',
@@ -292,11 +309,11 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tanda Vital</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                         {[
-                            { label: 'Detak Jantung', value: patient.heartRate, unit: 'bpm' },
-                            { label: 'Tekanan Darah', value: patient.bloodPressure, unit: 'mmHg' },
-                            { label: 'Suhu', value: patient.temperature, unit: '°C' },
-                            { label: 'Frek. Napas', value: patient.respRate, unit: '/min' },
-                            { label: 'SpO2', value: patient.spO2, unit: '%' },
+                            { label: 'Detak Jantung', value: latestVitals.heartRate, unit: 'bpm' },
+                            { label: 'Tekanan Darah', value: latestVitals.bloodPressure, unit: 'mmHg' },
+                            { label: 'Suhu', value: latestVitals.temperature, unit: '°C' },
+                            { label: 'Frek. Napas', value: latestVitals.respRate, unit: '/min' },
+                            { label: 'SpO2', value: latestVitals.spO2, unit: '%' },
                         ].map(v => (
                             <div key={v.label} className="p-2 lg:p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/10 text-center flex flex-col h-full">
                                 <p className="text-[10px] sm:text-xs text-primary font-bold leading-tight min-h-7 flex items-start justify-center mb-1">{v.label}</p>
@@ -353,6 +370,7 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
                             { label: 'Hasil Lab', value: (patient.supportingExams || []).length },
                             { label: 'Resep Obat', value: (patient.prescriptions || []).length },
                             { label: 'Laporan Harian', value: (patient.dailyReports || []).length },
+                            { label: 'Tren Vital', value: (patient.vitalSigns || []).length },
                         ].map(item => (
                             <div key={item.label} className="flex justify-between items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm">
                                 <span className="text-slate-500 shrink-0">{item.label}</span>
@@ -369,6 +387,13 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
                         Gunakan tab di atas untuk menambahkan data klinis. Tab AI akan menganalisis semua data dan memberikan saran diagnostik.
                     </p>
                 </div>
+            </div>
+
+            {/* Tren Vital Signs — full width */}
+            <div className="lg:col-span-12">
+                <Kartu judul="Tren Vital Signs" headerIcon="show_chart">
+                    <VitalSignsChart vitalSigns={patient.vitalSigns} />
+                </Kartu>
             </div>
         </div>
     );
@@ -538,6 +563,184 @@ function EditSelect({ label, options, ...props }) {
             <select {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5">
                 {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
+        </div>
+    );
+}
+
+/* ====== TAB VITAL SIGNS ====== */
+function TabVitalSigns({ patient, onAdd, onUpdate, onRemove }) {
+    const now = new Date();
+    const localISO = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+    const [vitalInput, setVitalInput] = useState({
+        recordedAt: localISO,
+        heartRate: '', bloodPressure: '', temperature: '', respRate: '', spO2: '',
+    });
+    const [confirmingId, setConfirmingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
+
+    const sorted = useMemo(() =>
+        [...(patient.vitalSigns || [])].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt)),
+        [patient.vitalSigns]
+    );
+
+    const setV = (key) => (e) => setVitalInput(p => ({ ...p, [key]: e.target.value }));
+    const setEd = (key) => (e) => setEditData(p => ({ ...p, [key]: e.target.value }));
+
+    const handleAdd = (e) => {
+        e.preventDefault();
+        const { heartRate, bloodPressure, temperature, respRate, spO2 } = vitalInput;
+        if (!heartRate && !bloodPressure && !temperature && !respRate && !spO2) return;
+        onAdd({ ...vitalInput, recordedAt: new Date(vitalInput.recordedAt).toISOString() });
+        const newNow = new Date();
+        const newLocal = new Date(newNow - newNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setVitalInput({ recordedAt: newLocal, heartRate: '', bloodPressure: '', temperature: '', respRate: '', spO2: '' });
+    };
+
+    const startEdit = (vs) => {
+        setEditingId(vs.id);
+        const dt = vs.recordedAt ? new Date(vs.recordedAt) : new Date();
+        const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setEditData({
+            recordedAt: localDt,
+            heartRate: vs.heartRate ?? '',
+            bloodPressure: vs.bloodPressure ?? '',
+            temperature: vs.temperature ?? '',
+            respRate: vs.respRate ?? '',
+            spO2: vs.spO2 ?? '',
+        });
+    };
+
+    const saveEdit = () => {
+        onUpdate(editingId, { ...editData, recordedAt: editData.recordedAt ? new Date(editData.recordedAt).toISOString() : undefined });
+        setEditingId(null);
+    };
+
+    const vitalFields = [
+        { key: 'heartRate', label: 'Detak Jantung', unit: 'bpm', placeholder: '80' },
+        { key: 'bloodPressure', label: 'Tekanan Darah', unit: 'mmHg', placeholder: '120/80' },
+        { key: 'temperature', label: 'Suhu', unit: '°C', placeholder: '36.5' },
+        { key: 'respRate', label: 'Frek. Napas', unit: '/min', placeholder: '18' },
+        { key: 'spO2', label: 'SpO2', unit: '%', placeholder: '98' },
+    ];
+
+    return (
+        <div className="space-y-5 lg:space-y-6">
+            {/* Input Form */}
+            <Kartu judul="Catat Vital Signs" headerIcon="ecg_heart">
+                <form onSubmit={handleAdd} className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Waktu Pencatatan</label>
+                        <input type="datetime-local" value={vitalInput.recordedAt} onChange={setV('recordedAt')}
+                            className="rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5 w-full sm:w-auto" />
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                        {vitalFields.map(f => (
+                            <div key={f.key} className="flex flex-col items-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide mb-2 text-center leading-tight">{f.label}</span>
+                                <input type="text" value={vitalInput[f.key]} onChange={setV(f.key)} placeholder={f.placeholder}
+                                    className="w-full bg-transparent border-none p-0 text-center font-black text-xl focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600" />
+                                <span className="text-[9px] text-slate-400 font-bold mt-1">{f.unit}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
+                        Tambah Data Vital
+                    </button>
+                </form>
+            </Kartu>
+
+            {/* Chart tren */}
+            {(patient.vitalSigns || []).length > 0 && (
+                <Kartu judul="Tren Vital Signs" headerIcon="show_chart">
+                    <VitalSignsChart vitalSigns={patient.vitalSigns} />
+                </Kartu>
+            )}
+
+            {/* Riwayat */}
+            <Kartu judul={`Riwayat Vital Signs (${sorted.length})`} headerIcon="history">
+                {sorted.length === 0 ? <Kosong /> : (
+                    <div className="space-y-3">
+                        {sorted.map(vs => (
+                            <div key={vs.id}>
+                                {editingId === vs.id ? (
+                                    <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Waktu</label>
+                                            <input type="datetime-local" value={editData.recordedAt} onChange={setEd('recordedAt')}
+                                                className="rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5 w-full sm:w-auto" />
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                                            {vitalFields.map(f => (
+                                                <div key={f.key} className="flex flex-col items-center p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide mb-2 text-center leading-tight">{f.label}</span>
+                                                    <input type="text" value={editData[f.key]} onChange={setEd(f.key)} placeholder={f.placeholder}
+                                                        className="w-full bg-transparent border-none p-0 text-center font-black text-xl focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600" />
+                                                    <span className="text-[9px] text-slate-400 font-bold mt-1">{f.unit}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2 justify-end pt-1">
+                                            <button type="button" onClick={() => setEditingId(null)}
+                                                className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                                Batal
+                                            </button>
+                                            <button type="button" onClick={saveEdit}
+                                                className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-white hover:brightness-110 transition-all shadow-lg shadow-primary/20">
+                                                Simpan
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                        <div className="flex items-center justify-between gap-2 mb-3">
+                                            <span className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                                                <span className="material-symbols-outlined text-sm">schedule</span>
+                                                {formatDateTime(vs.recordedAt)}
+                                            </span>
+                                            <div className="flex gap-1">
+                                                <button type="button" onClick={() => startEdit(vs)}
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
+                                                    title="Edit">
+                                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                                </button>
+                                                <button type="button" onClick={() => setConfirmingId(vs.id)}
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                    title="Hapus">
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                                            {[
+                                                { label: 'Detak Jantung', value: vs.heartRate, unit: 'bpm' },
+                                                { label: 'Tekanan Darah', value: vs.bloodPressure, unit: 'mmHg' },
+                                                { label: 'Suhu', value: vs.temperature, unit: '°C' },
+                                                { label: 'Frek. Napas', value: vs.respRate, unit: '/min' },
+                                                { label: 'SpO2', value: vs.spO2, unit: '%' },
+                                            ].map(v => (
+                                                <div key={v.label} className="text-center p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase leading-tight mb-0.5">{v.label}</p>
+                                                    <p className="font-black text-sm text-slate-800 dark:text-slate-100">{v.value || '-'}</p>
+                                                    <p className="text-[9px] text-slate-400">{v.unit}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {confirmingId === vs.id && (
+                                    <ConfirmPanel
+                                        onCancel={() => setConfirmingId(null)}
+                                        onConfirm={() => { onRemove(vs.id); setConfirmingId(null); }}
+                                        label="Hapus data vital signs ini?"
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Kartu>
         </div>
     );
 }

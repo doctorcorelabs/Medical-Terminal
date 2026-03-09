@@ -24,9 +24,9 @@ export default function TimelineChart({ symptoms, admissionDate }) {
             {/* Admission marker */}
             {admissionDate && (
                 <div className="relative flex items-center gap-4 mb-4 pl-4">
-                    <div className="absolute left-[11px] w-3 h-3 rounded-full bg-[#136dec] border-2 border-white dark:border-[#1a2332] z-10" />
-                    <div className="ml-6 p-2 bg-[#136dec]/10 rounded-lg border border-[#136dec]/20">
-                        <p className="text-xs font-bold text-[#136dec]">Tanggal Masuk</p>
+                    <div className="absolute left-2.75 w-3 h-3 rounded-full bg-primary border-2 border-white dark:border-[#1a2332] z-10" />
+                    <div className="ml-6 p-2 bg-primary/10 rounded-lg border border-primary/20">
+                        <p className="text-xs font-bold text-primary">Tanggal Masuk</p>
                         <p className="text-[10px] text-slate-500">{formatDateTime(admissionDate)}</p>
                     </div>
                 </div>
@@ -39,7 +39,7 @@ export default function TimelineChart({ symptoms, admissionDate }) {
                     return (
                         <div key={symptom.id || index} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
                             <div
-                                className="absolute left-[11px] w-3 h-3 rounded-full border-2 border-white dark:border-[#1a2332] z-10"
+                                className="absolute left-2.75 w-3 h-3 rounded-full border-2 border-white dark:border-[#1a2332] z-10"
                                 style={{ backgroundColor: color }}
                             />
                             <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-[#1e2a3a] hover:bg-slate-100 dark:hover:bg-[#253347] transition-colors">
