@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 
 const AuthContext = createContext();
@@ -6,7 +6,16 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+    // Pre-detect recovery mode from URL hash before Supabase events fire to prevent dashboard flash
+    const [isRecoveryMode, _setIsRecoveryMode] = useState(() =>
+        window.location.hash.includes('type=recovery')
+    );
+    const isRecoveryRef = useRef(window.location.hash.includes('type=recovery'));
+
+    const setIsRecoveryMode = (val) => {
+        isRecoveryRef.current = val;
+        _setIsRecoveryMode(val);
+    };
 
     useEffect(() => {
         // Check active sessions and sets the user
@@ -19,6 +28,8 @@ export function AuthProvider({ children }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'PASSWORD_RECOVERY') {
                 setIsRecoveryMode(true);
+            } else if (event === 'SIGNED_IN' && isRecoveryRef.current) {
+                // SIGNED_IN can fire right after PASSWORD_RECOVERY — preserve recovery mode
             } else {
                 setIsRecoveryMode(false);
             }
