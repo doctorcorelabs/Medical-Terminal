@@ -1,17 +1,69 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
+import { useStase } from '../context/StaseContext';
 import { calculateDaysInHospital, getRelativeTime } from '../services/dataService';
 import { exportPatientListPDF } from '../services/pdfExportService';
 
 export default function PatientList() {
     const navigate = useNavigate();
-    const { patients, deletePatient } = usePatients();
+    const { patients, deletePatient, updatePatient } = usePatients();
+    const { stases, pinnedStaseId } = useStase();
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('updatedAt');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const exportMenuRef = useRef(null);
+
+    // Stase filter: array of selected stase IDs, null = show all
+    const [selectedStaseIds, setSelectedStaseIds] = useState(() =>
+        pinnedStaseId ? [pinnedStaseId] : null
+    );
+    // Keep selectedStaseIds in sync when pinned stase changes from another page
+    useEffect(() => {
+        if (pinnedStaseId && selectedStaseIds === null) {
+            // don't override explicit "show all" choice; only set if user hasn't changed it
+        }
+    }, [pinnedStaseId]); // eslint-disable-line
+
+    // Transfer dropdown — uses position:fixed to escape overflow:auto clipping
+    const [transferPatientId, setTransferPatientId] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState(null);
+    const transferDropdownRef = useRef(null);
+
+    useEffect(() => {
+        if (!transferPatientId) return;
+        const handler = (e) => {
+            if (transferDropdownRef.current && !transferDropdownRef.current.contains(e.target)) {
+                setTransferPatientId(null);
+                setDropdownPos(null);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [transferPatientId]);
+
+    const openTransfer = (e, patientId) => {
+        e.stopPropagation();
+        if (transferPatientId === patientId) {
+            setTransferPatientId(null);
+            setDropdownPos(null);
+            return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+        setTransferPatientId(patientId);
+    };
+
+    const handleTransfer = (patientId, newStaseId) => {
+        updatePatient(patientId, { stase_id: newStaseId || null });
+        setTransferPatientId(null);
+        setDropdownPos(null);
+        // Switch view to the target stase so transfer is visually confirmed
+        if (newStaseId) {
+            setSelectedStaseIds([newStaseId]);
+        }
+    };
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -25,6 +77,12 @@ export default function PatientList() {
 
     const filteredPatients = useMemo(() => {
         let result = [...patients];
+
+        // Stase filter
+        if (selectedStaseIds !== null) {
+            result = result.filter(p => selectedStaseIds.includes(p.stase_id));
+        }
+
         if (search) {
             const q = search.toLowerCase();
             result = result.filter(p =>
@@ -45,7 +103,23 @@ export default function PatientList() {
             return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
         });
         return result;
-    }, [patients, search, filter, sortBy]);
+    }, [patients, search, filter, sortBy, selectedStaseIds]);
+
+    const toggleStaseFilter = (staseId) => {
+        if (staseId === null) {
+            // "Semua Stase" chip
+            setSelectedStaseIds(null);
+            return;
+        }
+        if (selectedStaseIds === null) {
+            setSelectedStaseIds([staseId]);
+        } else if (selectedStaseIds.includes(staseId)) {
+            const next = selectedStaseIds.filter(id => id !== staseId);
+            setSelectedStaseIds(next.length === 0 ? null : next);
+        } else {
+            setSelectedStaseIds([...selectedStaseIds, staseId]);
+        }
+    };
 
     const tabCounts = {
         all: patients.length,
@@ -54,8 +128,47 @@ export default function PatientList() {
         improving: patients.filter(p => p.condition === 'improving').length,
     };
 
+    // Patient for the open transfer dropdown
+    const transferPatient = transferPatientId ? patients.find(p => p.id === transferPatientId) : null;
+
     return (
         <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 gap-5 lg:gap-6 pb-20 lg:pb-8 animate-[fadeIn_0.3s_ease-out]">
+
+            {/* Fixed-position transfer dropdown — outside all overflow containers */}
+            {transferPatient && dropdownPos && (
+                <div
+                    ref={transferDropdownRef}
+                    style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}
+                    className="w-56 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+                >
+                    <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pindah Stase</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate mt-0.5">{transferPatient.name}</p>
+                    </div>
+                    {stases.filter(s => s.id !== transferPatient.stase_id).map(s => (
+                        <button
+                            key={s.id}
+                            onClick={() => handleTransfer(transferPatient.id, s.id)}
+                            className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{s.name}</span>
+                        </button>
+                    ))}
+                    {stases.filter(s => s.id !== transferPatient.stase_id).length === 0 && (
+                        <p className="text-xs text-slate-400 px-3 py-2.5">Tidak ada stase lain</p>
+                    )}
+                    {transferPatient.stase_id && (
+                        <button
+                            onClick={() => handleTransfer(transferPatient.id, null)}
+                            className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-slate-100 dark:border-slate-800"
+                        >
+                            <span className="material-symbols-outlined text-sm text-red-400">link_off</span>
+                            <span className="text-sm font-semibold text-red-500">Lepas dari stase</span>
+                        </button>
+                    )}
+                </div>
+            )}
             {/* Judul */}
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                 <div className="min-w-0">
@@ -120,6 +233,60 @@ export default function PatientList() {
 
             {/* Tab & Filter */}
             <div className="flex flex-col gap-4">
+
+                {/* Stase Filter Bar */}
+                {stases.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            {/* Semua Stase chip */}
+                            <button
+                                onClick={() => setSelectedStaseIds(null)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 border ${
+                                    selectedStaseIds === null
+                                        ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 border-transparent shadow-sm'
+                                        : 'bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-[14px]">layers</span>
+                                Semua Stase
+                            </button>
+
+                            {stases.map(stase => {
+                                const isActive = selectedStaseIds?.includes(stase.id);
+                                const count = patients.filter(p => p.stase_id === stase.id).length;
+                                return (
+                                    <button
+                                        key={stase.id}
+                                        onClick={() => toggleStaseFilter(stase.id)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 border ${
+                                            isActive
+                                                ? 'text-white border-transparent shadow-sm'
+                                                : 'bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-current'
+                                        }`}
+                                        style={isActive ? { backgroundColor: stase.color, borderColor: stase.color } : { '--tw-ring-color': stase.color }}
+                                    >
+                                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.7)' : stase.color }} />
+                                        {stase.name}
+                                        {count > 0 && (
+                                            <span className={`px-1.5 py-0 rounded-full text-[10px] font-black ${
+                                                isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                            }`}>{count}</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+
+                            {/* Create new stase shortcut */}
+                            <button
+                                onClick={() => navigate('/stase')}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all shrink-0"
+                            >
+                                <span className="material-symbols-outlined text-[14px]">add</span>
+                                Buat Stase
+                            </button>
+                        </div>
+                    </div>
+                )}
                 <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 sm:gap-4 md:gap-6 overflow-x-auto">
                     {[
                         { key: 'all', label: 'Semua', count: tabCounts.all },
@@ -184,7 +351,7 @@ export default function PatientList() {
             ) : (
                 <>
                     {/* Tabel Desktop */}
-                    <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full text-left border-collapse min-w-175">
                                 <thead>
@@ -223,6 +390,15 @@ export default function PatientList() {
                                                             {p.medicalRecordNo && ` • RM: ${p.medicalRecordNo}`}
                                                             <span className="text-slate-400"> • {getRelativeTime(p.updatedAt)}</span>
                                                         </p>
+                                                        {(() => {
+                                                            const s = stases.find(st => st.id === p.stase_id);
+                                                            return s ? (
+                                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white mt-1" style={{ backgroundColor: s.color }}>
+                                                                    <span className="material-symbols-outlined text-[10px]">assignment</span>
+                                                                    {s.name}
+                                                                </span>
+                                                            ) : null;
+                                                        })()}
                                                         {(p.room || p.dpjp) && (
                                                             <div className="flex items-center gap-1 mt-1 truncate">
                                                                 {p.room && <span className="text-[10px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded shrink-0">{p.room}</span>}
@@ -283,7 +459,20 @@ export default function PatientList() {
                                                 </div>
                                             </td>
                                             <td className="px-2 py-3 align-top text-right">
-                                                <div className="mt-1 flex justify-end">
+                                                <div className="mt-1 flex justify-end gap-0.5">
+                                                    {stases.length > 0 && (
+                                                        <button
+                                                            onClick={(e) => openTransfer(e, p.id)}
+                                                            className={`p-1.5 rounded-lg transition-colors ${
+                                                                transferPatientId === p.id
+                                                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-500'
+                                                                    : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-500'
+                                                            }`}
+                                                            title="Pindah ke Stase Lain"
+                                                        >
+                                                            <span className="material-symbols-outlined text-lg">swap_horiz</span>
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) deletePatient(p.id); }}
                                                         className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"
@@ -299,7 +488,7 @@ export default function PatientList() {
                             </table>
                         </div>
                         <div className="px-4 lg:px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Menampilkan {filteredPatients.length} dari {patients.length} pasien</span>
+                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Menampilkan {filteredPatients.length} dari {patients.length} pasien{selectedStaseIds !== null && stases.length > 0 ? ` (filter stase aktif)` : ''}</span>
                         </div>
                     </div>
 
@@ -319,9 +508,35 @@ export default function PatientList() {
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold truncate">{p.name}</p>
                                             <p className="text-[10px] text-slate-500">{p.age ? `${p.age} th` : '-'} • {p.gender === 'female' ? 'Perempuan' : 'Laki-laki'} • {getRelativeTime(p.updatedAt)}</p>
+                                            {/* Stase badge on mobile card */}
+                                            {p.stase_id && (() => {
+                                                const s = stases.find(st => st.id === p.stase_id);
+                                                return s ? (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white mt-0.5" style={{ backgroundColor: s.color }}>
+                                                        <span className="material-symbols-outlined text-[10px]">assignment</span>
+                                                        {s.name}
+                                                    </span>
+                                                ) : null;
+                                            })()}
                                         </div>
                                     </div>
-                                    <KondisiBadge kondisi={p.condition} />
+                                    <div className="flex items-start gap-1 shrink-0">
+                                        <KondisiBadge kondisi={p.condition} />
+                                        {/* Mobile transfer button */}
+                                        {stases.length > 0 && (
+                                            <button
+                                                onClick={(e) => openTransfer(e, p.id)}
+                                                className={`p-1 rounded-lg transition-colors ${
+                                                    transferPatientId === p.id
+                                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-500'
+                                                        : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                                }`}
+                                                title="Pindah ke Stase Lain"
+                                            >
+                                                <span className="material-symbols-outlined text-base">swap_horiz</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 {(p.chiefComplaint || p.diagnosis) && (
                                     <div className="space-y-1 mb-3">

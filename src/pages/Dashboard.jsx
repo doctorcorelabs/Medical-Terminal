@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
+import { useStase } from '../context/StaseContext';
 import { calculateRecoveryProgress, getRelativeTime } from '../services/dataService';
 
 export default function Dashboard() {
     const navigate = useNavigate();
     const { patients } = usePatients();
+    const { pinnedStase, stases } = useStase();
 
     const activePatients = patients.filter(p => p.status !== 'discharged');
     const criticalPatients = patients.filter(p => p.condition === 'critical');
@@ -22,7 +24,23 @@ export default function Dashboard() {
             <section>
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
                     <div className="min-w-0">
-                        <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">Ringkasan Klinis</h2>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">Ringkasan Klinis</h2>
+                            {pinnedStase ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full text-white shadow-sm" style={{ backgroundColor: pinnedStase.color }}>
+                                    <span className="material-symbols-outlined text-[14px]">push_pin</span>
+                                    {pinnedStase.name}
+                                </span>
+                            ) : stases.length > 0 ? (
+                                <button
+                                    onClick={() => navigate('/stase')}
+                                    className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 hover:text-primary hover:border-primary/50 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">keep</span>
+                                    Pin stase aktif
+                                </button>
+                            ) : null}
+                        </div>
                         <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">Selamat datang kembali. Dashboard Anda untuk {dayName}.</p>
                     </div>
                     <button

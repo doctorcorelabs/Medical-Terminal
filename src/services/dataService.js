@@ -1,6 +1,8 @@
 // Data management with localStorage and Supabase sync
 import { supabase } from './supabaseClient';
 const STORAGE_KEY = 'medterminal_patients';
+const STASE_KEY = 'medterminal_stases';
+const PINNED_KEY = 'medterminal_pinned_stase';
 
 function getStoredData() {
     try {
@@ -49,6 +51,119 @@ export async function fetchFromSupabase(userId) {
     return getStoredData();
 }
 // -----------------------------------
+
+// ----- Stase localStorage Helpers -----
+function getStoredStases() {
+    try {
+        const data = localStorage.getItem(STASE_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveStases(stases) {
+    localStorage.setItem(STASE_KEY, JSON.stringify(stases));
+}
+
+export function getPinnedStaseId() {
+    return localStorage.getItem(PINNED_KEY) || null;
+}
+
+export function setPinnedStaseId(id) {
+    if (id === null) {
+        localStorage.removeItem(PINNED_KEY);
+    } else {
+        localStorage.setItem(PINNED_KEY, id);
+    }
+}
+
+// ----- Stase Supabase Sync -----
+export async function syncStasesToSupabase(userId) {
+    if (!userId) return;
+    const stases = getStoredStases();
+    const pinnedStaseId = getPinnedStaseId();
+    try {
+        await supabase.from('user_stases').upsert({
+            user_id: userId,
+            stases_data: stases,
+            pinned_stase_id: pinnedStaseId,
+            updated_at: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error("Failed to sync stases to Supabase:", err);
+    }
+}
+
+export async function fetchStasesFromSupabase(userId) {
+    if (!userId) return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
+    try {
+        const { data } = await supabase
+            .from('user_stases')
+            .select('stases_data, pinned_stase_id')
+            .eq('user_id', userId)
+            .single();
+
+        if (data?.stases_data) {
+            saveStases(data.stases_data);
+            if (data.pinned_stase_id) {
+                setPinnedStaseId(data.pinned_stase_id);
+            } else {
+                setPinnedStaseId(null);
+            }
+            return { stases: data.stases_data, pinnedStaseId: data.pinned_stase_id || null };
+        }
+    } catch (err) {
+        console.error("Failed to fetch stases from Supabase:", err);
+    }
+    return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
+}
+
+// ----- Stase CRUD -----
+export function getAllStases() {
+    return getStoredStases();
+}
+
+export function addStase({ name, color }) {
+    const stases = getStoredStases();
+    const newStase = {
+        id: crypto.randomUUID(),
+        name,
+        color,
+        createdAt: new Date().toISOString(),
+    };
+    stases.push(newStase);
+    saveStases(stases);
+    return newStase;
+}
+
+export function updateStase(id, updates) {
+    const stases = getStoredStases();
+    const index = stases.findIndex(s => s.id === id);
+    if (index === -1) return null;
+    stases[index] = { ...stases[index], ...updates };
+    saveStases(stases);
+    return stases[index];
+}
+
+export function deleteStase(id) {
+    // Remove the stase
+    const stases = getStoredStases();
+    const filtered = stases.filter(s => s.id !== id);
+    saveStases(filtered);
+
+    // Also delete all patients belonging to this stase
+    const patients = getStoredData();
+    const remainingPatients = patients.filter(p => p.stase_id !== id);
+    saveData(remainingPatients);
+
+    // Unpin if it was pinned
+    if (getPinnedStaseId() === id) {
+        setPinnedStaseId(null);
+    }
+    return true;
+}
+// ---------------------------------------
 
 export function getAllPatients() {
     return getStoredData();

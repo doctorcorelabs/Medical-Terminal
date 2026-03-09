@@ -2,19 +2,22 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useStase } from '../../context/StaseContext';
 
 const navItems = [
     { to: '/', icon: 'home', label: 'Beranda' },
+    { to: '/stase', icon: 'assignment', label: 'Stase' },
     { to: '/patients', icon: 'group', label: 'Daftar Pasien' },
     { to: '/add-patient', icon: 'person_add', label: 'Pasien Baru' },
-    { to: '/news', icon: 'newspaper', label: 'News' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
+    { to: '/news', icon: 'newspaper', label: 'News' },
     { to: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
     const { isDark, toggleTheme } = useTheme();
     const { user, signOut } = useAuth();
+    const { pinnedStase } = useStase();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
@@ -90,7 +93,7 @@ export default function Sidebar({ isOpen, onClose }) {
                         {!isCollapsed && (
                             <div className="overflow-hidden min-w-0 flex-1">
                                 <p className="text-sm font-bold truncate" title={user?.email || 'User'}>{user?.email || 'Dokter Coass'}</p>
-                                <p className="text-xs text-slate-500 truncate group-hover:hidden whitespace-nowrap">Stase Aktif</p>
+                                <p className="text-xs text-slate-500 truncate group-hover:hidden whitespace-nowrap">{pinnedStase ? <span className="font-semibold" style={{ color: pinnedStase.color }}>{pinnedStase.name}</span> : 'Belum ada stase aktif'}</p>
                                 <p className="text-xs text-red-500 font-bold hidden group-hover:block transition-all whitespace-nowrap">Keluar Akun</p>
                             </div>
                         )}

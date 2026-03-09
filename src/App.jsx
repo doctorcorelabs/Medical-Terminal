@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { PatientProvider } from './context/PatientContext';
+import { StaseProvider } from './context/StaseContext';
 import { useAuth } from './context/AuthContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Dashboard from './pages/Dashboard';
+import Stase from './pages/Stase';
 import PatientList from './pages/PatientList';
 import AddPatient from './pages/AddPatient';
 import PatientDetail from './pages/PatientDetail';
@@ -32,6 +34,7 @@ function AppContent() {
 
   return (
     <ThemeProvider>
+      <StaseProvider>
       <PatientProvider>
         <div className="flex h-dvh overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
           {/* Sidebar - desktop always visible, mobile toggle */}
@@ -48,6 +51,7 @@ function AppContent() {
             <div className="flex-1 overflow-y-auto">
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/stase" element={<Stase />} />
                 <Route path="/patients" element={<PatientList />} />
                 <Route path="/add-patient" element={<AddPatient />} />
                 <Route path="/patient/:id" element={<PatientDetail />} />
@@ -59,8 +63,7 @@ function AppContent() {
           </main>
 
         </div>
-      </PatientProvider>
-    </ThemeProvider>
+      </PatientProvider>      </StaseProvider>    </ThemeProvider>
   );
 }
 

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
+import { useStase } from '../context/StaseContext';
 import { checkLabValue, labReferences, labCategories, formatDateTime } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
 
 export default function AddPatient() {
     const navigate = useNavigate();
     const { addPatient } = usePatients();
+    const { stases, pinnedStaseId } = useStase();
 
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('addPatientActiveTab') || 'ringkasan';
@@ -20,6 +22,7 @@ export default function AddPatient() {
         targetDays: '', chiefComplaint: '', diagnosis: '', condition: 'stable', status: 'active',
         heartRate: '', bloodPressure: '', temperature: '', respRate: '', spO2: '',
         weight: '', height: '', allergies: '', medicalHistory: '',
+        stase_id: pinnedStaseId || '',
         symptoms: [], dailyReports: [], physicalExams: [], supportingExams: [], prescriptions: [],
     });
 
@@ -151,6 +154,28 @@ export default function AddPatient() {
                                     <div className="space-y-4">
                                         <InputGroup label="Tgl Masuk" name="admissionDate" type="date" value={form.admissionDate} onChange={handleChange} />
                                         <InputGroup label="Target Sembuh" name="targetDays" type="number" value={form.targetDays} onChange={handleChange} placeholder="Hari" />
+                                        {stases.length > 0 && (
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Stase</label>
+                                                <select
+                                                    name="stase_id"
+                                                    value={form.stase_id}
+                                                    onChange={handleChange}
+                                                    className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                                                >
+                                                    <option value="">— Tidak ada stase —</option>
+                                                    {stases.map(s => (
+                                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                                    ))}
+                                                </select>
+                                                {form.stase_id && pinnedStaseId === form.stase_id && (
+                                                    <p className="text-[10px] text-primary mt-1 ml-1 flex items-center gap-1">
+                                                        <span className="material-symbols-outlined text-[12px]">push_pin</span>
+                                                        Stase aktif
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </FormSection>
                             </div>
