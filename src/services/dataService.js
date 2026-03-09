@@ -163,6 +163,18 @@ export function deleteStase(id) {
     }
     return true;
 }
+
+export function reorderStase(id, direction) {
+    const stases = getStoredStases();
+    const index = stases.findIndex(s => s.id === id);
+    if (index === -1) return false;
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= stases.length) return false;
+    const reordered = [...stases];
+    [reordered[index], reordered[newIndex]] = [reordered[newIndex], reordered[index]];
+    saveStases(reordered);
+    return true;
+}
 // ---------------------------------------
 
 export function getAllPatients() {

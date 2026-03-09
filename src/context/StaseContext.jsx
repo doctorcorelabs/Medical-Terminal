@@ -51,6 +51,12 @@ export function StaseProvider({ children }) {
         if (user) dataService.syncStasesToSupabase(user.id);
     }, [pinnedStaseId, user]);
 
+    const reorderStase = useCallback((id, direction) => {
+        dataService.reorderStase(id, direction);
+        refreshStases();
+        if (user) dataService.syncStasesToSupabase(user.id);
+    }, [refreshStases, user]);
+
     const pinnedStase = stases.find(s => s.id === pinnedStaseId) || null;
 
     return (
@@ -62,6 +68,7 @@ export function StaseProvider({ children }) {
             updateStase,
             deleteStase,
             pinStase,
+            reorderStase,
             refreshStases,
         }}>
             {children}

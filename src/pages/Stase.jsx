@@ -16,7 +16,7 @@ const COLOR_PALETTE = [
 
 export default function Stase() {
     const navigate = useNavigate();
-    const { stases, pinnedStaseId, addStase, updateStase, deleteStase, pinStase } = useStase();
+    const { stases, pinnedStaseId, addStase, updateStase, deleteStase, pinStase, reorderStase } = useStase();
     const { patients } = usePatients();
 
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -28,8 +28,10 @@ export default function Stase() {
     const [editColor, setEditColor] = useState('');
 
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+    const [deleteNameInput, setDeleteNameInput] = useState('');
     const createInputRef = useRef(null);
     const editInputRef = useRef(null);
+    const deleteInputRef = useRef(null);
 
     useEffect(() => {
         if (showCreateForm) createInputRef.current?.focus();
@@ -38,6 +40,13 @@ export default function Stase() {
     useEffect(() => {
         if (editingId) editInputRef.current?.focus();
     }, [editingId]);
+
+    useEffect(() => {
+        if (deleteConfirmId) {
+            setDeleteNameInput('');
+            setTimeout(() => deleteInputRef.current?.focus(), 50);
+        }
+    }, [deleteConfirmId]);
 
     const patientCountForStase = (staseId) =>
         patients.filter(p => p.stase_id === staseId).length;
@@ -63,17 +72,19 @@ export default function Stase() {
     };
 
     const handleDelete = (staseId) => {
-        const count = patientCountForStase(staseId);
-        if (count > 0) {
-            setDeleteConfirmId(staseId);
-        } else {
-            deleteStase(staseId);
-        }
+        setDeleteConfirmId(staseId);
     };
 
     const confirmDelete = () => {
+        if (deleteNameInput !== staseToDelete?.name) return;
         deleteStase(deleteConfirmId);
         setDeleteConfirmId(null);
+        setDeleteNameInput('');
+    };
+
+    const cancelDelete = () => {
+        setDeleteConfirmId(null);
+        setDeleteNameInput('');
     };
 
     const staseToDelete = stases.find(s => s.id === deleteConfirmId);
@@ -157,10 +168,12 @@ export default function Stase() {
             {/* Stase List */}
             {stases.length > 0 && (
                 <div className="space-y-3">
-                    {stases.map(stase => {
+                    {stases.map((stase, index) => {
                         const count = patientCountForStase(stase.id);
                         const isPinned = stase.id === pinnedStaseId;
                         const isEditing = editingId === stase.id;
+                        const isFirst = index === 0;
+                        const isLast = index === stases.length - 1;
 
                         return (
                             <div
@@ -243,6 +256,30 @@ export default function Stase() {
 
                                             {/* Actions */}
                                             <div className="flex items-center gap-1 shrink-0">
+                                                {/* Reorder up */}
+                                                {!isFirst && (
+                                                    <button
+                                                        onClick={() => reorderStase(stase.id, 'up')}
+                                                        title="Pindah ke Atas"
+                                                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-xl">arrow_upward</span>
+                                                    </button>
+                                                )}
+                                                {isFirst && <div className="w-9" />}
+
+                                                {/* Reorder down */}
+                                                {!isLast && (
+                                                    <button
+                                                        onClick={() => reorderStase(stase.id, 'down')}
+                                                        title="Pindah ke Bawah"
+                                                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-xl">arrow_downward</span>
+                                                    </button>
+                                                )}
+                                                {isLast && <div className="w-9" />}
+
                                                 {/* View patients */}
                                                 <button
                                                     onClick={() => navigate('/patients')}
@@ -319,20 +356,22 @@ export default function Stase() {
 
             {/* Delete Confirmation Modal */}
             {deleteConfirmId && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-[fadeIn_0.15s_ease-out]">
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-[fadeIn_0.15s_ease-out]">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 max-w-sm w-full">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="size-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-red-500 text-xl">warning</span>
+                            <div className="size-11 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-red-500 text-2xl">warning</span>
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-900 dark:text-white">Hapus Stase</h3>
-                                <p className="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan</p>
+                                <h3 className="font-bold text-slate-900 dark:text-white text-base">Hapus Stase</h3>
+                                <p className="text-xs text-red-500 font-semibold mt-0.5">Tindakan ini tidak dapat dibatalkan</p>
                             </div>
                         </div>
-                        <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
+
+                        <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">
                             Anda akan menghapus stase <strong className="text-slate-900 dark:text-white">"{staseToDelete?.name}"</strong>.
                         </p>
+
                         {deleteCount > 0 && (
                             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4">
                                 <p className="text-sm font-bold text-red-700 dark:text-red-400 flex items-center gap-2">
@@ -342,16 +381,37 @@ export default function Stase() {
                                 <p className="text-xs text-red-500 mt-1">Semua data pasien di stase ini akan hilang permanen.</p>
                             </div>
                         )}
+
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">
+                                Ketik nama stase untuk konfirmasi:
+                                <span className="font-black text-slate-800 dark:text-white ml-1">{staseToDelete?.name}</span>
+                            </label>
+                            <input
+                                ref={deleteInputRef}
+                                type="text"
+                                value={deleteNameInput}
+                                onChange={e => setDeleteNameInput(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') confirmDelete();
+                                    if (e.key === 'Escape') cancelDelete();
+                                }}
+                                placeholder="Ketik nama stase di sini..."
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-400/40 focus:border-red-400 transition-all"
+                            />
+                        </div>
+
                         <div className="flex gap-3">
                             <button
-                                onClick={() => setDeleteConfirmId(null)}
+                                onClick={cancelDelete}
                                 className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                             >
                                 Batal
                             </button>
                             <button
                                 onClick={confirmDelete}
-                                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors"
+                                disabled={deleteNameInput !== staseToDelete?.name}
+                                className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 Hapus Permanen
                             </button>
