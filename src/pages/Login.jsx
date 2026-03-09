@@ -29,11 +29,11 @@ export default function Login() {
             } else if (mode === 'signup') {
                 const { error } = await signUp(email, password);
                 if (error) throw error;
-                setMessage('Pendaftaran berhasil! Silakan periksa email Anda (jika diperlukan) atau langsung login.');
+                setMessage('Pendaftaran berhasil! Silakan periksa email Anda untuk konfirmasi pendaftaran (cek dibagian spam apabila tidak muncul)');
             } else if (mode === 'forgot') {
                 const { error } = await resetPassword(email);
                 if (error) throw error;
-                setMessage('Link reset password telah dikirim ke email Anda. Silakan periksa kotak masuk Anda.');
+                setMessage('Link reset password telah dikirim ke email Anda. Silakan periksa kotak masuk Anda (cek dibagian spam apabila tidak muncul).');
             } else if (mode === 'recovery') {
                 if (newPassword !== confirmPassword) throw new Error('Konfirmasi password tidak cocok.');
                 if (newPassword.length < 6) throw new Error('Password minimal 6 karakter.');
