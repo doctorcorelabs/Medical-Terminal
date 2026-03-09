@@ -435,6 +435,89 @@ export function removeVitalSign(patientId, vsId) {
 }
 
 // ============================================================
+// SCHEDULE – localStorage helpers + Supabase sync
+// ============================================================
+const SCHEDULE_KEY = 'medterminal_schedules';
+
+function getStoredSchedules() {
+    try {
+        const data = localStorage.getItem(SCHEDULE_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveSchedules(schedules) {
+    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedules));
+}
+
+export async function syncSchedulesToSupabase(userId) {
+    if (!userId) return;
+    const schedules = getStoredSchedules();
+    try {
+        await supabase.from('user_schedules').upsert({
+            user_id: userId,
+            schedules_data: schedules,
+            updated_at: new Date().toISOString(),
+        });
+    } catch (err) {
+        console.error('Failed to sync schedules to Supabase:', err);
+    }
+}
+
+export async function fetchSchedulesFromSupabase(userId) {
+    if (!userId) return getStoredSchedules();
+    try {
+        const { data } = await supabase
+            .from('user_schedules')
+            .select('schedules_data')
+            .eq('user_id', userId)
+            .single();
+
+        if (data?.schedules_data) {
+            saveSchedules(data.schedules_data);
+            return data.schedules_data;
+        }
+    } catch (err) {
+        console.error('Failed to fetch schedules from Supabase:', err);
+    }
+    return getStoredSchedules();
+}
+
+export function getAllSchedules() {
+    return getStoredSchedules();
+}
+
+export function addSchedule(schedule) {
+    const schedules = getStoredSchedules();
+    const newSchedule = {
+        ...schedule,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+    };
+    schedules.push(newSchedule);
+    saveSchedules(schedules);
+    return newSchedule;
+}
+
+export function updateSchedule(id, updates) {
+    const schedules = getStoredSchedules();
+    const index = schedules.findIndex(s => s.id === id);
+    if (index === -1) return null;
+    schedules[index] = { ...schedules[index], ...updates };
+    saveSchedules(schedules);
+    return schedules[index];
+}
+
+export function deleteSchedule(id) {
+    const schedules = getStoredSchedules();
+    saveSchedules(schedules.filter(s => s.id !== id));
+    return true;
+}
+// -------------------------------------------------------
+
+// ============================================================
 // LAB REFERENCES – RSUD Ki Ageng Brondong (Official)
 // Organized by: category, with metode, satuan, and gender ranges
 // ============================================================

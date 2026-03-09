@@ -1,0 +1,930 @@
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useSchedule } from '../context/ScheduleContext';
+import { usePatients } from '../context/PatientContext';
+
+// ─────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────
+const CATEGORIES = [
+    { id: 'pasien',  label: 'Pasien',  icon: 'person',       color: '#3b82f6', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',     event: 'bg-blue-500'   },
+    { id: 'operasi', label: 'Operasi', icon: 'surgical',      color: '#ef4444', pill: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',           event: 'bg-red-500'    },
+    { id: 'rapat',   label: 'Rapat',   icon: 'groups',        color: '#8b5cf6', pill: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300', event: 'bg-violet-500' },
+    { id: 'jaga',    label: 'Jaga',    icon: 'schedule',      color: '#f97316', pill: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300', event: 'bg-orange-500' },
+    { id: 'pribadi', label: 'Pribadi', icon: 'star',          color: '#22c55e', pill: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',   event: 'bg-green-500'  },
+    { id: 'lainnya', label: 'Lainnya', icon: 'more_horiz',    color: '#64748b', pill: 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300',   event: 'bg-slate-500'  },
+];
+
+const PRIORITIES = [
+    { id: 'rendah', label: 'Rendah', badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'   },
+    { id: 'sedang', label: 'Sedang', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'   },
+    { id: 'tinggi', label: 'Tinggi', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'           },
+];
+
+const DAYS_SHORT  = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const MONTHS_ID   = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const HOUR_PX     = 64; // px per hour in day-view
+
+const VIEWS = [
+    { id: 'harian',    label: 'Harian',    icon: 'today'          },
+    { id: 'mingguan',  label: 'Mingguan',  icon: 'view_week'      },
+    { id: 'bulanan',   label: 'Bulanan',   icon: 'calendar_month' },
+    { id: 'mendatang', label: 'Mendatang', icon: 'upcoming'       },
+];
+
+// ─────────────────────────────────────────────
+// Utility helpers
+// ─────────────────────────────────────────────
+function toDateStr(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+function todayStr() { return toDateStr(new Date()); }
+
+function timeToMinutes(t) {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function getMonthCalendarDays(year, month) {
+    const firstDay    = new Date(year, month, 1);
+    const lastDay     = new Date(year, month + 1, 0);
+    const startOffset = (firstDay.getDay() + 6) % 7; // Mon = 0
+    const days        = [];
+
+    for (let i = startOffset - 1; i >= 0; i--) {
+        days.push({ date: new Date(year, month, -i), isCurrentMonth: false });
+    }
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+        days.push({ date: new Date(year, month, d), isCurrentMonth: true });
+    }
+    const remaining = (7 - (days.length % 7)) % 7;
+    for (let i = 1; i <= remaining; i++) {
+        days.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
+    }
+    return days;
+}
+
+function getWeekDays(date) {
+    const curr = new Date(date);
+    const day  = curr.getDay();
+    const mon  = new Date(curr);
+    mon.setDate(curr.getDate() - (day === 0 ? 6 : day - 1));
+    return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(mon);
+        d.setDate(mon.getDate() + i);
+        return d;
+    });
+}
+
+function getCat(id)  { return CATEGORIES.find(c => c.id === id) || CATEGORIES[5]; }
+function getPri(id)  { return PRIORITIES.find(p => p.id === id) || PRIORITIES[0]; }
+
+function formatDisplayDate(dateStr) {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+}
+
+// ─────────────────────────────────────────────
+// EventModal
+// ─────────────────────────────────────────────
+function EventModal({ event, prefill, onClose, onSave, onDelete, patients }) {
+    const isEditing = !!event;
+    const blankForm = {
+        title: '', description: '', date: prefill?.date || todayStr(),
+        startTime: prefill?.time || '', endTime: '',
+        isAllDay: !prefill?.time, category: 'pasien', patientId: '', priority: 'sedang',
+    };
+    const [form, setForm]     = useState(isEditing ? { ...event } : blankForm);
+    const [errors, setErrors] = useState({});
+
+    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    function handleSubmit(e) {
+        e.preventDefault();
+        const errs = {};
+        if (!form.title.trim()) errs.title = 'Judul wajib diisi';
+        if (!form.date)         errs.date  = 'Tanggal wajib diisi';
+        if (Object.keys(errs).length) { setErrors(errs); return; }
+        onSave(form);
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full sm:max-w-lg bg-white dark:bg-slate-900 sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[92dvh] overflow-hidden border border-slate-200 dark:border-slate-700" style={{ animation: 'slideUp .15s ease-out' }}>
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                            <span className="material-symbols-outlined text-primary text-[18px]">{isEditing ? 'edit_calendar' : 'calendar_add_on'}</span>
+                        </div>
+                        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                            {isEditing ? 'Edit Jadwal' : 'Tambah Jadwal'}
+                        </h2>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+                    <div className="px-5 py-4 space-y-4">
+
+                        {/* Title */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                                Judul <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={form.title}
+                                onChange={e => set('title', e.target.value)}
+                                placeholder="Contoh: Visit pasien ICU, Rapat DPJP..."
+                                className={`w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${errors.title ? 'border-red-400' : 'border-slate-200 dark:border-slate-700'}`}
+                            />
+                            {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
+                        </div>
+
+                        {/* Date + All-day */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                                    Tanggal <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={form.date}
+                                    onChange={e => set('date', e.target.value)}
+                                    className={`w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${errors.date ? 'border-red-400' : 'border-slate-200 dark:border-slate-700'}`}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Tipe</label>
+                                <button
+                                    type="button"
+                                    onClick={() => set('isAllDay', !form.isAllDay)}
+                                    className={`w-full h-11 px-3 rounded-xl text-sm font-medium border-2 transition-all flex items-center justify-center gap-2 ${form.isAllDay ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">{form.isAllDay ? 'check_circle' : 'radio_button_unchecked'}</span>
+                                    Seharian
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Time range */}
+                        {!form.isAllDay && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Mulai</label>
+                                    <input type="time" value={form.startTime} onChange={e => set('startTime', e.target.value)}
+                                        className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all" />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Selesai</label>
+                                    <input type="time" value={form.endTime} onChange={e => set('endTime', e.target.value)}
+                                        className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all" />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Category */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">Kategori</label>
+                            <div className="flex flex-wrap gap-2">
+                                {CATEGORIES.map(cat => (
+                                    <button
+                                        type="button"
+                                        key={cat.id}
+                                        onClick={() => set('category', cat.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${form.category === cat.id ? 'border-current scale-105 shadow-sm' : 'border-transparent opacity-60 hover:opacity-90'} ${cat.pill}`}
+                                    >
+                                        {cat.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Priority */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">Prioritas</label>
+                            <div className="flex gap-2">
+                                {PRIORITIES.map(p => (
+                                    <button
+                                        type="button"
+                                        key={p.id}
+                                        onClick={() => set('priority', p.id)}
+                                        className={`flex-1 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${form.priority === p.id ? `${p.badge} border-current` : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300'}`}
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Patient link */}
+                        {patients && patients.length > 0 && (
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                                    Pasien Terkait <span className="text-slate-400 font-normal normal-case">(opsional)</span>
+                                </label>
+                                <select
+                                    value={form.patientId || ''}
+                                    onChange={e => set('patientId', e.target.value || '')}
+                                    className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                                >
+                                    <option value="">-- Tidak ada --</option>
+                                    {patients.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}{p.room ? ` · ${p.room}` : ''}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Description */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                                Deskripsi <span className="text-slate-400 font-normal normal-case">(opsional)</span>
+                            </label>
+                            <textarea
+                                value={form.description}
+                                onChange={e => set('description', e.target.value)}
+                                placeholder="Catatan tambahan tentang jadwal ini..."
+                                rows={3}
+                                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className={`flex items-center px-5 pb-5 pt-3 border-t border-slate-100 dark:border-slate-800 gap-3 shrink-0 ${isEditing ? 'justify-between' : 'justify-end'}`}>
+                        {isEditing && (
+                            <button
+                                type="button"
+                                onClick={() => onDelete(event.id)}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                                Hapus
+                            </button>
+                        )}
+                        <div className="flex gap-2">
+                            <button type="button" onClick={onClose}
+                                className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                Batal
+                            </button>
+                            <button type="submit"
+                                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-[18px]">save</span>
+                                Simpan
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// EventPill – tiny colored event chip in month grid
+// ─────────────────────────────────────────────
+function EventPill({ event, onClick }) {
+    const cat = getCat(event.category);
+    return (
+        <button
+            onClick={e => { e.stopPropagation(); onClick(event); }}
+            title={event.title}
+            className={`w-full text-left text-[10px] font-semibold rounded px-1.5 py-0.5 truncate text-white transition-opacity hover:opacity-80 ${cat.event}`}
+        >
+            {!event.isAllDay && event.startTime && <span className="opacity-75 mr-1">{event.startTime}</span>}
+            {event.title}
+        </button>
+    );
+}
+
+// ─────────────────────────────────────────────
+// MonthView
+// ─────────────────────────────────────────────
+function MonthView({ schedules, currentDate, onDayClick, onEventClick }) {
+    const year   = currentDate.getFullYear();
+    const month  = currentDate.getMonth();
+    const today  = todayStr();
+    const calDays = useMemo(() => getMonthCalendarDays(year, month), [year, month]);
+
+    const byDate = useMemo(() => {
+        const map = {};
+        schedules.forEach(ev => {
+            if (!map[ev.date]) map[ev.date] = [];
+            map[ev.date].push(ev);
+        });
+        return map;
+    }, [schedules]);
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            {/* Day-of-week headers */}
+            <div className="grid grid-cols-7 border-b border-slate-100 dark:border-slate-800">
+                {DAYS_SHORT.map(d => (
+                    <div key={d} className="py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        {d}
+                    </div>
+                ))}
+            </div>
+
+            {/* Grid cells */}
+            <div className="grid grid-cols-7">
+                {calDays.map((cell, idx) => {
+                    const ds     = toDateStr(cell.date);
+                    const events = byDate[ds] || [];
+                    const isToday = ds === today;
+
+                    return (
+                        <div
+                            key={idx}
+                            onClick={() => onDayClick(cell.date)}
+                            className={`min-h-22 md:min-h-27.5 p-1.5 border-b border-r border-slate-100 dark:border-slate-800/70 cursor-pointer transition-colors
+                                ${!cell.isCurrentMonth ? 'opacity-35' : ''}
+                                ${isToday ? 'bg-primary/4' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}
+                            `}
+                        >
+                            <div className="flex justify-center mb-1">
+                                <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full transition-colors
+                                    ${isToday ? 'bg-primary text-white' : 'text-slate-700 dark:text-slate-300'}
+                                `}>
+                                    {cell.date.getDate()}
+                                </span>
+                            </div>
+                            <div className="space-y-0.5">
+                                {events.slice(0, 3).map(ev => (
+                                    <EventPill key={ev.id} event={ev} onClick={onEventClick} />
+                                ))}
+                                {events.length > 3 && (
+                                    <p className="text-[10px] text-center text-slate-400 hover:text-primary transition-colors cursor-pointer leading-tight">
+                                        +{events.length - 3} lagi
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// WeekView
+// ─────────────────────────────────────────────
+function WeekView({ schedules, currentDate, onEventClick, onOpenModal }) {
+    const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate]);
+    const today    = todayStr();
+
+    const byDate = useMemo(() => {
+        const map = {};
+        schedules.forEach(ev => {
+            if (!map[ev.date]) map[ev.date] = [];
+            map[ev.date].push(ev);
+        });
+        Object.keys(map).forEach(d => {
+            map[d].sort((a, b) => {
+                if (a.isAllDay && !b.isAllDay) return -1;
+                if (!a.isAllDay && b.isAllDay) return 1;
+                return (a.startTime || '').localeCompare(b.startTime || '');
+            });
+        });
+        return map;
+    }, [schedules]);
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm overflow-x-auto">
+            <div className="grid grid-cols-7 min-w-140">
+                {weekDays.map((date, idx) => {
+                    const ds      = toDateStr(date);
+                    const events  = byDate[ds] || [];
+                    const isToday = ds === today;
+
+                    return (
+                        <div key={idx} className={`border-r last:border-r-0 border-slate-100 dark:border-slate-800 ${isToday ? 'bg-primary/3 dark:bg-primary/6' : ''}` }>
+                            {/* Column header */}
+                            <div className={`py-3 text-center border-b border-slate-100 dark:border-slate-800 ${isToday ? 'bg-primary/7 dark:bg-primary/10' : ''}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? 'text-primary' : 'text-slate-400 dark:text-slate-500'}`}>
+                                    {DAYS_SHORT[idx]}
+                                </p>
+                                <span className={`text-lg font-bold inline-flex items-center justify-center w-8 h-8 rounded-full mt-0.5
+                                    ${isToday ? 'bg-primary text-white' : 'text-slate-800 dark:text-slate-200'}
+                                `}>
+                                    {date.getDate()}
+                                </span>
+                            </div>
+
+                            {/* Events */}
+                            <div
+                                className="p-1.5 space-y-1 min-h-45 cursor-pointer"
+                                onClick={() => onOpenModal({ date: ds })}
+                            >
+                                {events.map(ev => {
+                                    const cat = getCat(ev.category);
+                                    return (
+                                        <button
+                                            key={ev.id}
+                                            onClick={e => { e.stopPropagation(); onEventClick(ev); }}
+                                            className={`w-full text-left rounded-lg px-2 py-1.5 text-white text-[11px] font-medium leading-tight transition-opacity hover:opacity-85 ${cat.event}`}
+                                        >
+                                            {!ev.isAllDay && ev.startTime && (
+                                                <span className="block text-[10px] opacity-75">{ev.startTime}{ev.endTime ? `–${ev.endTime}` : ''}</span>
+                                            )}
+                                            <span className="truncate block">{ev.title}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// DayView – 24-hour timeline
+// ─────────────────────────────────────────────
+function DayView({ schedules, currentDate, onEventClick, onOpenModal }) {
+    const ds       = toDateStr(currentDate);
+    const today    = todayStr();
+    const isToday  = ds === today;
+    const scrollRef = useRef(null);
+
+    const { allDay, timed } = useMemo(() => {
+        const dayEvents = schedules.filter(ev => ev.date === ds);
+        return {
+            allDay: dayEvents.filter(ev => ev.isAllDay),
+            timed:  dayEvents.filter(ev => !ev.isAllDay).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '')),
+        };
+    }, [schedules, ds]);
+
+    const now = new Date();
+    const currentTopPx = isToday ? ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_PX : null;
+
+    // Scroll to first event or 7am
+    useEffect(() => {
+        if (!scrollRef.current) return;
+        const targetH = timed.length > 0
+            ? Math.max(0, (timeToMinutes(timed[0].startTime) ?? 420) / 60 - 1)
+            : 7;
+        scrollRef.current.scrollTop = targetH * HOUR_PX;
+    }, [ds]);
+
+    function eventStyle(ev) {
+        const start    = timeToMinutes(ev.startTime) ?? 0;
+        const end      = timeToMinutes(ev.endTime)   ?? (start + 60);
+        const duration = Math.max(end - start, 30);
+        return { top: `${(start / 60) * HOUR_PX}px`, height: `${(duration / 60) * HOUR_PX}px` };
+    }
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            {/* All-day strip */}
+            {allDay.length > 0 && (
+                <div className="border-b border-slate-100 dark:border-slate-800 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Seharian</p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {allDay.map(ev => {
+                            const cat = getCat(ev.category);
+                            return (
+                                <button key={ev.id} onClick={() => onEventClick(ev)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold text-white ${cat.event} hover:opacity-85 transition-opacity`}>
+                                    {ev.title}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Timeline */}
+            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '62vh' }}>
+                <div className="relative" style={{ height: `${24 * HOUR_PX}px` }}>
+                    {/* Hour rows */}
+                    {Array.from({ length: 24 }, (_, h) => (
+                        <div key={h} className="absolute left-0 right-0 flex" style={{ top: `${h * HOUR_PX}px`, height: `${HOUR_PX}px` }}>
+                            <div className="w-14 shrink-0 pr-3 flex items-start justify-end pt-1.5">
+                                <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 select-none">
+                                    {String(h).padStart(2, '0')}:00
+                                </span>
+                            </div>
+                            <div
+                                className="flex-1 border-t border-slate-100 dark:border-slate-800 hover:bg-primary/3 transition-colors cursor-pointer"
+                                onClick={() => onOpenModal({ date: ds, time: `${String(h).padStart(2, '0')}:00` })}
+                            />
+                        </div>
+                    ))}
+
+                    {/* Current time indicator */}
+                    {currentTopPx !== null && (
+                        <div className="absolute left-0 right-0 z-10 pointer-events-none flex items-center" style={{ top: `${currentTopPx}px` }}>
+                            <div className="w-14 shrink-0 flex items-center justify-end pr-1.5">
+                                <div className="w-3 h-3 rounded-full bg-red-500" />
+                            </div>
+                            <div className="flex-1 h-0.5 bg-red-500 shadow-sm shadow-red-300/50" />
+                        </div>
+                    )}
+
+                    {/* Timed events */}
+                    {timed.map(ev => {
+                        const cat = getCat(ev.category);
+                        return (
+                            <button
+                                key={ev.id}
+                                onClick={() => onEventClick(ev)}
+                                style={{ ...eventStyle(ev), left: '56px', right: '8px', position: 'absolute', zIndex: 5 }}
+                                className={`${cat.event} text-white rounded-xl px-2.5 py-1.5 text-left overflow-hidden hover:opacity-85 transition-opacity shadow-md border-l-2 border-white/30`}
+                            >
+                                <p className="text-xs font-bold leading-tight truncate">{ev.title}</p>
+                                {ev.startTime && (
+                                    <p className="text-[10px] opacity-80 mt-0.5">{ev.startTime}{ev.endTime ? ` – ${ev.endTime}` : ''}</p>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// EventCard – detailed card for Upcoming view
+// ─────────────────────────────────────────────
+function EventCard({ event, onEdit, patients }) {
+    const cat     = getCat(event.category);
+    const pri     = getPri(event.priority);
+    const patient = patients?.find(p => p.id === event.patientId);
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-shadow border-l-4"
+            style={{ borderLeftColor: cat.color }}>
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cat.pill}`}>{cat.label}</span>
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${pri.badge}`}>{pri.label}</span>
+                        {event.isAllDay && (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">Seharian</span>
+                        )}
+                    </div>
+                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">{event.title}</h3>
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
+                        <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                            {formatDisplayDate(event.date)}
+                        </span>
+                        {!event.isAllDay && event.startTime && (
+                            <span className="flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px]">schedule</span>
+                                {event.startTime}{event.endTime ? ` – ${event.endTime}` : ''}
+                            </span>
+                        )}
+                    </div>
+                    {patient && (
+                        <div className="mt-1 flex items-center gap-1 text-xs text-blue-500">
+                            <span className="material-symbols-outlined text-[13px]">person</span>
+                            {patient.name}
+                        </div>
+                    )}
+                    {event.description && (
+                        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{event.description}</p>
+                    )}
+                </div>
+                <button onClick={() => onEdit(event)}
+                    className="shrink-0 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// UpcomingView
+// ─────────────────────────────────────────────
+function UpcomingView({ schedules, onEventClick, patients }) {
+    const today = todayStr();
+
+    const grouped = useMemo(() => {
+        const now  = new Date();
+        const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        function startOfWeek(d) {
+            const r = new Date(d);
+            const day = r.getDay();
+            r.setDate(r.getDate() - (day === 0 ? 6 : day - 1));
+            r.setHours(0, 0, 0, 0);
+            return r;
+        }
+
+        const thisWeekStart  = startOfWeek(base);
+        const thisWeekEnd    = new Date(thisWeekStart); thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+        const nextWeekStart  = new Date(thisWeekEnd);   nextWeekStart.setDate(thisWeekEnd.getDate() + 1);
+        const nextWeekEnd    = new Date(nextWeekStart); nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+        const tomorrowStr    = toDateStr(new Date(base.getTime() + 86400000));
+
+        const upcoming = schedules
+            .filter(ev => ev.date >= today)
+            .sort((a, b) => {
+                if (a.date !== b.date) return a.date.localeCompare(b.date);
+                if (a.isAllDay && !b.isAllDay) return -1;
+                if (!a.isAllDay && b.isAllDay) return 1;
+                return (a.startTime || '').localeCompare(b.startTime || '');
+            });
+
+        const groups = {
+            today:    { label: 'Hari Ini',      events: [] },
+            tomorrow: { label: 'Besok',          events: [] },
+            thisWeek: { label: 'Minggu Ini',     events: [] },
+            nextWeek: { label: 'Minggu Depan',   events: [] },
+            later:    { label: 'Lebih Jauh',     events: [] },
+        };
+
+        upcoming.forEach(ev => {
+            const d = new Date(ev.date + 'T00:00:00');
+            if (ev.date === today)        groups.today.events.push(ev);
+            else if (ev.date === tomorrowStr)  groups.tomorrow.events.push(ev);
+            else if (d >= thisWeekStart && d <= thisWeekEnd)  groups.thisWeek.events.push(ev);
+            else if (d >= nextWeekStart && d <= nextWeekEnd)  groups.nextWeek.events.push(ev);
+            else                                               groups.later.events.push(ev);
+        });
+
+        return groups;
+    }, [schedules, today]);
+
+    const hasAny = Object.values(grouped).some(g => g.events.length > 0);
+
+    if (!hasAny) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">event_busy</span>
+                </div>
+                <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Tidak ada jadwal mendatang</h3>
+                <p className="text-sm text-slate-400 max-w-xs">Tambahkan jadwal baru untuk mulai melacak aktivitas Anda.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-7">
+            {Object.entries(grouped).map(([key, group]) => {
+                if (group.events.length === 0) return null;
+                return (
+                    <div key={key}>
+                        <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">{group.label}</h3>
+                            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                            <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full shrink-0">{group.events.length}</span>
+                        </div>
+                        <div className="space-y-2">
+                            {group.events.map(ev => (
+                                <EventCard key={ev.id} event={ev} onEdit={onEventClick} patients={patients} />
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// Main Schedule Page
+// ─────────────────────────────────────────────
+export default function Schedule() {
+    const { schedules, addSchedule, updateSchedule, deleteSchedule } = useSchedule();
+    const { patients } = usePatients();
+
+    const [view,         setView]         = useState(() => localStorage.getItem('medterminal_schedule_view') || 'bulanan');
+    const [currentDate,  setCurrentDate]  = useState(new Date());
+    const [showModal,    setShowModal]    = useState(false);
+    const [editingEvent, setEditingEvent] = useState(null);
+    const [prefill,      setPrefill]      = useState(null);
+
+    // ── Navigation label ──────────────────────
+    const navLabel = useMemo(() => {
+        const y = currentDate.getFullYear();
+        const m = currentDate.getMonth();
+        if (view === 'bulanan')  return `${MONTHS_ID[m]} ${y}`;
+        if (view === 'mingguan') {
+            const days  = getWeekDays(currentDate);
+            const first = days[0];
+            const last  = days[6];
+            if (first.getMonth() === last.getMonth())
+                return `${first.getDate()} – ${last.getDate()} ${MONTHS_ID[first.getMonth()]} ${y}`;
+            return `${first.getDate()} ${MONTHS_ID[first.getMonth()]} – ${last.getDate()} ${MONTHS_ID[last.getMonth()]} ${y}`;
+        }
+        if (view === 'harian')
+            return currentDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        return 'Mendatang';
+    }, [view, currentDate]);
+
+    // ── Navigate prev/next ────────────────────
+    function navigate(dir) {
+        setCurrentDate(prev => {
+            const d = new Date(prev);
+            if (view === 'bulanan')  d.setMonth(d.getMonth() + dir);
+            else if (view === 'mingguan') d.setDate(d.getDate() + dir * 7);
+            else if (view === 'harian')   d.setDate(d.getDate() + dir);
+            return d;
+        });
+    }
+
+    function goToday() { setCurrentDate(new Date()); }
+
+    // ── Modal helpers ─────────────────────────
+    function openAdd(prefillData = null) {
+        setEditingEvent(null);
+        setPrefill(prefillData);
+        setShowModal(true);
+    }
+    function openEdit(event) {
+        setEditingEvent(event);
+        setPrefill(null);
+        setShowModal(true);
+    }
+    function closeModal() {
+        setShowModal(false);
+        setEditingEvent(null);
+        setPrefill(null);
+    }
+
+    function handleDayClick(date) {
+        setCurrentDate(new Date(date));
+        setView('harian');
+    }
+
+    function handleSave(form) {
+        if (editingEvent) updateSchedule(editingEvent.id, form);
+        else              addSchedule(form);
+        closeModal();
+    }
+
+    function handleDelete(id) {
+        deleteSchedule(id);
+        closeModal();
+    }
+
+    // ── Stats ─────────────────────────────────
+    const stats = useMemo(() => {
+        const today    = todayStr();
+        const weekDays = getWeekDays(new Date());
+        const wStart   = toDateStr(weekDays[0]);
+        const wEnd     = toDateStr(weekDays[6]);
+        return {
+            today:    schedules.filter(ev => ev.date === today).length,
+            week:     schedules.filter(ev => ev.date >= wStart && ev.date <= wEnd).length,
+            upcoming: schedules.filter(ev => ev.date >= today).length,
+        };
+    }, [schedules]);
+
+    return (
+        <div className="p-4 md:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto">
+
+            {/* ── Page header ── */}
+            <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-[26px]">calendar_month</span>
+                        Jadwal
+                    </h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Kelola dan pantau jadwal kegiatan klinis Anda</p>
+                </div>
+                <button
+                    onClick={() => openAdd()}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-semibold text-sm shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 shrink-0"
+                >
+                    <span className="material-symbols-outlined text-[18px]">add</span>
+                    <span className="hidden sm:inline">Tambah Jadwal</span>
+                    <span className="sm:hidden">Tambah</span>
+                </button>
+            </div>
+
+            {/* ── Stats row ── */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+                {[
+                    { label: 'Hari Ini',   value: stats.today,    icon: 'today',          color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20'   },
+                    { label: 'Minggu Ini', value: stats.week,     icon: 'view_week',      color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
+                    { label: 'Mendatang',  value: stats.upcoming, icon: 'upcoming',       color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20'  },
+                ].map(s => (
+                    <div key={s.label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 md:p-4 shadow-sm">
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 ${s.bg}`}>
+                                <span className={`material-symbols-outlined text-[18px] md:text-[22px] ${s.color}`}>{s.icon}</span>
+                            </div>
+                            <div>
+                                <p className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">{s.value}</p>
+                                <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">{s.label}</p>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* ── View switcher + nav ── */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                {/* View tabs */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 shrink-0">
+                    {VIEWS.map(v => (
+                        <button
+                            key={v.id}
+                            onClick={() => { setView(v.id); localStorage.setItem('medterminal_schedule_view', v.id); }}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                view === v.id
+                                    ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined text-[16px]">{v.icon}</span>
+                            <span className="hidden sm:inline">{v.label}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Date navigation (hidden for Mendatang) */}
+                {view !== 'mendatang' && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={goToday}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            Hari Ini
+                        </button>
+                        <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                            <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400">
+                                <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                            </button>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-3 min-w-42.5 text-center select-none">{navLabel}</span>
+                            <button onClick={() => navigate(1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400">
+                                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Calendar content ── */}
+            {view === 'bulanan' && (
+                <MonthView
+                    schedules={schedules}
+                    currentDate={currentDate}
+                    onDayClick={handleDayClick}
+                    onEventClick={openEdit}
+                />
+            )}
+            {view === 'mingguan' && (
+                <WeekView
+                    schedules={schedules}
+                    currentDate={currentDate}
+                    onEventClick={openEdit}
+                    onOpenModal={openAdd}
+                />
+            )}
+            {view === 'harian' && (
+                <DayView
+                    schedules={schedules}
+                    currentDate={currentDate}
+                    onEventClick={openEdit}
+                    onOpenModal={openAdd}
+                />
+            )}
+            {view === 'mendatang' && (
+                <UpcomingView
+                    schedules={schedules}
+                    onEventClick={openEdit}
+                    patients={patients}
+                />
+            )}
+
+            {/* ── Mobile FAB ── */}
+            <button
+                onClick={() => openAdd()}
+                className="lg:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary rounded-full shadow-xl shadow-primary/30 flex items-center justify-center text-white z-30 hover:bg-primary/90 transition-all active:scale-95"
+                aria-label="Tambah jadwal"
+            >
+                <span className="material-symbols-outlined text-[24px]">add</span>
+            </button>
+
+            {/* ── Modal ── */}
+            {showModal && (
+                <EventModal
+                    event={editingEvent}
+                    prefill={prefill}
+                    onClose={closeModal}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                    patients={patients}
+                />
+            )}
+        </div>
+    );
+}

@@ -1,12 +1,73 @@
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
+import { useSchedule } from '../context/ScheduleContext';
 import { calculateRecoveryProgress, getRelativeTime } from '../services/dataService';
+
+const SCHED_CATS = [
+    { id: 'pasien',  label: 'Pasien',  color: '#3b82f6', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'    },
+    { id: 'operasi', label: 'Operasi', color: '#ef4444', pill: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'          },
+    { id: 'rapat',   label: 'Rapat',   color: '#8b5cf6', pill: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300' },
+    { id: 'jaga',    label: 'Jaga',    color: '#f97316', pill: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300' },
+    { id: 'pribadi', label: 'Pribadi', color: '#22c55e', pill: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'   },
+    { id: 'lainnya', label: 'Lainnya', color: '#64748b', pill: 'bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300'   },
+];
+function getScat(id) { return SCHED_CATS.find(c => c.id === id) || SCHED_CATS[5]; }
+
+import { useRef, useLayoutEffect, useState } from 'react';
 
 export default function Dashboard() {
     const navigate = useNavigate();
     const { patients } = usePatients();
     const { pinnedStase, stases } = useStase();
+    const { schedules } = useSchedule();
+
+    const aksiRef = useRef(null);
+    const leftColRef = useRef(null);
+    const jadwalContentRef = useRef(null);
+    const [aksiHeight, setAksiHeight] = useState(null);
+    const [jadwalContentMax, setJadwalContentMax] = useState(null);
+
+    useLayoutEffect(() => {
+        const measureAll = () => {
+            if (aksiRef.current) {
+                setAksiHeight(Math.round(aksiRef.current.getBoundingClientRect().height));
+            }
+            if (leftColRef.current && jadwalContentRef.current) {
+                const leftRect = leftColRef.current.getBoundingClientRect();
+                const contentRect = jadwalContentRef.current.getBoundingClientRect();
+                const padding = 16; // small gap
+                const maxH = Math.max(0, Math.floor(leftRect.bottom - contentRect.top - padding));
+                setJadwalContentMax(maxH);
+            }
+        };
+
+        measureAll();
+        let ro = null;
+        if (window.ResizeObserver) {
+            ro = new ResizeObserver(() => measureAll());
+            if (aksiRef.current) ro.observe(aksiRef.current);
+            if (leftColRef.current) ro.observe(leftColRef.current);
+            if (jadwalContentRef.current) ro.observe(jadwalContentRef.current);
+        }
+        window.addEventListener('resize', measureAll);
+        return () => {
+            window.removeEventListener('resize', measureAll);
+            if (ro) ro.disconnect();
+        };
+    }, [aksiRef.current, leftColRef.current, jadwalContentRef.current]);
+
+    const todayStr = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    const todaySchedules = schedules
+        .filter(ev => ev.date === todayStr)
+        .sort((a, b) => {
+            if (a.isAllDay && !b.isAllDay) return -1;
+            if (!a.isAllDay && b.isAllDay) return 1;
+            return (a.startTime || '').localeCompare(b.startTime || '');
+        });
 
     const activePatients = patients.filter(p => p.status !== 'discharged');
     const criticalPatients = patients.filter(p => p.condition === 'critical');
@@ -114,9 +175,9 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
                 {/* Kolom Kiri */}
-                <div className="md:col-span-2 space-y-6 lg:space-y-8 min-w-0">
+                <div ref={leftColRef} className="md:col-span-2 space-y-6 lg:space-y-8 min-w-0">
                     {/* Aksi Cepat */}
-                    <section>
+                    <section ref={aksiRef}>
                         <h3 className="text-lg lg:text-xl font-bold mb-4 flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">edit_square</span>
                             Aksi Cepat
@@ -182,35 +243,75 @@ export default function Dashboard() {
 
                 {/* Kolom Kanan */}
                 <div className="space-y-6 min-w-0">
-                    {/* Tracking Pemulihan */}
-                    <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 lg:p-6">
-                        <h3 className="text-base lg:text-lg font-bold mb-4 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary">trending_up</span>
-                            Tracking Pemulihan
-                        </h3>
-                        <div className="space-y-4">
-                            {patients.filter(p => p.admissionDate && p.targetDays).length === 0 ? (
-                                <p className="text-sm text-slate-400 text-center py-4">Belum ada data tracking</p>
-                            ) : (
-                                patients.filter(p => p.admissionDate && p.targetDays).slice(0, 4).map(patient => {
-                                    const recovery = calculateRecoveryProgress(patient.admissionDate, patient.targetDays);
+                    {/* Jadwal Hari Ini */}
+                    <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden" style={aksiHeight ? { minHeight: aksiHeight } : undefined}>
+                        <div className="flex items-center justify-between px-5 lg:px-6 pt-5 lg:pt-6 pb-3 shrink-0">
+                            <h3 className="text-base lg:text-lg font-bold flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">today</span>
+                                Jadwal Hari Ini
+                            </h3>
+                            <button onClick={() => navigate('/schedule')} className="text-sm text-primary font-semibold hover:underline shrink-0">
+                                Lihat Semua
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-400 dark:text-slate-500 px-5 lg:px-6 pb-3 shrink-0">
+                            {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+
+                        {todaySchedules.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 text-center px-5">
+                                <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
+                                    <span className="material-symbols-outlined text-2xl text-slate-300 dark:text-slate-600">event_busy</span>
+                                </div>
+                                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Tidak ada jadwal hari ini</p>
+                                <button
+                                    onClick={() => navigate('/schedule')}
+                                    className="mt-3 text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                                    Tambah Jadwal
+                                </button>
+                            </div>
+                        ) : (
+                            <div ref={jadwalContentRef} className="overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/70" style={jadwalContentMax ? { maxHeight: jadwalContentMax } : undefined}>
+                                {todaySchedules.map(ev => {
+                                    const cat = getScat(ev.category);
                                     return (
-                                        <div key={patient.id} className="space-y-1.5 cursor-pointer" onClick={() => navigate(`/patient/${patient.id}`)}>
-                                            <div className="flex justify-between text-xs gap-2">
-                                                <span className="font-bold truncate min-w-0">{patient.name}</span>
-                                                <span className="text-slate-400 shrink-0">Hari {recovery.daysIn}/{recovery.targetDays}</span>
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full rounded-full transition-all ${recovery.progress > 100 ? 'bg-red-500' : recovery.progress > 70 ? 'bg-amber-500' : 'bg-primary'}`}
-                                                    style={{ width: `${Math.min(100, recovery.progress)}%` }}
-                                                />
+                                        <div
+                                            key={ev.id}
+                                            onClick={() => navigate('/schedule')}
+                                            className="flex items-center gap-3 px-5 lg:px-6 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors border-l-4 group"
+                                            style={{ borderLeftColor: cat.color }}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-primary transition-colors">{ev.title}</p>
+                                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cat.pill}`}>{cat.label}</span>
+                                                    {ev.isAllDay ? (
+                                                        <span className="text-[10px] text-slate-400">Seharian</span>
+                                                    ) : ev.startTime ? (
+                                                        <span className="text-[11px] text-slate-400 flex items-center gap-0.5">
+                                                            <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                                            {ev.startTime}{ev.endTime ? `–${ev.endTime}` : ''}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
                                             </div>
                                         </div>
                                     );
-                                })
-                            )}
-                        </div>
+                                })}
+                            </div>
+                        )}
+
+                        {todaySchedules.length > 0 && (
+                            <div className="px-5 lg:px-6 py-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                                <p className="text-xs text-slate-400">
+                                    {todaySchedules.length} jadwal ·
+                                    <span className="text-primary font-semibold cursor-pointer hover:underline ml-1" onClick={() => navigate('/schedule')}>Kelola jadwal →</span>
+                                </p>
+                            </div>
+                        )}
                     </section>
 
                     {/* Peringatan Kritis */}
@@ -232,16 +333,7 @@ export default function Dashboard() {
                         </section>
                     )}
 
-                    {/* Tips AI */}
-                    <section className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-5 lg:p-6">
-                        <h4 className="font-bold text-primary mb-2 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-lg">lightbulb</span>
-                            Tips Klinis
-                        </h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Gunakan fitur AI Insight pada halaman detail pasien untuk mendapatkan analisis gejala, kemungkinan diagnosis, dan rekomendasi pemeriksaan secara otomatis.
-                        </p>
-                    </section>
+                    {/* Tips AI — removed, replaced by Jadwal Hari Ini above */}
                 </div>
             </div>
         </div>

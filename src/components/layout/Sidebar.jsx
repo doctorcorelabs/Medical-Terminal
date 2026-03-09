@@ -9,6 +9,7 @@ const navItems = [
     { to: '/stase', icon: 'assignment', label: 'Stase' },
     { to: '/patients', icon: 'group', label: 'Daftar Pasien' },
     { to: '/add-patient', icon: 'person_add', label: 'Pasien Baru' },
+    { to: '/schedule', icon: 'calendar_month', label: 'Jadwal' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
     { to: '/news', icon: 'newspaper', label: 'News' },
     { to: '/settings', icon: 'settings', label: 'Pengaturan' },

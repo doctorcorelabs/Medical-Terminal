@@ -16,6 +16,9 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import News from './pages/News';
 import ResetPassword from './pages/ResetPassword';
+import Schedule from './pages/Schedule';
+import BottomNav from './components/layout/BottomNav';
+import { ScheduleProvider } from './context/ScheduleContext';
 
 function AppContent() {
   const { user, isRecoveryMode } = useAuth();
@@ -36,6 +39,7 @@ function AppContent() {
     <ThemeProvider>
       <StaseProvider>
       <PatientProvider>
+      <ScheduleProvider>
         <div className="flex h-dvh overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
           {/* Sidebar - desktop always visible, mobile toggle */}
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -58,11 +62,13 @@ function AppContent() {
                 <Route path="/news" element={<News />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/schedule" element={<Schedule />} />
               </Routes>
             </div>
           </main>
-
+          <BottomNav />
         </div>
+      </ScheduleProvider>
       </PatientProvider>      </StaseProvider>    </ThemeProvider>
   );
 }
