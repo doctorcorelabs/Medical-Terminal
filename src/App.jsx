@@ -17,7 +17,6 @@ import Login from './pages/Login';
 import News from './pages/News';
 import ResetPassword from './pages/ResetPassword';
 import Schedule from './pages/Schedule';
-import BottomNav from './components/layout/BottomNav';
 import { ScheduleProvider } from './context/ScheduleContext';
 
 function AppContent() {
@@ -66,7 +65,6 @@ function AppContent() {
               </Routes>
             </div>
           </main>
-          <BottomNav />
         </div>
       </ScheduleProvider>
       </PatientProvider>      </StaseProvider>    </ThemeProvider>
