@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
             return supabase.auth.signOut();
         },
         resetPassword: (email) => supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin,
+            redirectTo: `${window.location.origin}/reset-password`,
         }),
         updatePassword: (newPassword) => supabase.auth.updateUser({ password: newPassword }),
         user,

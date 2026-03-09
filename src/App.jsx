@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { PatientProvider } from './context/PatientContext';
 import { useAuth } from './context/AuthContext';
@@ -14,11 +14,18 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import News from './pages/News';
+import ResetPassword from './pages/ResetPassword';
 
-export default function App() {
+function AppContent() {
   const { user, isRecoveryMode } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+
+  // Always allow the reset-password route regardless of auth state
+  if (location.pathname === '/reset-password') {
+    return <ResetPassword />;
+  }
 
   if (!user || isRecoveryMode) {
     return <Login />;
@@ -27,37 +34,43 @@ export default function App() {
   return (
     <ThemeProvider>
       <PatientProvider>
-        <Router>
-          <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
-            {/* Sidebar - desktop always visible, mobile toggle */}
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+          {/* Sidebar - desktop always visible, mobile toggle */}
+          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-              <Header
-                onMenuToggle={() => setSidebarOpen(prev => !prev)}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-              />
+          {/* Main Content */}
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <Header
+              onMenuToggle={() => setSidebarOpen(prev => !prev)}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+            />
 
-              <div className="flex-1 overflow-y-auto">
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/patients" element={<PatientList />} />
-                  <Route path="/add-patient" element={<AddPatient />} />
-                  <Route path="/patient/:id" element={<PatientDetail />} />
-                  <Route path="/news" element={<News />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </div>
-            </main>
+            <div className="flex-1 overflow-y-auto">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/patients" element={<PatientList />} />
+                <Route path="/add-patient" element={<AddPatient />} />
+                <Route path="/patient/:id" element={<PatientDetail />} />
+                <Route path="/news" element={<News />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </div>
+          </main>
 
-            {/* Bottom Nav - Mobile only */}
-            <BottomNav />
-          </div>
-        </Router>
+          {/* Bottom Nav - Mobile only */}
+          <BottomNav />
+        </div>
       </PatientProvider>
     </ThemeProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
