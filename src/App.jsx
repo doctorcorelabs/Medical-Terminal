@@ -5,7 +5,6 @@ import { PatientProvider } from './context/PatientContext';
 import { useAuth } from './context/AuthContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
-import BottomNav from './components/layout/BottomNav';
 import Dashboard from './pages/Dashboard';
 import PatientList from './pages/PatientList';
 import AddPatient from './pages/AddPatient';
@@ -34,7 +33,7 @@ function AppContent() {
   return (
     <ThemeProvider>
       <PatientProvider>
-        <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+        <div className="flex h-dvh overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
           {/* Sidebar - desktop always visible, mobile toggle */}
           <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -59,8 +58,6 @@ function AppContent() {
             </div>
           </main>
 
-          {/* Bottom Nav - Mobile only */}
-          <BottomNav />
         </div>
       </PatientProvider>
     </ThemeProvider>
