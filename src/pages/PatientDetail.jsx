@@ -269,19 +269,22 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
                                 {patient.weight && <span className="flex items-center gap-1 text-xs text-slate-500"><span className="material-symbols-outlined text-sm">monitor_weight</span>{patient.weight} kg</span>}
                                 {patient.allergies && <span className="flex items-center gap-1 text-xs text-red-500 font-bold"><span className="material-symbols-outlined text-sm">warning</span>{patient.allergies}</span>}
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
                             {[
                                 { label: 'Umur', value: patient.age ? `${patient.age} Tahun` : '-' },
                                 { label: 'J. Kelamin', value: patient.gender === 'female' ? 'Perempuan' : 'Laki-laki' },
                                 { label: 'Tgl Masuk', value: formatDate(patient.admissionDate) },
-                                { label: 'Ruang Rawat', value: patient.room || '-', className: 'text-primary font-bold bg-primary/10 px-1 inline-block rounded' },
-                                { label: 'Gol', value: patient.bloodType || '-', className: 'text-red-500 font-bold' },
+                                { label: 'Gol. Darah', value: patient.bloodType || '-', className: 'text-red-500 font-bold' },
                             ].map(item => (
                                 <div key={item.label} className="min-w-0">
                                     <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">{item.label}</p>
                                     <p className={`font-semibold text-sm truncate ${item.className || ''}`}>{item.value}</p>
                                 </div>
                             ))}
+                            <div className="col-span-2 sm:col-span-4 min-w-0 pt-1">
+                                <p className="text-[10px] sm:text-xs text-slate-400 font-medium mb-0.5">Ruang Rawat</p>
+                                <p className="font-bold text-sm text-primary bg-primary/10 px-2 py-0.5 rounded-md inline-block max-w-full truncate">{patient.room || '-'}</p>
+                            </div>
                         </div>
                         </div>
                     </div>

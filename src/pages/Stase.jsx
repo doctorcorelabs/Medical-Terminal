@@ -229,19 +229,19 @@ export default function Stase() {
                                         <div className="flex items-center gap-3 sm:gap-4">
                                             {/* Color dot */}
                                             <div
-                                                className="size-10 rounded-xl shrink-0 flex items-center justify-center text-white shadow-sm"
+                                                className="size-7 sm:size-10 rounded-xl shrink-0 flex items-center justify-center text-white shadow-sm"
                                                 style={{ backgroundColor: stase.color }}
                                             >
-                                                <span className="material-symbols-outlined text-[20px]">assignment</span>
+                                                <span className="material-symbols-outlined text-[14px] sm:text-[20px]">assignment</span>
                                             </div>
 
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="font-bold text-slate-900 dark:text-white text-base truncate">{stase.name}</h3>
+                                                    <h3 className="font-bold text-slate-900 dark:text-white text-base sm:truncate">{stase.name}</h3>
                                                     {isPinned && (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full text-white shrink-0" style={{ backgroundColor: stase.color }}>
-                                                            <span className="material-symbols-outlined text-[12px]">push_pin</span>
+                                                        <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[10px] font-black uppercase px-1.5 sm:px-2 py-0.5 rounded-full text-white shrink-0" style={{ backgroundColor: stase.color }}>
+                                                            <span className="material-symbols-outlined text-[11px] sm:text-[12px]">push_pin</span>
                                                             Aktif
                                                         </span>
                                                     )}
@@ -255,60 +255,60 @@ export default function Stase() {
                                             </div>
 
                                             {/* Actions */}
-                                            <div className="flex items-center gap-1 shrink-0">
+                                            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                                                 {/* Reorder up */}
                                                 {!isFirst && (
                                                     <button
                                                         onClick={() => reorderStase(stase.id, 'up')}
                                                         title="Pindah ke Atas"
-                                                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                        className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                                     >
-                                                        <span className="material-symbols-outlined text-xl">arrow_upward</span>
+                                                        <span className="material-symbols-outlined text-sm sm:text-lg">arrow_upward</span>
                                                     </button>
                                                 )}
-                                                {isFirst && <div className="w-9" />}
+                                                {isFirst && <div className="w-6 sm:w-8" />}
 
                                                 {/* Reorder down */}
                                                 {!isLast && (
                                                     <button
                                                         onClick={() => reorderStase(stase.id, 'down')}
                                                         title="Pindah ke Bawah"
-                                                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                        className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                                     >
-                                                        <span className="material-symbols-outlined text-xl">arrow_downward</span>
+                                                        <span className="material-symbols-outlined text-sm sm:text-lg">arrow_downward</span>
                                                     </button>
                                                 )}
-                                                {isLast && <div className="w-9" />}
+                                                {isLast && <div className="w-6 sm:w-8" />}
 
                                                 {/* View patients */}
                                                 <button
                                                     onClick={() => navigate('/patients')}
                                                     title="Lihat Pasien"
-                                                    className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
+                                                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
                                                 >
-                                                    <span className="material-symbols-outlined text-xl">group</span>
+                                                    <span className="material-symbols-outlined text-sm sm:text-lg">group</span>
                                                 </button>
 
                                                 {/* Edit */}
                                                 <button
                                                     onClick={() => handleEditStart(stase)}
                                                     title="Edit Stase"
-                                                    className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                                 >
-                                                    <span className="material-symbols-outlined text-xl">edit</span>
+                                                    <span className="material-symbols-outlined text-sm sm:text-lg">edit</span>
                                                 </button>
 
                                                 {/* Pin toggle */}
                                                 <button
                                                     onClick={() => pinStase(stase.id)}
                                                     title={isPinned ? 'Lepas Pin' : 'Pin sebagai Stase Aktif'}
-                                                    className={`p-2 rounded-lg transition-colors ${isPinned
+                                                    className={`p-1 sm:p-1.5 rounded-lg transition-colors ${isPinned
                                                         ? 'text-white shadow-sm'
                                                         : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                                                         }`}
                                                     style={isPinned ? { backgroundColor: stase.color } : {}}
                                                 >
-                                                    <span className="material-symbols-outlined text-xl">
+                                                    <span className="material-symbols-outlined text-sm sm:text-lg">
                                                         {isPinned ? 'push_pin' : 'keep'}
                                                     </span>
                                                 </button>
@@ -317,9 +317,9 @@ export default function Stase() {
                                                 <button
                                                     onClick={() => handleDelete(stase.id)}
                                                     title="Hapus Stase"
-                                                    className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                    className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                                 >
-                                                    <span className="material-symbols-outlined text-xl">delete</span>
+                                                    <span className="material-symbols-outlined text-sm sm:text-lg">delete</span>
                                                 </button>
                                             </div>
                                         </div>
