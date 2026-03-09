@@ -14,6 +14,8 @@ export default function PatientList() {
     const [sortBy, setSortBy] = useState('updatedAt');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const exportMenuRef = useRef(null);
+    const exportMenuFixedRef = useRef(null);
+    const [exportMenuPos, setExportMenuPos] = useState(null);
 
     // Stase filter: array of selected stase IDs, null = show all
     const [selectedStaseIds, setSelectedStaseIds] = useState(() =>
@@ -30,6 +32,8 @@ export default function PatientList() {
     const [transferPatientId, setTransferPatientId] = useState(null);
     const [dropdownPos, setDropdownPos] = useState(null);
     const transferDropdownRef = useRef(null);
+    const [openCardMenuId, setOpenCardMenuId] = useState(null);
+    const cardMenuRef = useRef(null);
 
     useEffect(() => {
         if (!transferPatientId) return;
@@ -42,6 +46,16 @@ export default function PatientList() {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [transferPatientId]);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (cardMenuRef.current && !cardMenuRef.current.contains(e.target)) {
+                setOpenCardMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     const openTransfer = (e, patientId) => {
         e.stopPropagation();
@@ -67,8 +81,11 @@ export default function PatientList() {
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+            const insideButton = exportMenuRef.current && exportMenuRef.current.contains(e.target);
+            const insideMenu = exportMenuFixedRef.current && exportMenuFixedRef.current.contains(e.target);
+            if (!insideButton && !insideMenu) {
                 setShowExportMenu(false);
+                setExportMenuPos(null);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -98,9 +115,18 @@ export default function PatientList() {
         else if (filter === 'active') result = result.filter(p => p.status !== 'discharged');
 
         result.sort((a, b) => {
-            if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
-            if (sortBy === 'admission') return new Date(b.admissionDate || 0) - new Date(a.admissionDate || 0);
-            return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+            // Normalize values
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            const updatedA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+            const updatedB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+            const admitA = a.admissionDate ? new Date(a.admissionDate).getTime() : 0;
+            const admitB = b.admissionDate ? new Date(b.admissionDate).getTime() : 0;
+
+            if (sortBy === 'name') return nameA.localeCompare(nameB);
+            if (sortBy === 'admission') return admitB - admitA; // newest admission first
+            // default: updatedAt (Terbaru)
+            return updatedB - updatedA;
         });
         return result;
     }, [patients, search, filter, sortBy, selectedStaseIds]);
@@ -178,19 +204,42 @@ export default function PatientList() {
                 <div className="flex gap-2 sm:gap-3 shrink-0">
                     <div className="relative" ref={exportMenuRef}>
                         <button
-                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (showExportMenu) {
+                                    setShowExportMenu(false);
+                                    setExportMenuPos(null);
+                                    return;
+                                }
+                                const rect = exportMenuRef.current.getBoundingClientRect();
+                                const menuWidth = 224; // w-56 approx
+                                const top = rect.bottom + 8;
+                                // if opening would overflow right edge, align to right side of button
+                                if (rect.left + menuWidth > window.innerWidth) {
+                                    const right = window.innerWidth - rect.right;
+                                    setExportMenuPos({ top, right });
+                                } else {
+                                    setExportMenuPos({ top, left: rect.left });
+                                }
+                                setShowExportMenu(true);
+                            }}
                             className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                         >
                             <span className="material-symbols-outlined text-lg">download</span>
                             <span className="hidden sm:inline">Ekspor Data</span>
                             <span className="material-symbols-outlined text-sm transition-transform" style={{ transform: showExportMenu ? 'rotate(180deg)' : 'rotate(0deg)' }}>expand_more</span>
                         </button>
-                        {showExportMenu && (
-                            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-50 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+                        {showExportMenu && exportMenuPos && (
+                            <div
+                                ref={exportMenuFixedRef}
+                                style={{ position: 'fixed', top: exportMenuPos.top, ...(exportMenuPos.left != null ? { left: exportMenuPos.left } : { right: exportMenuPos.right }), zIndex: 9999 }}
+                                className="w-56 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+                            >
                                 <button
                                     onClick={() => {
                                         exportPatientListPDF(patients);
                                         setShowExportMenu(false);
+                                        setExportMenuPos(null);
                                     }}
                                     className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800"
                                 >
@@ -209,6 +258,7 @@ export default function PatientList() {
                                         a.href = url; a.download = `medterminal_export_${new Date().toISOString().split('T')[0]}.json`; a.click();
                                         URL.revokeObjectURL(url);
                                         setShowExportMenu(false);
+                                        setExportMenuPos(null);
                                     }}
                                     className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 >
@@ -498,7 +548,7 @@ export default function PatientList() {
                             <div
                                 key={p.id}
                                 onClick={() => navigate(`/patient/${p.id}`)}
-                                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 cursor-pointer hover:border-primary/30 transition-all"
+                                className="relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 cursor-pointer hover:border-primary/30 transition-all"
                             >
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
@@ -536,6 +586,26 @@ export default function PatientList() {
                                                 <span className="material-symbols-outlined text-base">swap_horiz</span>
                                             </button>
                                         )}
+                                        {/* Mobile card action menu (three-dots) */}
+                                        <div className="relative">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setOpenCardMenuId(openCardMenuId === p.id ? null : p.id); }}
+                                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
+                                                title="Menu"
+                                            >
+                                                <span className="material-symbols-outlined text-base">more_vert</span>
+                                            </button>
+                                            {openCardMenuId === p.id && (
+                                                <div ref={cardMenuRef} className="absolute top-9 right-0 w-40 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg z-40 overflow-hidden">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) { deletePatient(p.id); } setOpenCardMenuId(null); }}
+                                                        className="w-full text-left px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/10 text-sm text-red-600"
+                                                    >
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 {(p.chiefComplaint || p.diagnosis) && (
