@@ -456,6 +456,10 @@ function saveSchedules(schedules) {
     localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedules));
 }
 
+export function clearSchedulesCache() {
+    localStorage.removeItem(SCHEDULE_KEY);
+}
+
 function purgeExpiredSchedules(schedules) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 30);

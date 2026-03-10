@@ -8,13 +8,15 @@ export function ScheduleProvider({ children }) {
     const { user } = useAuth();
     const [schedules, setSchedules] = useState([]);
 
-    // Load from Supabase on login
+    // Load from Supabase on login, clear stale cache on user change
     useEffect(() => {
         if (user) {
+            dataService.clearSchedulesCache();
             dataService.fetchSchedulesFromSupabase(user.id).then(data => {
                 setSchedules(data);
             });
         } else {
+            dataService.clearSchedulesCache();
             setSchedules([]);
         }
     }, [user]);
