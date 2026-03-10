@@ -1,5 +1,6 @@
 // Data management with localStorage and Supabase sync
 import { supabase } from './supabaseClient';
+import { pendingSync } from './offlineQueue';
 const STORAGE_KEY = 'medterminal_patients';
 const STASE_KEY = 'medterminal_stases';
 const PINNED_KEY = 'medterminal_pinned_stase';
@@ -27,13 +28,20 @@ export async function syncToSupabase(userId) {
             patients_data: patients,
             updated_at: new Date().toISOString()
         });
+        pendingSync.clearPatients();
     } catch (err) {
         console.error("Failed to sync to Supabase:", err);
+        // Mark as pending so OfflineContext flushes when back online
+        pendingSync.markPatients();
     }
 }
 
 export async function fetchFromSupabase(userId) {
     if (!userId) return getStoredData();
+    // If there are offline changes, push them first so server has the latest data
+    if (pendingSync.hasPatients()) {
+        await syncToSupabase(userId);
+    }
     try {
         const { data, error } = await supabase
             .from('user_patients')
@@ -90,13 +98,19 @@ export async function syncStasesToSupabase(userId) {
             pinned_stase_id: pinnedStaseId,
             updated_at: new Date().toISOString()
         });
+        pendingSync.clearStases();
     } catch (err) {
         console.error("Failed to sync stases to Supabase:", err);
+        pendingSync.markStases();
     }
 }
 
 export async function fetchStasesFromSupabase(userId) {
     if (!userId) return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
+    // Flush offline stase changes first
+    if (pendingSync.hasStases()) {
+        await syncStasesToSupabase(userId);
+    }
     try {
         const { data } = await supabase
             .from('user_stases')
@@ -476,13 +490,19 @@ export async function syncSchedulesToSupabase(userId) {
             schedules_data: schedules,
             updated_at: new Date().toISOString(),
         });
+        pendingSync.clearSchedules();
     } catch (err) {
         console.error('Failed to sync schedules to Supabase:', err);
+        pendingSync.markSchedules();
     }
 }
 
 export async function fetchSchedulesFromSupabase(userId) {
     if (!userId) return getStoredSchedules();
+    // Flush offline schedule changes first
+    if (pendingSync.hasSchedules()) {
+        await syncSchedulesToSupabase(userId);
+    }
     try {
         const { data } = await supabase
             .from('user_schedules')

@@ -5,6 +5,7 @@ import { ToastProvider } from './context/ToastContext';
 import { PatientProvider } from './context/PatientContext';
 import { StaseProvider } from './context/StaseContext';
 import { useAuth } from './context/AuthContext';
+import { OfflineProvider } from './context/OfflineContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Dashboard from './pages/Dashboard';
@@ -85,7 +86,9 @@ export default function App() {
     <Router>
       <ThemeProvider>
         <ToastProvider>
-          <AppContent />
+          <OfflineProvider>
+            <AppContent />
+          </OfflineProvider>
         </ToastProvider>
       </ThemeProvider>
     </Router>
