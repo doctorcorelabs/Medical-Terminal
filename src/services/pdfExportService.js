@@ -55,6 +55,38 @@ function sectionTitle(doc, title, y, pageWidth) {
     return y + 14;
 }
 
+// Generic timeline renderer used by each clinical section
+function renderSectionTimeline(doc, items, startY, { dateField, labelFn, subLabelFn, colorFn }, pageWidth) {
+    const sorted = [...items].sort((a, b) => new Date(a[dateField]) - new Date(b[dateField]));
+    const tlX = 24;
+    let y = startY;
+    const lineTop = y;
+    sorted.forEach(item => {
+        if (y > 275) { doc.addPage(); y = 20; }
+        const dotColor = colorFn ? colorFn(item) : PRIMARY;
+        doc.setFillColor(...dotColor);
+        doc.circle(tlX, y + 2, 2, 'F');
+        const label = labelFn(item);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...DARK);
+        doc.text(label, tlX + 7, y + 2);
+        doc.setFontSize(6.5); doc.setTextColor(...MUTED);
+        doc.text(fmtDateTime(item[dateField]), pageWidth - 14, y + 2, { align: 'right' });
+        if (subLabelFn) {
+            const sub = subLabelFn(item);
+            if (sub) {
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+                const subLines = doc.splitTextToSize(sub, pageWidth - 50);
+                doc.text(subLines, tlX + 7, y + 6);
+                y += 6 + subLines.length * 3;
+            }
+        }
+        y += 8;
+    });
+    doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.5);
+    doc.line(tlX, lineTop, tlX, y - 4);
+    return y + 4;
+}
+
 function addFooters(doc) {
     const pageCount = doc.internal.getNumberOfPages();
     const now = fmtDateTime(new Date().toISOString());
@@ -325,22 +357,56 @@ export function exportPatientPDF(patient) {
             y += 7 + lines.length * 4 + 4;
         }
 
-        // ===== 2. TANDA VITAL =====
-        y = sectionTitle(doc, '2. Tanda Vital', y, pageWidth);
-        const vitals = [
-            ['Detak Jantung', patient.heartRate ? `${patient.heartRate} bpm` : '-'],
-            ['Tekanan Darah', patient.bloodPressure ? `${patient.bloodPressure} mmHg` : '-'],
-            ['Suhu Tubuh', patient.temperature ? `${patient.temperature} \u00B0C` : '-'],
-            ['Frek. Napas', patient.respRate ? `${patient.respRate} /min` : '-'],
-            ['SpO2', patient.spO2 ? `${patient.spO2} %` : '-'],
+        // ===== 2. RIWAYAT VITAL SIGNS =====
+        const vitalSigns = patient.vitalSigns || [];
+        y = sectionTitle(doc, `2. Riwayat Vital Signs (${vitalSigns.length} pencatatan)`, y, pageWidth);
+        // Latest vitals summary card
+        const latestVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))[0] || {};
+        const summaryVitals = [
+            ['Detak Jantung', latestVS.heartRate ? `${latestVS.heartRate} bpm` : (patient.heartRate ? `${patient.heartRate} bpm` : '-')],
+            ['Tekanan Darah', latestVS.bloodPressure ? `${latestVS.bloodPressure} mmHg` : (patient.bloodPressure ? `${patient.bloodPressure} mmHg` : '-')],
+            ['Suhu Tubuh', latestVS.temperature ? `${latestVS.temperature} \u00B0C` : (patient.temperature ? `${patient.temperature} \u00B0C` : '-')],
+            ['Frek. Napas', latestVS.respRate ? `${latestVS.respRate} /min` : (patient.respRate ? `${patient.respRate} /min` : '-')],
+            ['SpO2', latestVS.spO2 ? `${latestVS.spO2} %` : (patient.spO2 ? `${patient.spO2} %` : '-')],
         ];
+        if (latestVS.recordedAt) {
+            doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+            doc.text(`Data terkini: ${fmtDateTime(latestVS.recordedAt)}`, 14, y);
+            y += 5;
+        }
         y = tbl(doc, {
-            startY: y, head: [['Parameter', 'Nilai']], body: vitals, theme: 'grid',
+            startY: y, head: [['Parameter', 'Nilai Terkini']], body: summaryVitals, theme: 'grid',
             headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
             styles: { fontSize: 9, cellPadding: 3, textColor: DARK },
             alternateRowStyles: { fillColor: STRIPE },
             margin: { left: 14, right: 14 }, tableWidth: 100,
-        }) + 6;
+        }) + 4;
+
+        // Full vital signs history table
+        if (vitalSigns.length > 0) {
+            const sortedVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+            y = tbl(doc, {
+                startY: y,
+                head: [['Waktu', 'Detak Jantung', 'Tekanan Darah', 'Suhu', 'Frek. Napas', 'SpO2']],
+                body: sortedVS.map(vs => [
+                    fmtDateTime(vs.recordedAt),
+                    vs.heartRate ? `${vs.heartRate} bpm` : '-',
+                    vs.bloodPressure ? `${vs.bloodPressure} mmHg` : '-',
+                    vs.temperature ? `${vs.temperature} \u00B0C` : '-',
+                    vs.respRate ? `${vs.respRate} /min` : '-',
+                    vs.spO2 ? `${vs.spO2} %` : '-',
+                ]),
+                theme: 'grid',
+                headStyles: { fillColor: [71, 85, 105], textColor: WHITE, fontStyle: 'bold', fontSize: 8.5 },
+                styles: { fontSize: 8, cellPadding: 2.5, textColor: DARK },
+                alternateRowStyles: { fillColor: STRIPE },
+                columnStyles: { 0: { cellWidth: 38 } },
+                margin: { left: 14, right: 14 },
+            }) + 6;
+        } else {
+            doc.setFontSize(8); doc.setTextColor(...MUTED); doc.setFont('helvetica', 'italic');
+            doc.text('Belum ada riwayat pencatatan vital signs.', 14, y); y += 8;
+        }
 
         // ===== 3. GEJALA =====
         const symptoms = patient.symptoms || [];
@@ -386,6 +452,16 @@ export function exportPatientPDF(patient) {
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 25, fontStyle: 'bold' }, 3: { cellWidth: 35 } },
                 margin: { left: 14, right: 14 },
             }) + 6;
+            if (physicals.length > 1) {
+                if (y > 230) { doc.addPage(); y = 20; }
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                doc.text('Timeline Pemeriksaan Fisik (urut waktu)', 14, y); y += 5;
+                y = renderSectionTimeline(doc, physicals, y, {
+                    dateField: 'date',
+                    labelFn: e => (e.system || '-').toUpperCase(),
+                    subLabelFn: e => e.findings || null,
+                }, pageWidth);
+            }
         } else {
             doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Tidak ada data pemeriksaan fisik.', 14, y); y += 8;
@@ -415,6 +491,17 @@ export function exportPatientPDF(patient) {
                     }
                 },
             }) + 6;
+            if (labs.length > 1) {
+                if (y > 230) { doc.addPage(); y = 20; }
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                doc.text('Timeline Hasil Lab (urut waktu)', 14, y); y += 5;
+                y = renderSectionTimeline(doc, labs, y, {
+                    dateField: 'date',
+                    labelFn: e => `${e.testName || '-'}: ${e.value || '-'} ${e.unit || ''}`.trim(),
+                    subLabelFn: e => e.result?.label ? `Status: ${cleanLabel(e.result.label)}` : null,
+                    colorFn: e => e.result?.status === 'high' ? DANGER : e.result?.status === 'low' ? WARNING : e.result?.status === 'normal' ? SUCCESS : PRIMARY,
+                }, pageWidth);
+            }
         } else {
             doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Tidak ada data hasil laboratorium.', 14, y); y += 8;
@@ -435,6 +522,16 @@ export function exportPatientPDF(patient) {
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 18, halign: 'center', fontStyle: 'bold' }, 5: { cellWidth: 35 } },
                 margin: { left: 14, right: 14 },
             }) + 6;
+            if (prescriptions.length > 1) {
+                if (y > 230) { doc.addPage(); y = 20; }
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                doc.text('Timeline Pemberian Obat (urut waktu)', 14, y); y += 5;
+                y = renderSectionTimeline(doc, prescriptions, y, {
+                    dateField: 'date',
+                    labelFn: p => `${p.name || '-'} ${p.dosage || ''}`.trim(),
+                    subLabelFn: p => [p.frequency, p.route ? (p.route || '').toUpperCase() : ''].filter(Boolean).join(' • ') || null,
+                }, pageWidth);
+            }
         } else {
             doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Tidak ada data resep obat.', 14, y); y += 8;
@@ -447,7 +544,7 @@ export function exportPatientPDF(patient) {
             y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Tanggal', 'Catatan', 'Kondisi']],
-                body: [...reports].reverse().map((r, i) => [i + 1, fmtDateTime(r.date), r.notes || '-', conditionLabel(r.condition)]),
+                body: [...reports].sort((a, b) => new Date(b.date) - new Date(a.date)).map((r, i) => [i + 1, fmtDateTime(r.date), r.notes || '-', conditionLabel(r.condition)]),
                 theme: 'grid',
                 headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
                 styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK, overflow: 'linebreak' },
@@ -455,6 +552,17 @@ export function exportPatientPDF(patient) {
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 35 }, 3: { cellWidth: 22, halign: 'center' } },
                 margin: { left: 14, right: 14 },
             }) + 6;
+            if (reports.length > 1) {
+                if (y > 230) { doc.addPage(); y = 20; }
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                doc.text('Timeline Laporan Harian (urut waktu)', 14, y); y += 5;
+                y = renderSectionTimeline(doc, reports, y, {
+                    dateField: 'date',
+                    labelFn: r => conditionLabel(r.condition) || 'Laporan',
+                    subLabelFn: r => r.notes || null,
+                    colorFn: r => r.condition === 'critical' ? DANGER : r.condition === 'urgent' ? WARNING : r.condition === 'improving' ? SUCCESS : PRIMARY,
+                }, pageWidth);
+            }
         } else {
             doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Tidak ada data laporan harian.', 14, y); y += 8;
@@ -462,13 +570,17 @@ export function exportPatientPDF(patient) {
 
         // ===== 8. AI INSIGHTS =====
         const ai = patient.aiInsights || {};
-        const hasAI = ai.summary || ai.soap || ai.symptoms;
+        const hasAI = ai.summary || ai.soap || ai.symptoms || ai.physical || ai.labs || ai.drugs || ai.daily;
         if (hasAI) {
             y = sectionTitle(doc, '8. AI Insights', y, pageWidth);
             const aiSections = [
                 { key: 'summary', title: 'Ringkasan Cerdas' },
                 { key: 'soap', title: 'Catatan SOAP' },
                 { key: 'symptoms', title: 'Diagnosis Banding' },
+                { key: 'physical', title: 'Analisis Pemeriksaan Fisik' },
+                { key: 'labs', title: 'Analisis Hasil Lab' },
+                { key: 'drugs', title: 'Rekomendasi Obat' },
+                { key: 'daily', title: 'Evaluasi Harian' },
             ];
             const textMaxWidth = pageWidth - 32; // 16mm margin each side
             for (const sec of aiSections) {

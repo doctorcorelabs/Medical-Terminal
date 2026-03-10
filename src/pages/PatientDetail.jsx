@@ -13,10 +13,15 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { exportPatientPDF } from '../services/pdfExportService';
 
+function getNowLocalISO() {
+    const now = new Date();
+    return new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { patients, updatePatient, addSymptom, removeSymptom, addDailyReport, removeDailyReport, addPhysicalExam, removePhysicalExam, addSupportingExam, removeSupportingExam, addPrescription, removePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
+    const { patients, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('patientDetailActiveTab') || 'overview';
@@ -36,11 +41,11 @@ export default function PatientDetail() {
             setAiResults({});
         }
     }, [patient?.id]);
-    const [symptomInput, setSymptomInput] = useState({ name: '', severity: 'sedang', notes: '' });
-    const [examInput, setExamInput] = useState({ findings: '', system: 'umum' });
-    const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '' });
-    const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral' });
-    const [reportInput, setReportInput] = useState({ notes: '', condition: '' });
+    const [symptomInput, setSymptomInput] = useState({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() });
+    const [examInput, setExamInput] = useState({ findings: '', system: 'umum', date: getNowLocalISO() });
+    const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() });
+    const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO() });
+    const [reportInput, setReportInput] = useState({ notes: '', condition: '', date: getNowLocalISO() });
 
     if (!patient) {
         return (
@@ -154,8 +159,9 @@ export default function PatientDetail() {
                 onUpdate={(vsId, updates) => updateVitalSign(patient.id, vsId, updates)}
                 onRemove={(vsId) => removeVitalSign(patient.id, vsId)} />}
             {activeTab === 'symptoms' && <TabGejala patient={patient} input={symptomInput} setInput={setSymptomInput}
-                onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, symptomInput); setSymptomInput({ name: '', severity: 'sedang', notes: '' }); }}
+                onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, { ...symptomInput, recordedAt: symptomInput.recordedAt ? new Date(symptomInput.recordedAt).toISOString() : new Date().toISOString() }); setSymptomInput({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() }); }}
                 onRemove={(symptomId) => removeSymptom(patient.id, symptomId)}
+                onUpdate={(symptomId, updates) => updateSymptom(patient.id, symptomId, updates)}
                 onAI={() => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun`))}
                 aiResult={aiResults.symptoms} aiLoading={aiLoading.symptoms} />}
             {activeTab === 'physical' && <TabDataUmum judul="Pemeriksaan Fisik" storageKey="physical" items={patient.physicalExams || []} input={examInput} setInput={setExamInput}
@@ -163,24 +169,28 @@ export default function PatientDetail() {
                     { key: 'system', type: 'select', label: 'Sistem', options: ['umum', 'kepala', 'leher', 'thorax', 'abdomen', 'ekstremitas', 'neurologis', 'kulit'] },
                     { key: 'findings', type: 'textarea', label: 'Temuan', placeholder: 'Temuan pemeriksaan fisik...' },
                 ]}
-                onAdd={(e) => { e.preventDefault(); if (!examInput.findings.trim()) return; addPhysicalExam(patient.id, examInput); setExamInput({ findings: '', system: 'umum' }); }}
+                onAdd={(e) => { e.preventDefault(); if (!examInput.findings.trim()) return; addPhysicalExam(patient.id, { ...examInput, date: examInput.date ? new Date(examInput.date).toISOString() : new Date().toISOString() }); setExamInput({ findings: '', system: 'umum', date: getNowLocalISO() }); }}
                 onRemove={(examId) => removePhysicalExam(patient.id, examId)}
+                onUpdate={(examId, updates) => updatePhysicalExam(patient.id, examId, updates)}
                 renderItem={(item) => <><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{item.findings}</p></>}
                 onAI={() => callAI('physical', () => getPhysicalExamInsight((patient.physicalExams || []).map(e => e.findings).join('; '), (patient.symptoms || []).map(s => s.name).join(', ')))}
                 aiResult={aiResults.physical} aiLoading={aiLoading.physical} />}
             {activeTab === 'labs' && <TabLab patient={patient} input={labInput} setInput={setLabInput}
-                onAdd={(e) => { e.preventDefault(); if (!labInput.testName.trim() && labInput.labKey !== 'custom') return; addSupportingExam(patient.id, { type: 'lab', ...labInput, result: checkLabValue(labInput.labKey, labInput.value, patient.gender) }); setLabInput({ testName: '', value: '', unit: '', labKey: '' }); }}
+                onAdd={(e) => { e.preventDefault(); if (!labInput.testName.trim() && labInput.labKey !== 'custom') return; addSupportingExam(patient.id, { type: 'lab', ...labInput, date: labInput.date ? new Date(labInput.date).toISOString() : new Date().toISOString(), result: checkLabValue(labInput.labKey, labInput.value, patient.gender) }); setLabInput({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() }); }}
                 onRemove={(examId) => removeSupportingExam(patient.id, examId)}
+                onUpdate={(examId, updates) => updateSupportingExam(patient.id, examId, updates)}
                 onAI={() => callAI('labs', () => getSupportingExamInsight((patient.supportingExams || []).map(e => `${e.testName}: ${e.value} ${e.unit}`).join(', '), patient.diagnosis || ''))}
                 aiResult={aiResults.labs} aiLoading={aiLoading.labs} />}
             {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
-                onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, prescInput); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral' }); }}
+                onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, { ...prescInput, date: prescInput.date ? new Date(prescInput.date).toISOString() : new Date().toISOString() }); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO() }); }}
                 onRemove={(prescId) => removePrescription(patient.id, prescId)}
+                onUpdate={(prescId, updates) => updatePrescription(patient.id, prescId, updates)}
                 onAI={() => callAI('drugs', () => getMedicationRecommendation(patient.diagnosis, (patient.symptoms || []).map(s => s.name).join(', ')))}
                 aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} />}
             {activeTab === 'reports' && <TabLaporan patient={patient} input={reportInput} setInput={setReportInput}
-                onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, reportInput); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '' }); }}
+                onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, { ...reportInput, date: reportInput.date ? new Date(reportInput.date).toISOString() : new Date().toISOString() }); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '', date: getNowLocalISO() }); }}
                 onRemove={(reportId) => removeDailyReport(patient.id, reportId)}
+                onUpdate={(reportId, updates) => updateDailyReport(patient.id, reportId, updates)}
                 onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
                 aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
             {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} />}
@@ -765,12 +775,22 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove }) {
 }
 
 /* ====== TAB GEJALA ====== */
-function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
     const [confirmingId, setConfirmingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
 
-    const handleDeleteClick = (id) => setConfirmingId(id);
-    const handleConfirmDelete = (id) => { onRemove(id); setConfirmingId(null); };
-    const handleCancelDelete = () => setConfirmingId(null);
+    const startEdit = (s) => {
+        setEditingId(s.id);
+        const dt = s.recordedAt ? new Date(s.recordedAt) : new Date();
+        const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setEditData({ name: s.name, severity: s.severity, notes: s.notes || '', recordedAt: localDt });
+    };
+
+    const saveEdit = () => {
+        onUpdate(editingId, { ...editData, recordedAt: editData.recordedAt ? new Date(editData.recordedAt).toISOString() : undefined });
+        setEditingId(null);
+    };
 
     return (
         <div className="space-y-5 lg:space-y-6">
@@ -797,6 +817,12 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
                                 </div>
                             </div>
 
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                                <input type="datetime-local" value={input.recordedAt} onChange={e => setInput(p => ({ ...p, recordedAt: e.target.value }))}
+                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                            </div>
+
                             <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Tambah Gejala</button>
                         </form>
                     </Kartu>
@@ -805,32 +831,65 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
                     <Kartu judul={`Daftar Gejala (${(patient.symptoms || []).length})`}>
                         <div className="space-y-2">
                             {(patient.symptoms || []).length === 0 ? <Kosong /> :
-                                (patient.symptoms || []).map(s => (
+                                [...(patient.symptoms || [])].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt)).map(s => (
                                     <div key={s.id}>
-                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                            <div className={`w-2 h-2 rounded-full shrink-0 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold truncate">{s.name}</p>
-                                                {s.notes && <p className="text-xs text-slate-400 truncate">{s.notes}</p>}
+                                        {editingId === s.id ? (
+                                            <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                                <textarea value={editData.name} onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} rows={2}
+                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
+                                                <div>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Keparahan</label>
+                                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl gap-1">
+                                                        {[
+                                                            { v: 'ringan', l: 'Ringan', c: 'text-green-600 bg-green-50 border-green-200' },
+                                                            { v: 'sedang', l: 'Sedang', c: 'text-amber-600 bg-amber-50 border-amber-200' },
+                                                            { v: 'berat', l: 'Berat', c: 'text-red-600 bg-red-50 border-red-200' }
+                                                        ].map(opt => (
+                                                            <button key={opt.v} type="button" onClick={() => setEditData(p => ({ ...p, severity: opt.v }))}
+                                                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all border ${editData.severity === opt.v ? `${opt.c} shadow-sm` : 'text-slate-500 border-transparent hover:bg-white/50 dark:hover:bg-slate-800'}`}>
+                                                                {opt.l}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                    <input type="datetime-local" value={editData.recordedAt} onChange={e => setEditData(p => ({ ...p, recordedAt: e.target.value }))}
+                                                        className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                                </div>
+                                                <div className="flex gap-2 justify-end pt-1">
+                                                    <button type="button" onClick={() => setEditingId(null)}
+                                                        className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
+                                                    <button type="button" onClick={saveEdit}
+                                                        className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-white hover:brightness-110 transition-all shadow-lg shadow-primary/20">Simpan</button>
+                                                </div>
                                             </div>
-                                            <BadgeKeparahan keparahan={s.severity} />
-                                            <span className="text-[10px] text-slate-400 shrink-0 hidden sm:block">{formatDateTime(s.recordedAt)}</span>
-                                            <button type="button" onClick={() => handleDeleteClick(s.id)}
-                                                className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0">
-                                                <span className="material-symbols-outlined text-sm">close</span>
-                                            </button>
-                                        </div>
+                                        ) : (
+                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
+                                                <div className={`w-2 h-2 rounded-full shrink-0 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold truncate">{s.name}</p>
+                                                    {s.notes && <p className="text-xs text-slate-400 truncate">{s.notes}</p>}
+                                                </div>
+                                                <BadgeKeparahan keparahan={s.severity} />
+                                                <span className="text-[10px] text-slate-400 shrink-0 hidden sm:block">{formatDateTime(s.recordedAt)}</span>
+                                                <button type="button" onClick={() => startEdit(s)}
+                                                    className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100">
+                                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                                </button>
+                                                <button type="button" onClick={() => setConfirmingId(s.id)}
+                                                    className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0">
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
+                                        )}
                                         {confirmingId === s.id && (
                                             <div className="mt-1 flex items-center justify-end gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                                                 <span className="text-xs text-red-600 dark:text-red-400 font-medium flex-1">Hapus gejala <strong>{s.name}</strong>?</span>
-                                                <button type="button" onClick={handleCancelDelete}
-                                                    className="px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                                    Batal
-                                                </button>
-                                                <button type="button" onClick={() => handleConfirmDelete(s.id)}
-                                                    className="px-3 py-1 text-xs font-bold rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors">
-                                                    Hapus
-                                                </button>
+                                                <button type="button" onClick={() => setConfirmingId(null)}
+                                                    className="px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Batal</button>
+                                                <button type="button" onClick={() => { onRemove(s.id); setConfirmingId(null); }}
+                                                    className="px-3 py-1 text-xs font-bold rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors">Hapus</button>
                                             </div>
                                         )}
                                     </div>
@@ -845,7 +904,7 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
             {(patient.symptoms || []).length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                     <Kartu judul="Node Gejala" id="grafik-gejala-tab"><div className="h-70 lg:h-75"><SymptomGraph symptoms={patient.symptoms} aiResult={aiResult} /></div></Kartu>
-                    <Kartu judul="Timeline" id="timeline-gejala-tab"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
+                    <Kartu judul="Timeline Gejala" id="timeline-gejala-tab"><TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} /></Kartu>
                 </div>
             )}
         </div>
@@ -853,8 +912,30 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, 
 }
 
 /* ====== TAB DATA UMUM ====== */
-function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, renderItem, onAI, aiResult, aiLoading, storageKey }) {
+function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, onUpdate, renderItem, onAI, aiResult, aiLoading, storageKey }) {
     const [confirmingId, setConfirmingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
+
+    const startEdit = (item) => {
+        setEditingId(item.id);
+        const dt = item.date ? new Date(item.date) : new Date();
+        const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        const base = { date: localDt };
+        fields.forEach(f => { base[f.key] = item[f.key] ?? ''; });
+        setEditData(base);
+    };
+
+    const saveEdit = () => {
+        const updates = { ...editData, date: editData.date ? new Date(editData.date).toISOString() : undefined };
+        onUpdate(editingId, updates);
+        setEditingId(null);
+    };
+
+    const sorted = useMemo(() =>
+        [...items].sort((a, b) => new Date(a.date) - new Date(b.date)),
+        [items]
+    );
 
     return (
         <div className="space-y-5 lg:space-y-6">
@@ -881,6 +962,11 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
                                         className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
                                 </div>
                             ))}
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                                <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
+                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                            </div>
                             <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan</button>
                         </form>
                     </Kartu>
@@ -888,18 +974,62 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
                 <div className="min-w-0">
                     <Kartu judul={`Riwayat (${items.length})`}>
                         <div className="space-y-3">
-                            {items.length === 0 ? <Kosong /> : items.map(item => (
+                            {items.length === 0 ? <Kosong /> : [...items].sort((a, b) => new Date(b.date) - new Date(a.date)).map(item => (
                                 <div key={item.id}>
-                                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
-                                        <div className="flex justify-between items-start">
-                                            <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
-                                            <button type="button" onClick={() => setConfirmingId(item.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shrink-0">
-                                                <span className="material-symbols-outlined text-sm">close</span>
-                                            </button>
+                                    {editingId === item.id ? (
+                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                            {fields.map(f => f.type === 'select' ? (
+                                                <div key={f.key}>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">{f.label}</label>
+                                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+                                                        {f.options.map(o => (
+                                                            <button key={o} type="button" onClick={() => setEditData(p => ({ ...p, [f.key]: o }))}
+                                                                className={`py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${editData[f.key] === o ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800 border border-transparent'}`}>
+                                                                {o}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div key={f.key}>
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">{f.label}</label>
+                                                    <textarea value={editData[f.key] || ''} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} rows={3}
+                                                        className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm" />
+                                                </div>
+                                            ))}
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <input type="datetime-local" value={editData.date} onChange={e => setEditData(p => ({ ...p, date: e.target.value }))}
+                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                            </div>
+                                            <div className="flex gap-2 justify-end pt-1">
+                                                <button type="button" onClick={() => setEditingId(null)}
+                                                    className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
+                                                <button type="button" onClick={saveEdit}
+                                                    className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-white hover:brightness-110 transition-all shadow-lg shadow-primary/20">Simpan</button>
+                                            </div>
                                         </div>
-                                        {renderItem(item)}
-                                    </div>
+                                    ) : (
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
+                                            <div className="flex justify-between items-start">
+                                                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                    <span className="material-symbols-outlined text-[11px]">schedule</span>
+                                                    {formatDateTime(item.date)}
+                                                </span>
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button type="button" onClick={() => startEdit(item)}
+                                                        className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                                    </button>
+                                                    <button type="button" onClick={() => setConfirmingId(item.id)}
+                                                        className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {renderItem(item)}
+                                        </div>
+                                    )}
                                     {confirmingId === item.id && (
                                         <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(item.id); setConfirmingId(null); }} label="Hapus data ini?" />
                                     )}
@@ -909,7 +1039,29 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, r
                     </Kartu>
                 </div>
             </div>
+
             <TombolAI label="Analisis AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={items.length === 0} storageKey={storageKey} />
+
+            {items.length > 0 && (
+                <Kartu judul={`Timeline ${judul}`} headerIcon="timeline">
+                    <div className="relative">
+                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-3">
+                            {sorted.map((item, index) => (
+                                <div key={item.id} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
+                                    <div className="absolute left-2.75 w-3 h-3 rounded-full bg-primary border-2 border-white dark:border-slate-900 z-10" />
+                                    <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                            <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
+                                        </div>
+                                        {renderItem(item)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Kartu>
+            )}
         </div>
     );
 }
@@ -931,14 +1083,15 @@ function ConfirmPanel({ onCancel, onConfirm, label }) {
 }
 
 /* ====== TAB LAB ====== */
-function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
     const [confirmingId, setConfirmingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
     const [showRefModal, setShowRefModal] = useState(false);
     const [activeLabCat, setActiveLabCat] = useState(labCategories[0].key);
 
     const selectedRef = input.labKey && input.labKey !== 'custom' ? labReferences[input.labKey] : null;
 
-    // Get display range for the selected test
     function getRefDisplay(ref, gender = patient.gender || 'male') {
         if (!ref) return null;
         if (ref.qualitative) return { text: ref.normalValue || 'Negatif', type: 'qualitative' };
@@ -949,10 +1102,27 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
         return { text: `${range.low} – ${range.high} ${ref.unit}`, type: 'range' };
     }
 
+    const startEdit = (e) => {
+        setEditingId(e.id);
+        const dt = e.date ? new Date(e.date) : new Date();
+        const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setEditData({ testName: e.testName, value: e.value, unit: e.unit || '', date: localDt });
+    };
+
+    const saveEdit = () => {
+        onUpdate(editingId, { ...editData, date: editData.date ? new Date(editData.date).toISOString() : undefined });
+        setEditingId(null);
+    };
+
     const refDisplay = selectedRef ? getRefDisplay(selectedRef) : null;
     const catItems = labCategories.find(c => c.key === activeLabCat)?.key
         ? Object.entries(labReferences).filter(([, v]) => v.category === activeLabCat)
         : [];
+
+    const sortedLab = useMemo(() =>
+        [...(patient.supportingExams || [])].sort((a, b) => new Date(a.date) - new Date(b.date)),
+        [patient.supportingExams]
+    );
 
     return (
         <div className="space-y-5 lg:space-y-6">
@@ -1039,6 +1209,12 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                                 </div>
                             )}
 
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                                <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
+                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                            </div>
+
                             <button type="submit" disabled={!input.value || (!input.testName && activeLabCat !== 'custom')} className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">Simpan Hasil</button>
                         </form>
                     </Kartu>
@@ -1052,29 +1228,62 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                         </button>
                     }>
                         <div className="space-y-2">
-                            {(patient.supportingExams || []).length === 0 ? <Kosong /> : (patient.supportingExams || []).map(e => (
+                            {(patient.supportingExams || []).length === 0 ? <Kosong /> : [...(patient.supportingExams || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(e => (
                                 <div key={e.id}>
-                                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold truncate">{e.testName}</p>
-                                            <p className="text-[10px] text-slate-400">{formatDateTime(e.date)}</p>
-                                        </div>
-                                        <div className="text-right shrink-0 flex items-center gap-3">
-                                            <div>
-                                                <span className="text-sm font-bold block">{e.value} <span className="text-[10px] font-medium text-slate-400">{e.unit}</span></span>
-                                                {e.result && (
-                                                    <span className={`block text-[10px] font-bold ${e.result.status === 'high' ? 'text-red-500' :
-                                                        e.result.status === 'low' ? 'text-amber-500' :
-                                                            e.result.status === 'normal' ? 'text-green-500' : 'text-slate-400'
-                                                        }`}>{e.result.label}</span>
-                                                )}
+                                    {editingId === e.id ? (
+                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                            <input type="text" value={editData.testName} onChange={ev => setEditData(p => ({ ...p, testName: ev.target.value }))}
+                                                placeholder="Nama pemeriksaan"
+                                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 transition-all shadow-sm" />
+                                            <div className="flex gap-3">
+                                                <input type="text" value={editData.value} onChange={ev => setEditData(p => ({ ...p, value: ev.target.value }))}
+                                                    placeholder="Nilai"
+                                                    className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 min-w-0 transition-all shadow-sm" />
+                                                <input type="text" value={editData.unit} onChange={ev => setEditData(p => ({ ...p, unit: ev.target.value }))}
+                                                    placeholder="Satuan"
+                                                    className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 shrink-0 transition-all shadow-sm" />
                                             </div>
-                                            <button type="button" onClick={() => setConfirmingId(e.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                                <span className="material-symbols-outlined text-sm">close</span>
-                                            </button>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <input type="datetime-local" value={editData.date} onChange={ev => setEditData(p => ({ ...p, date: ev.target.value }))}
+                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                            </div>
+                                            <div className="flex gap-2 justify-end pt-1">
+                                                <button type="button" onClick={() => setEditingId(null)}
+                                                    className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
+                                                <button type="button" onClick={saveEdit}
+                                                    className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-white hover:brightness-110 transition-all shadow-lg shadow-primary/20">Simpan</button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-semibold truncate">{e.testName}</p>
+                                                <p className="text-[10px] text-slate-400 flex items-center gap-1"><span className="material-symbols-outlined text-[11px]">schedule</span>{formatDateTime(e.date)}</p>
+                                            </div>
+                                            <div className="text-right shrink-0 flex items-center gap-2">
+                                                <div>
+                                                    <span className="text-sm font-bold block">{e.value} <span className="text-[10px] font-medium text-slate-400">{e.unit}</span></span>
+                                                    {e.result && (
+                                                        <span className={`block text-[10px] font-bold ${e.result.status === 'high' ? 'text-red-500' :
+                                                            e.result.status === 'low' ? 'text-amber-500' :
+                                                                e.result.status === 'normal' ? 'text-green-500' : 'text-slate-400'
+                                                            }`}>{e.result.label}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button type="button" onClick={() => startEdit(e)}
+                                                        className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                                    </button>
+                                                    <button type="button" onClick={() => setConfirmingId(e.id)}
+                                                        className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     {confirmingId === e.id && (
                                         <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(e.id); setConfirmingId(null); }} label={`Hapus hasil ${e.testName}?`} />
                                     )}
@@ -1085,13 +1294,70 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiL
                 </div>
             </div>
             <TombolAI label="Analisis Lab AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.supportingExams || []).length === 0} storageKey="labs" />
+
+            {(patient.supportingExams || []).length > 0 && (
+                <Kartu judul="Timeline Hasil Lab" headerIcon="timeline">
+                    <div className="relative">
+                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-3">
+                            {sortedLab.map((e, index) => (
+                                <div key={e.id} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
+                                    <div className={`absolute left-2.75 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 z-10 ${
+                                        e.result?.status === 'high' ? 'bg-red-500' : e.result?.status === 'low' ? 'bg-amber-500' : e.result?.status === 'normal' ? 'bg-green-500' : 'bg-primary'
+                                    }`} />
+                                    <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold">{e.testName}</span>
+                                                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{e.value} <span className="text-[10px] font-medium text-slate-400">{e.unit}</span></span>
+                                                {e.result && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                                    e.result.status === 'high' ? 'bg-red-100 text-red-600' : e.result.status === 'low' ? 'bg-amber-100 text-amber-600' : e.result.status === 'normal' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'
+                                                }`}>{e.result.label}</span>}
+                                            </div>
+                                            <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(e.date)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Kartu>
+            )}
         </div>
     );
 }
 
 /* ====== TAB OBAT ====== */
-function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
     const [confirmingId, setConfirmingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
+
+    const routeOptions = [
+        { v: 'oral', l: 'Oral', i: 'pill' },
+        { v: 'iv', l: 'IV', i: 'vaccines' },
+        { v: 'im', l: 'IM', i: 'syringe' },
+        { v: 'sc', l: 'SC', i: 'colorize' },
+        { v: 'topikal', l: 'Topikal', i: 'dermatology' },
+        { v: 'inhalasi', l: 'Inhalasi', i: 'air' }
+    ];
+
+    const startEdit = (p) => {
+        setEditingId(p.id);
+        const dt = p.date ? new Date(p.date) : new Date();
+        const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setEditData({ name: p.name, dosage: p.dosage || '', frequency: p.frequency || '', route: p.route || 'oral', date: localDt });
+    };
+
+    const saveEdit = () => {
+        onUpdate(editingId, { ...editData, date: editData.date ? new Date(editData.date).toISOString() : undefined });
+        setEditingId(null);
+    };
+
+    const sortedPresc = useMemo(() =>
+        [...(patient.prescriptions || [])].sort((a, b) => new Date(a.date) - new Date(b.date)),
+        [patient.prescriptions]
+    );
 
     return (
         <div className="space-y-5 lg:space-y-6">
@@ -1108,14 +1374,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute Pemberian</label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { v: 'oral', l: 'Oral', i: 'pill' },
-                                        { v: 'iv', l: 'IV', i: 'vaccines' },
-                                        { v: 'im', l: 'IM', i: 'syringe' },
-                                        { v: 'sc', l: 'SC', i: 'colorize' },
-                                        { v: 'topikal', l: 'Topikal', i: 'dermatology' },
-                                        { v: 'inhalasi', l: 'Inhalasi', i: 'air' }
-                                    ].map(opt => (
+                                    {routeOptions.map(opt => (
                                         <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, route: opt.v }))}
                                             className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all ${input.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
                                             <span className="material-symbols-outlined text-lg mb-0.5">{opt.i}</span>
@@ -1125,6 +1384,12 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                                 </div>
                             </div>
 
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                                <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
+                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                            </div>
+
                             <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Tambah Obat</button>
                         </form>
                     </Kartu>
@@ -1132,21 +1397,57 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                 <div className="min-w-0">
                     <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>
                         <div className="space-y-3">
-                            {(patient.prescriptions || []).length === 0 ? <Kosong /> : (patient.prescriptions || []).map(p => (
+                            {(patient.prescriptions || []).length === 0 ? <Kosong /> : [...(patient.prescriptions || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(p => (
                                 <div key={p.id}>
-                                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 group">
-                                        <div className="min-w-0">
-                                            <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
-                                            <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
+                                    {editingId === p.id ? (
+                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                            <input type="text" value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
+                                                placeholder="Nama obat" className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 transition-all shadow-sm" />
+                                            <div className="flex gap-3">
+                                                <input type="text" value={editData.dosage} onChange={e => setEditData(d => ({ ...d, dosage: e.target.value }))}
+                                                    placeholder="Dosis" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 min-w-0 transition-all shadow-sm" />
+                                                <input type="text" value={editData.frequency} onChange={e => setEditData(d => ({ ...d, frequency: e.target.value }))}
+                                                    placeholder="Frekuensi" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 min-w-0 transition-all shadow-sm" />
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {routeOptions.map(opt => (
+                                                    <button key={opt.v} type="button" onClick={() => setEditData(d => ({ ...d, route: opt.v }))}
+                                                        className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all text-[10px] font-black uppercase ${editData.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
+                                                        <span className="material-symbols-outlined text-base mb-0.5">{opt.i}</span>{opt.l}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <input type="datetime-local" value={editData.date} onChange={e => setEditData(d => ({ ...d, date: e.target.value }))}
+                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                            </div>
+                                            <div className="flex gap-2 justify-end pt-1">
+                                                <button type="button" onClick={() => setEditingId(null)}
+                                                    className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
+                                                <button type="button" onClick={saveEdit}
+                                                    className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-white hover:brightness-110 transition-all shadow-lg shadow-primary/20">Simpan</button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <button type="button" onClick={() => setConfirmingId(p.id)}
-                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                                <span className="material-symbols-outlined text-sm">close</span>
-                                            </button>
-                                            <span className="material-symbols-outlined text-slate-400 text-sm shrink-0 group-hover:hidden">info</span>
+                                    ) : (
+                                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 group">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
+                                                <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
+                                                <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><span className="material-symbols-outlined text-[11px]">schedule</span>{formatDateTime(p.date)}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                <button type="button" onClick={() => startEdit(p)}
+                                                    className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                                </button>
+                                                <button type="button" onClick={() => setConfirmingId(p.id)}
+                                                    className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                     {confirmingId === p.id && (
                                         <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(p.id); setConfirmingId(null); }} label={`Hapus resep ${p.name}?`} />
                                     )}
@@ -1157,13 +1458,65 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, ai
                 </div>
             </div>
             <TombolAI label="Rekomendasi Obat AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={!(patient.symptoms || []).length && !patient.diagnosis} storageKey="drugs" />
+
+            {(patient.prescriptions || []).length > 0 && (
+                <Kartu judul="Timeline Pemberian Obat" headerIcon="timeline">
+                    <div className="relative">
+                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-3">
+                            {sortedPresc.map((p, index) => (
+                                <div key={p.id} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
+                                    <div className="absolute left-2.75 w-3 h-3 rounded-full bg-primary border-2 border-white dark:border-slate-900 z-10" />
+                                    <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-bold">{p.name}</span>
+                                                {p.dosage && <span className="text-xs text-slate-500">{p.dosage}</span>}
+                                                {p.frequency && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">{p.frequency}</span>}
+                                                {p.route && <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-full">{p.route}</span>}
+                                            </div>
+                                            <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(p.date)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Kartu>
+            )}
         </div>
     );
 }
 
 /* ====== TAB LAPORAN ====== */
-function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult, aiLoading }) {
+function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
     const [confirmingId, setConfirmingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editData, setEditData] = useState({});
+
+    const conditionOptions = [
+        { v: 'critical', l: 'Kritis', c: 'border-red-500 text-red-500 bg-red-50 dark:bg-red-900/20' },
+        { v: 'urgent', l: 'Mendesak', c: 'border-amber-500 text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
+        { v: 'stable', l: 'Stabil', c: 'border-blue-500 text-blue-500 bg-blue-50 dark:bg-blue-900/20' },
+        { v: 'improving', l: 'Membaik', c: 'border-green-500 text-green-500 bg-green-50 dark:bg-green-900/20' }
+    ];
+
+    const startEdit = (r) => {
+        setEditingId(r.id);
+        const dt = r.date ? new Date(r.date) : new Date();
+        const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        setEditData({ notes: r.notes, condition: r.condition || '', date: localDt });
+    };
+
+    const saveEdit = () => {
+        onUpdate(editingId, { ...editData, date: editData.date ? new Date(editData.date).toISOString() : undefined });
+        setEditingId(null);
+    };
+
+    const sortedReports = useMemo(() =>
+        [...(patient.dailyReports || [])].sort((a, b) => new Date(a.date) - new Date(b.date)),
+        [patient.dailyReports]
+    );
 
     return (
         <div className="space-y-5 lg:space-y-6">
@@ -1177,18 +1530,19 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perbarui Kondisi Pasien</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    {[
-                                        { v: 'critical', l: 'Kritis', c: 'border-red-500 text-red-500 bg-red-50' },
-                                        { v: 'urgent', l: 'Mendesak', c: 'border-amber-500 text-amber-500 bg-amber-50' },
-                                        { v: 'stable', l: 'Stabil', c: 'border-blue-500 text-blue-500 bg-blue-50' },
-                                        { v: 'improving', l: 'Membaik', c: 'border-green-500 text-green-500 bg-green-50' }
-                                    ].map(opt => (
+                                    {conditionOptions.map(opt => (
                                         <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, condition: opt.v }))}
                                             className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${input.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
                                             {opt.l}
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                                <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
+                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
                             </div>
 
                             <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Simpan Laporan</button>
@@ -1198,21 +1552,59 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
                 <div className="min-w-0">
                     <Kartu judul={`Riwayat Laporan (${(patient.dailyReports || []).length})`}>
                         <div className="space-y-3">
-                            {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].reverse().map(r => (
+                            {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(r => (
                                 <div key={r.id}>
-                                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
-                                        <div className="flex justify-between items-center gap-3">
-                                            <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
-                                            <div className="flex items-center gap-2">
-                                                {r.condition && <KondisiBadge kondisi={r.condition} />}
-                                                <button type="button" onClick={() => setConfirmingId(r.id)}
-                                                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                                                    <span className="material-symbols-outlined text-sm">close</span>
-                                                </button>
+                                    {editingId === r.id ? (
+                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                            <textarea value={editData.notes} onChange={e => setEditData(d => ({ ...d, notes: e.target.value }))} rows={4}
+                                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm resize-none" />
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Kondisi</label>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                    {conditionOptions.map(opt => (
+                                                        <button key={opt.v} type="button" onClick={() => setEditData(d => ({ ...d, condition: opt.v }))}
+                                                            className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${editData.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                                                            {opt.l}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <input type="datetime-local" value={editData.date} onChange={e => setEditData(d => ({ ...d, date: e.target.value }))}
+                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                            </div>
+                                            <div className="flex gap-2 justify-end pt-1">
+                                                <button type="button" onClick={() => setEditingId(null)}
+                                                    className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Batal</button>
+                                                <button type="button" onClick={saveEdit}
+                                                    className="px-4 py-2 text-sm font-bold rounded-xl bg-primary text-white hover:brightness-110 transition-all shadow-lg shadow-primary/20">Simpan</button>
                                             </div>
                                         </div>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
-                                    </div>
+                                    ) : (
+                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 space-y-1 relative group">
+                                            <div className="flex justify-between items-center gap-3">
+                                                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                                    <span className="material-symbols-outlined text-[11px]">schedule</span>
+                                                    {formatDateTime(r.date)}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    {r.condition && <KondisiBadge kondisi={r.condition} />}
+                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <button type="button" onClick={() => startEdit(r)}
+                                                            className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                            <span className="material-symbols-outlined text-sm">edit</span>
+                                                        </button>
+                                                        <button type="button" onClick={() => setConfirmingId(r.id)}
+                                                            className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
+                                        </div>
+                                    )}
                                     {confirmingId === r.id && (
                                         <ConfirmPanel onCancel={() => setConfirmingId(null)} onConfirm={() => { onRemove(r.id); setConfirmingId(null); }} label="Hapus laporan ini?" />
                                     )}
@@ -1223,6 +1615,35 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onAI, aiResult,
                 </div>
             </div>
             <TombolAI label="Evaluasi Harian AI" onGenerate={onAI} loading={aiLoading} result={aiResult} disabled={(patient.dailyReports || []).length < 1} storageKey="daily" />
+
+            {(patient.dailyReports || []).length > 0 && (
+                <Kartu judul="Timeline Laporan Harian" headerIcon="timeline">
+                    <div className="relative">
+                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-3">
+                            {sortedReports.map((r, index) => {
+                                const condOpt = conditionOptions.find(o => o.v === r.condition);
+                                return (
+                                    <div key={r.id} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
+                                        <div className={`absolute left-2.75 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 z-10 ${
+                                            r.condition === 'critical' ? 'bg-red-500' : r.condition === 'urgent' ? 'bg-amber-500' : r.condition === 'improving' ? 'bg-green-500' : 'bg-primary'
+                                        }`} />
+                                        <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
+                                                    {condOpt && <KondisiBadge kondisi={r.condition} />}
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400">{r.notes}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </Kartu>
+            )}
         </div>
     );
 }

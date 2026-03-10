@@ -268,7 +268,7 @@ export function addDailyReport(patientId, report) {
     const newReport = {
         ...report,
         id: crypto.randomUUID(),
-        date: new Date().toISOString(),
+        date: report.date ? new Date(report.date).toISOString() : new Date().toISOString(),
     };
 
     if (!patient.dailyReports) patient.dailyReports = [];
@@ -276,6 +276,24 @@ export function addDailyReport(patientId, report) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newReport;
+}
+
+export function updateDailyReport(patientId, reportId, updates) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.dailyReports) return null;
+
+    const index = patient.dailyReports.findIndex(r => r.id === reportId);
+    if (index === -1) return null;
+
+    patient.dailyReports[index] = {
+        ...patient.dailyReports[index],
+        ...updates,
+        date: updates.date ? new Date(updates.date).toISOString() : patient.dailyReports[index].date,
+    };
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return patient.dailyReports[index];
 }
 
 export function removeDailyReport(patientId, reportId) {
@@ -297,7 +315,7 @@ export function addSymptom(patientId, symptom) {
     const newSymptom = {
         ...symptom,
         id: crypto.randomUUID(),
-        recordedAt: new Date().toISOString(),
+        recordedAt: symptom.recordedAt ? new Date(symptom.recordedAt).toISOString() : new Date().toISOString(),
     };
 
     if (!patient.symptoms) patient.symptoms = [];
@@ -305,6 +323,24 @@ export function addSymptom(patientId, symptom) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newSymptom;
+}
+
+export function updateSymptom(patientId, symptomId, updates) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.symptoms) return null;
+
+    const index = patient.symptoms.findIndex(s => s.id === symptomId);
+    if (index === -1) return null;
+
+    patient.symptoms[index] = {
+        ...patient.symptoms[index],
+        ...updates,
+        recordedAt: updates.recordedAt ? new Date(updates.recordedAt).toISOString() : patient.symptoms[index].recordedAt,
+    };
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return patient.symptoms[index];
 }
 
 export function removeSymptom(patientId, symptomId) {
@@ -326,7 +362,7 @@ export function addPhysicalExam(patientId, exam) {
     const newExam = {
         ...exam,
         id: crypto.randomUUID(),
-        date: new Date().toISOString(),
+        date: exam.date ? new Date(exam.date).toISOString() : new Date().toISOString(),
     };
 
     if (!patient.physicalExams) patient.physicalExams = [];
@@ -334,6 +370,24 @@ export function addPhysicalExam(patientId, exam) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newExam;
+}
+
+export function updatePhysicalExam(patientId, examId, updates) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.physicalExams) return null;
+
+    const index = patient.physicalExams.findIndex(e => e.id === examId);
+    if (index === -1) return null;
+
+    patient.physicalExams[index] = {
+        ...patient.physicalExams[index],
+        ...updates,
+        date: updates.date ? new Date(updates.date).toISOString() : patient.physicalExams[index].date,
+    };
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return patient.physicalExams[index];
 }
 
 export function removePhysicalExam(patientId, examId) {
@@ -355,7 +409,7 @@ export function addSupportingExam(patientId, exam) {
     const newExam = {
         ...exam,
         id: crypto.randomUUID(),
-        date: new Date().toISOString(),
+        date: exam.date ? new Date(exam.date).toISOString() : new Date().toISOString(),
     };
 
     if (!patient.supportingExams) patient.supportingExams = [];
@@ -363,6 +417,24 @@ export function addSupportingExam(patientId, exam) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newExam;
+}
+
+export function updateSupportingExam(patientId, examId, updates) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.supportingExams) return null;
+
+    const index = patient.supportingExams.findIndex(e => e.id === examId);
+    if (index === -1) return null;
+
+    patient.supportingExams[index] = {
+        ...patient.supportingExams[index],
+        ...updates,
+        date: updates.date ? new Date(updates.date).toISOString() : patient.supportingExams[index].date,
+    };
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return patient.supportingExams[index];
 }
 
 export function removeSupportingExam(patientId, examId) {
@@ -384,7 +456,7 @@ export function addPrescription(patientId, prescription) {
     const newPrescription = {
         ...prescription,
         id: crypto.randomUUID(),
-        date: new Date().toISOString(),
+        date: prescription.date ? new Date(prescription.date).toISOString() : new Date().toISOString(),
     };
 
     if (!patient.prescriptions) patient.prescriptions = [];
@@ -392,6 +464,24 @@ export function addPrescription(patientId, prescription) {
     patient.updatedAt = new Date().toISOString();
     saveData(patients);
     return newPrescription;
+}
+
+export function updatePrescription(patientId, prescId, updates) {
+    const patients = getStoredData();
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient || !patient.prescriptions) return null;
+
+    const index = patient.prescriptions.findIndex(p => p.id === prescId);
+    if (index === -1) return null;
+
+    patient.prescriptions[index] = {
+        ...patient.prescriptions[index],
+        ...updates,
+        date: updates.date ? new Date(updates.date).toISOString() : patient.prescriptions[index].date,
+    };
+    patient.updatedAt = new Date().toISOString();
+    saveData(patients);
+    return patient.prescriptions[index];
 }
 
 export function removePrescription(patientId, prescriptionId) {

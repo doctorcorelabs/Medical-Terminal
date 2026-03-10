@@ -57,6 +57,8 @@ export function StaseProvider({ children }) {
         if (user) dataService.syncStasesToSupabase(user.id).catch(() => {});
     }, [refreshStases, user]);
 
+    const pinnedStase = stases.find(s => s.id === pinnedStaseId) ?? null;
+
     return (
         <StaseContext.Provider value={{
             stases,

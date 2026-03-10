@@ -111,6 +111,36 @@ export function PatientProvider({ children }) {
         return result;
     }, [refreshPatients]);
 
+    const updateSymptom = useCallback((patientId, symptomId, updates) => {
+        const result = dataService.updateSymptom(patientId, symptomId, updates);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const updatePhysicalExam = useCallback((patientId, examId, updates) => {
+        const result = dataService.updatePhysicalExam(patientId, examId, updates);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const updateSupportingExam = useCallback((patientId, examId, updates) => {
+        const result = dataService.updateSupportingExam(patientId, examId, updates);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const updatePrescription = useCallback((patientId, prescId, updates) => {
+        const result = dataService.updatePrescription(patientId, prescId, updates);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
+    const updateDailyReport = useCallback((patientId, reportId, updates) => {
+        const result = dataService.updateDailyReport(patientId, reportId, updates);
+        refreshPatients();
+        return result;
+    }, [refreshPatients]);
+
     const addVitalSign = useCallback((patientId, vitals) => {
         const result = dataService.addVitalSign(patientId, vitals);
         refreshPatients();
@@ -148,6 +178,11 @@ export function PatientProvider({ children }) {
             removeSupportingExam,
             addPrescription,
             removePrescription,
+            updateSymptom,
+            updatePhysicalExam,
+            updateSupportingExam,
+            updatePrescription,
+            updateDailyReport,
             addVitalSign,
             updateVitalSign,
             removeVitalSign,
