@@ -78,6 +78,10 @@ export function AuthProvider({ children }) {
             options: { captchaToken },
         }),
         updatePassword: (newPassword) => supabase.auth.updateUser({ password: newPassword }),
+        signInWithGoogle: () => supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: `${window.location.origin}/` },
+        }),
         user,
         isRecoveryMode,
         setIsRecoveryMode,

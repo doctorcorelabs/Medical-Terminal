@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 export default function Settings() {
-    const { isDark, toggleTheme } = useTheme();
     const { user, updateProfile, isUsernameAvailable } = useAuth();
     const [workerUrl, setWorkerUrl] = useState(() => localStorage.getItem('ai_worker_url') || '');
     const [saved, setSaved] = useState(false);
@@ -73,24 +71,6 @@ export default function Settings() {
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Konfigurasi aplikasi dan manajemen data.</p>
             </div>
 
-            {/* Tampilan */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                <div className="px-5 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                    <h3 className="font-bold text-sm uppercase tracking-wider">Tampilan</h3>
-                </div>
-                <div className="p-5 lg:p-6">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                            <p className="font-semibold text-sm">Mode Gelap</p>
-                            <p className="text-xs text-slate-500 mt-0.5">Ganti antara tema terang dan gelap.</p>
-                        </div>
-                        <button onClick={toggleTheme} className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${isDark ? 'bg-primary' : 'bg-slate-300'}`}>
-                            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${isDark ? 'translate-x-5' : ''}`} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             {/* Akun */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <div className="px-5 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
@@ -111,26 +91,7 @@ export default function Settings() {
                 </div>
             </div>
 
-            {/* Konfigurasi AI */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                <div className="px-5 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                    <h3 className="font-bold text-sm uppercase tracking-wider">Konfigurasi AI</h3>
-                </div>
-                <div className="p-5 lg:p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-semibold mb-2">URL Cloudflare Worker</label>
-                        <p className="text-xs text-slate-500 mb-2">Masukkan URL worker yang sudah di-deploy untuk permintaan AI. Kosongkan untuk memanggil OpenRouter langsung.</p>
-                        <div className="flex gap-2">
-                            <input type="url" value={workerUrl} onChange={e => setWorkerUrl(e.target.value)} placeholder="https://worker-anda.workers.dev"
-                                className="flex-1 min-w-0 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm" />
-                            <button onClick={saveWorkerUrl} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition-colors shrink-0">
-                                {saved ? '✓ Tersimpan' : 'Simpan'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+            
             {/* Manajemen Data */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <div className="px-5 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
