@@ -13,6 +13,7 @@ export default function Login() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [captchaToken, setCaptchaToken] = useState();
+    const [captchaKey, setCaptchaKey] = useState(() => Date.now());
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
@@ -79,6 +80,7 @@ export default function Login() {
         setNewPassword('');
         setConfirmPassword('');
         setCaptchaToken(undefined);
+        setCaptchaKey(Date.now());
     };
 
     const modeConfig = {
@@ -170,11 +172,11 @@ export default function Login() {
                         {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
                             <div className="pt-2">
                                 <Turnstile
-                                    key={mode}
+                                    key={captchaKey}
                                     siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAABJj5Q0iqgbTzacQ'}
                                     onSuccess={(token) => setCaptchaToken(token)}
-                                    onExpire={() => setCaptchaToken(undefined)}
-                                    onError={() => setCaptchaToken(undefined)}
+                                    onExpire={() => { setCaptchaToken(undefined); setCaptchaKey(Date.now()); }}
+                                    onError={() => { setCaptchaToken(undefined); setCaptchaKey(Date.now()); }}
                                 />
                             </div>
                         )}
