@@ -170,7 +170,7 @@ export default function Login() {
                         </div>
 
                         {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
-                            <div className="pt-2">
+                            <div className="pt-2 w-full flex justify-center">
                                 <Turnstile
                                     key={captchaKey}
                                     siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAABJj5Q0iqgbTzacQ'}
