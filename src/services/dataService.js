@@ -39,7 +39,7 @@ export async function fetchFromSupabase(userId) {
             .from('user_patients')
             .select('patients_data')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
 
         if (data?.patients_data) {
             saveData(data.patients_data);
@@ -102,7 +102,7 @@ export async function fetchStasesFromSupabase(userId) {
             .from('user_stases')
             .select('stases_data, pinned_stase_id')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
 
         if (data?.stases_data) {
             saveStases(data.stases_data);
@@ -473,7 +473,7 @@ export async function fetchSchedulesFromSupabase(userId) {
             .from('user_schedules')
             .select('schedules_data')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
 
         if (data?.schedules_data) {
             saveSchedules(data.schedules_data);

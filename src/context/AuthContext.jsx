@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     const value = {
-        signUp: (email, password, username) => supabase.auth.signUp({ email, password }, { data: { username } }),
+        signUp: (email, password, username) => supabase.auth.signUp({ email, password, options: { data: { username } } }),
         signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
         signOut: () => {
             localStorage.removeItem('medterminal_patients');
