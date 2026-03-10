@@ -442,7 +442,11 @@ const SCHEDULE_KEY = 'medterminal_schedules';
 function getStoredSchedules() {
     try {
         const data = localStorage.getItem(SCHEDULE_KEY);
-        return data ? JSON.parse(data) : [];
+        if (!data) return [];
+        const parsed = JSON.parse(data);
+        const purged = purgeExpiredSchedules(parsed);
+        if (purged.length !== parsed.length) saveSchedules(purged);
+        return purged;
     } catch {
         return [];
     }
@@ -450,6 +454,13 @@ function getStoredSchedules() {
 
 function saveSchedules(schedules) {
     localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedules));
+}
+
+function purgeExpiredSchedules(schedules) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+    return schedules.filter(s => s.date >= cutoffStr);
 }
 
 export async function syncSchedulesToSupabase(userId) {
@@ -476,8 +487,10 @@ export async function fetchSchedulesFromSupabase(userId) {
             .maybeSingle();
 
         if (data?.schedules_data) {
-            saveSchedules(data.schedules_data);
-            return data.schedules_data;
+            const purged = purgeExpiredSchedules(data.schedules_data);
+            saveSchedules(purged);
+            if (purged.length !== data.schedules_data.length) syncSchedulesToSupabase(userId);
+            return purged;
         }
     } catch (err) {
         console.error('Failed to fetch schedules from Supabase:', err);

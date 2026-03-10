@@ -41,8 +41,8 @@ export function AuthProvider({ children }) {
     }, []);
 
     const value = {
-        signUp: (email, password, username) => supabase.auth.signUp({ email, password, options: { data: { username } } }),
-        signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
+        signUp: (email, password, username, captchaToken) => supabase.auth.signUp({ email, password, options: { data: { username }, captchaToken } }),
+        signIn: (email, password, captchaToken) => supabase.auth.signInWithPassword({ email, password, options: { captchaToken } }),
         signOut: () => {
             localStorage.removeItem('medterminal_patients');
             return supabase.auth.signOut();
@@ -73,8 +73,9 @@ export function AuthProvider({ children }) {
             // Unable to verify remotely — allow with a warning shown by caller
             return null;
         },
-        resetPassword: (email) => supabase.auth.resetPasswordForEmail(email, {
+        resetPassword: (email, captchaToken) => supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${window.location.origin}/reset-password`,
+            options: { captchaToken },
         }),
         updatePassword: (newPassword) => supabase.auth.updateUser({ password: newPassword }),
         user,

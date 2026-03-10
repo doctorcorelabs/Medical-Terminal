@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
@@ -11,6 +12,7 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [captchaToken, setCaptchaToken] = useState();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
@@ -27,7 +29,8 @@ export default function Login() {
 
         try {
             if (mode === 'login') {
-                const { error } = await signIn(email, password);
+                if (!captchaToken) throw new Error('Silakan selesaikan CAPTCHA sebelum masuk.');
+                const { error } = await signIn(email, password, captchaToken);
                 if (error) throw error;
             } else if (mode === 'signup') {
                 // validate username
@@ -42,11 +45,13 @@ export default function Login() {
                 if (available === null) {
                     addToast('Tidak dapat memeriksa ketersediaan username, melanjutkan pendaftaran.', 'info');
                 }
-                const { error } = await signUp(email, password, username);
+                if (!captchaToken) throw new Error('Silakan selesaikan CAPTCHA sebelum mendaftar.');
+                const { error } = await signUp(email, password, username, captchaToken);
                 if (error) throw error;
                 setMessage('Pendaftaran berhasil! Silakan periksa email Anda untuk konfirmasi pendaftaran (cek dibagian spam apabila tidak muncul)');
             } else if (mode === 'forgot') {
-                const { error } = await resetPassword(email);
+                if (!captchaToken) throw new Error('Silakan selesaikan CAPTCHA terlebih dahulu.');
+                const { error } = await resetPassword(email, captchaToken);
                 if (error) throw error;
                 setMessage('Link reset password telah dikirim ke email Anda. Silakan periksa kotak masuk Anda (cek dibagian spam apabila tidak muncul).');
             } else if (mode === 'recovery') {
@@ -73,6 +78,7 @@ export default function Login() {
         setPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        setCaptchaToken(undefined);
     };
 
     const modeConfig = {
@@ -161,6 +167,18 @@ export default function Login() {
                             )}
                         </div>
 
+                        {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
+                            <div className="pt-2">
+                                <Turnstile
+                                    key={mode}
+                                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAABJj5Q0iqgbTzacQ'}
+                                    onSuccess={(token) => setCaptchaToken(token)}
+                                    onExpire={() => setCaptchaToken(undefined)}
+                                    onError={() => setCaptchaToken(undefined)}
+                                />
+                            </div>
+                        )}
+
                         <button type="submit" disabled={loading}
                             className="w-full py-3.5 px-4 bg-primary hover:bg-blue-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/20 disabled:opacity-70 disabled:cursor-not-allowed">
                             {loading ? <span className="material-symbols-outlined animate-spin align-middle mr-2">progress_activity</span> : null}
@@ -195,6 +213,8 @@ export default function Login() {
                     {mode === 'forgot' && (
                         <p className="text-sm font-medium text-slate-500">
                             Ingat password Anda?
+
+                        
                             <button onClick={() => switchMode('login')} type="button"
                                 className="ml-2 font-bold text-primary hover:underline transition-all">
                                 Kembali masuk
