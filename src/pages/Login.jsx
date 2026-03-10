@@ -173,7 +173,7 @@ export default function Login() {
                             <div className="pt-2 w-full flex justify-center">
                                 <Turnstile
                                     key={captchaKey}
-                                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAABJj5Q0iqgbTzacQ'}
+                                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
                                     onSuccess={(token) => setCaptchaToken(token)}
                                     onExpire={() => { setCaptchaToken(undefined); setCaptchaKey(Date.now()); }}
                                     onError={() => { setCaptchaToken(undefined); setCaptchaKey(Date.now()); }}
