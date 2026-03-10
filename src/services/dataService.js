@@ -23,16 +23,18 @@ export async function syncToSupabase(userId) {
     if (!userId) return;
     const patients = getStoredData();
     try {
-        await supabase.from('user_patients').upsert({
+        const { error } = await supabase.from('user_patients').upsert({
             user_id: userId,
             patients_data: patients,
             updated_at: new Date().toISOString()
         });
+        if (error) throw error;
         pendingSync.clearPatients();
     } catch (err) {
         console.error("Failed to sync to Supabase:", err);
         // Mark as pending so OfflineContext flushes when back online
         pendingSync.markPatients();
+        throw err;
     }
 }
 
@@ -92,16 +94,18 @@ export async function syncStasesToSupabase(userId) {
     const stases = getStoredStases();
     const pinnedStaseId = getPinnedStaseId();
     try {
-        await supabase.from('user_stases').upsert({
+        const { error } = await supabase.from('user_stases').upsert({
             user_id: userId,
             stases_data: stases,
             pinned_stase_id: pinnedStaseId,
             updated_at: new Date().toISOString()
         });
+        if (error) throw error;
         pendingSync.clearStases();
     } catch (err) {
         console.error("Failed to sync stases to Supabase:", err);
         pendingSync.markStases();
+        throw err;
     }
 }
 
@@ -485,15 +489,17 @@ export async function syncSchedulesToSupabase(userId) {
     if (!userId) return;
     const schedules = getStoredSchedules();
     try {
-        await supabase.from('user_schedules').upsert({
+        const { error } = await supabase.from('user_schedules').upsert({
             user_id: userId,
             schedules_data: schedules,
             updated_at: new Date().toISOString(),
         });
+        if (error) throw error;
         pendingSync.clearSchedules();
     } catch (err) {
         console.error('Failed to sync schedules to Supabase:', err);
         pendingSync.markSchedules();
+        throw err;
     }
 }
 

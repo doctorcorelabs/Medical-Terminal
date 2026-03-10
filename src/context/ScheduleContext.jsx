@@ -28,21 +28,21 @@ export function ScheduleProvider({ children }) {
     const addSchedule = useCallback((schedule) => {
         const created = dataService.addSchedule(schedule);
         refreshSchedules();
-        if (user) dataService.syncSchedulesToSupabase(user.id);
+        if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
         return created;
     }, [refreshSchedules, user]);
 
     const updateSchedule = useCallback((id, updates) => {
         const updated = dataService.updateSchedule(id, updates);
         refreshSchedules();
-        if (user) dataService.syncSchedulesToSupabase(user.id);
+        if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
         return updated;
     }, [refreshSchedules, user]);
 
     const deleteSchedule = useCallback((id) => {
         dataService.deleteSchedule(id);
         refreshSchedules();
-        if (user) dataService.syncSchedulesToSupabase(user.id);
+        if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
     }, [refreshSchedules, user]);
 
     return (

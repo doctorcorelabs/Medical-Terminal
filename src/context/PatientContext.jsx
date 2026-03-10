@@ -21,7 +21,7 @@ export function PatientProvider({ children }) {
     const refreshPatients = useCallback(() => {
         setPatients(dataService.getAllPatients());
         if (user) {
-            dataService.syncToSupabase(user.id); // Sync in background
+            dataService.syncToSupabase(user.id).catch(() => {}); // Sync in background
         }
     }, [user]);
 

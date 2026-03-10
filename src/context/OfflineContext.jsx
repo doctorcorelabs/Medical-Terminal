@@ -22,26 +22,35 @@ export function OfflineProvider({ children }) {
 
         setIsSyncing(true);
         setSyncFailed(false);
+        let failed = false;
         try {
             if (pendingSync.hasPatients()) {
                 await syncToSupabase(id);
-                pendingSync.clearPatients();
+                // syncToSupabase clears/marks the flag internally; if still set → failed
             }
+        } catch {
+            failed = true;
+        }
+        try {
             if (pendingSync.hasStases()) {
                 await syncStasesToSupabase(id);
-                pendingSync.clearStases();
             }
+        } catch {
+            failed = true;
+        }
+        try {
             if (pendingSync.hasSchedules()) {
                 await syncSchedulesToSupabase(id);
-                pendingSync.clearSchedules();
             }
-            setLastSyncAt(new Date());
-        } catch (err) {
-            console.error('[OfflineContext] Flush sync failed:', err);
-            setSyncFailed(true);
-        } finally {
-            setIsSyncing(false);
+        } catch {
+            failed = true;
         }
+        // Also treat as failed if any flag is still set after sync attempts
+        if (pendingSync.hasAny()) failed = true;
+
+        setSyncFailed(failed);
+        if (!failed) setLastSyncAt(new Date());
+        setIsSyncing(false);
     }, []);
 
     // Listen to browser online/offline events
