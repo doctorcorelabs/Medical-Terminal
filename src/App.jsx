@@ -39,9 +39,7 @@ function AppContent() {
   }
 
   return (
-    <ThemeProvider>
-      <ToastProvider>
-      <StaseProvider>
+    <StaseProvider>
       <PatientProvider>
       <ScheduleProvider>
         <div className="flex h-dvh overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
@@ -76,16 +74,18 @@ function AppContent() {
         </div>
       </ScheduleProvider>
       </PatientProvider>
-      </StaseProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    </StaseProvider>
   );
 }
 
 export default function App() {
   return (
     <Router>
-      <AppContent />
+      <ThemeProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </ThemeProvider>
     </Router>
   );
 }
