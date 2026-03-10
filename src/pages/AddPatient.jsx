@@ -4,6 +4,7 @@ import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
 import { checkLabValue, labReferences, labCategories, formatDateTime } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
+import ICD10Picker from '../components/ICD10Picker';
 
 export default function AddPatient() {
     const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function AddPatient() {
     const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '' });
     const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral' });
     const [reportInput, setReportInput] = useState({ notes: '', condition: '' });
+    const [showDiagnosisPicker, setShowDiagnosisPicker] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -193,7 +195,24 @@ export default function AddPatient() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <TextAreaGroup label="Keluhan Utama" name="chiefComplaint" value={form.chiefComplaint} onChange={handleChange} rows={4} placeholder="Jelaskan alasan utama pasien masuk..." />
-                                <TextAreaGroup label="Diagnosis / Riwayat" name="diagnosis" value={form.diagnosis} onChange={handleChange} rows={4} placeholder="Diagnosis awal atau riwayat medis dasar..." />
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase ml-1">Diagnosis / Riwayat</label>
+                                        <button type="button" onClick={() => setShowDiagnosisPicker(true)}
+                                            className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition px-2 py-1 rounded-lg hover:bg-primary/10">
+                                            <span className="material-symbols-outlined text-[14px]">qr_code_2</span>
+                                            ICD-10
+                                        </button>
+                                    </div>
+                                    <textarea name="diagnosis" value={form.diagnosis} onChange={handleChange} rows={4} placeholder="Diagnosis awal atau riwayat medis dasar..."
+                                        className="w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all" />
+                                </div>
+                                {showDiagnosisPicker && (
+                                    <ICD10Picker
+                                        onSelect={(code, display) => setForm(prev => ({ ...prev, diagnosis: prev.diagnosis ? `${prev.diagnosis}\n${display} (${code})` : `${display} (${code})` }))}
+                                        onClose={() => setShowDiagnosisPicker(false)}
+                                    />
+                                )}
                             </div>
                         </div>
                     )}

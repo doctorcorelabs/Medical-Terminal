@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useStase } from '../../context/StaseContext';
 
@@ -10,16 +9,17 @@ const navItems = [
     { to: '/patients', icon: 'group', label: 'Daftar Pasien' },
     { to: '/add-patient', icon: 'person_add', label: 'Pasien Baru' },
     { to: '/schedule', icon: 'calendar_month', label: 'Jadwal' },
+    { to: '/tools', icon: 'medical_information', label: 'Tools' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
     { to: '/news', icon: 'newspaper', label: 'News' },
-    { to: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { isDark, toggleTheme } = useTheme();
     const { user, signOut } = useAuth();
     const { pinnedStase } = useStase();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const displayName = user?.user_metadata?.username || user?.email || 'Dokter Coass';
 
     return (
         <>
@@ -73,30 +73,42 @@ export default function Sidebar({ isOpen, onClose }) {
                     ))}
                 </nav>
 
-                {/* Theme toggle */}
-                <div className="px-4 py-2 shrink-0">
-                    <button
-                        onClick={toggleTheme}
-                        title={isCollapsed ? (isDark ? 'Mode Terang' : 'Mode Gelap') : ''}
-                        className={`flex items-center px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full ${isCollapsed ? 'justify-center' : 'gap-3'}`}
-                    >
-                        <span className="material-symbols-outlined text-[22px] shrink-0">{isDark ? 'light_mode' : 'dark_mode'}</span>
-                        {!isCollapsed && <span className="text-sm whitespace-nowrap overflow-hidden">{isDark ? 'Mode Terang' : 'Mode Gelap'}</span>}
-                    </button>
-                </div>
-
                 {/* User info */}
-                <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 group relative">
-                    <div className={`flex items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${isCollapsed ? 'justify-center' : 'gap-3'}`} onClick={() => signOut()}>
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 relative">
+                    {/* User dropdown menu */}
+                    {isUserMenuOpen && (
+                        <div className={`absolute bottom-full mb-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden z-50 ${isCollapsed ? 'left-1/2 -translate-x-1/2 w-44' : 'left-4 right-4'}`}>
+                            <NavLink
+                                to="/settings"
+                                onClick={() => { setIsUserMenuOpen(false); onClose(); }}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">settings</span>
+                                <span>Pengaturan</span>
+                            </NavLink>
+                            <button
+                                onClick={() => { setIsUserMenuOpen(false); signOut(); }}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors w-full"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">logout</span>
+                                <span>Keluar Akun</span>
+                            </button>
+                        </div>
+                    )}
+                    <div className={`flex items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${isCollapsed ? 'justify-center' : 'gap-3'}`} onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
                         <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                            {user?.email?.charAt(0).toUpperCase() || 'U'}
+                            {(displayName?.charAt(0) || 'U').toUpperCase()}
                         </div>
                         {!isCollapsed && (
                             <div className="overflow-hidden min-w-0 flex-1">
-                                <p className="text-sm font-bold truncate" title={user?.email || 'User'}>{user?.email || 'Dokter Coass'}</p>
-                                <p className="text-xs text-slate-500 truncate group-hover:hidden whitespace-nowrap">{pinnedStase ? <span className="font-semibold" style={{ color: pinnedStase.color }}>{pinnedStase.name}</span> : 'Belum ada stase aktif'}</p>
-                                <p className="text-xs text-red-500 font-bold hidden group-hover:block transition-all whitespace-nowrap">Keluar Akun</p>
+                                <p className="text-sm font-bold truncate" title={displayName}>{displayName}</p>
+                                <p className="text-xs text-slate-500 truncate whitespace-nowrap">{pinnedStase ? <span className="font-semibold" style={{ color: pinnedStase.color }}>{pinnedStase.name}</span> : 'Belum ada stase aktif'}</p>
                             </div>
+                        )}
+                        {!isCollapsed && (
+                            <span className="material-symbols-outlined text-[18px] text-slate-400 shrink-0">
+                                {isUserMenuOpen ? 'expand_more' : 'expand_less'}
+                            </span>
                         )}
                     </div>
                 </div>

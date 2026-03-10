@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences, labCategories } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
+import ICD10Picker from '../components/ICD10Picker';
 import { getSmartSummary, getSymptomInsight, getDailyEvaluation, getPhysicalExamInsight, getSupportingExamInsight, getMedicationRecommendation, getSOAPNote } from '../services/aiService';
 import SymptomGraph from '../components/visualization/SymptomGraph';
 import TimelineChart from '../components/visualization/TimelineChart';
@@ -403,6 +404,7 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
 function EditPatientModal({ patient, headerTemp, setHeaderTemp, onSave, onCancel }) {
     const set = (key) => (e) => setHeaderTemp(p => ({ ...p, [key]: e.target.value }));
     const setVal = (key, val) => setHeaderTemp(p => ({ ...p, [key]: val }));
+    const [showDiagnosisPicker, setShowDiagnosisPicker] = useState(false);
 
     return (
         <div
@@ -514,7 +516,24 @@ function EditPatientModal({ patient, headerTemp, setHeaderTemp, onSave, onCancel
                     {/* Row 3: Keluhan + Diagnosis */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                         <EditTextArea label="Keluhan Utama" value={headerTemp.chiefComplaint || ''} onChange={set('chiefComplaint')} rows={4} placeholder="Jelaskan alasan utama pasien masuk..." />
-                        <EditTextArea label="Diagnosis" value={headerTemp.diagnosis || ''} onChange={set('diagnosis')} rows={4} placeholder="Diagnosis awal atau temuan utama..." />
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5 ml-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase">Diagnosis</label>
+                                <button type="button" onClick={() => setShowDiagnosisPicker(true)}
+                                    className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition px-2 py-1 rounded-lg hover:bg-primary/10">
+                                    <span className="material-symbols-outlined text-[14px]">qr_code_2</span>
+                                    ICD-10
+                                </button>
+                            </div>
+                            <textarea value={headerTemp.diagnosis || ''} onChange={set('diagnosis')} rows={4} placeholder="Diagnosis awal atau temuan utama..."
+                                className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none" />
+                            {showDiagnosisPicker && (
+                                <ICD10Picker
+                                    onSelect={(code, display) => { set('diagnosis')({ target: { value: headerTemp.diagnosis ? `${headerTemp.diagnosis}\n${display} (${code})` : `${display} (${code})` } }); setShowDiagnosisPicker(false); }}
+                                    onClose={() => setShowDiagnosisPicker(false)}
+                                />
+                            )}
+                        </div>
                     </div>
 
                     {/* Row 4: Riwayat */}

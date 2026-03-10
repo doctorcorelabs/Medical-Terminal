@@ -41,11 +41,37 @@ export function AuthProvider({ children }) {
     }, []);
 
     const value = {
-        signUp: (email, password) => supabase.auth.signUp({ email, password }),
+        signUp: (email, password, username) => supabase.auth.signUp({ email, password }, { data: { username } }),
         signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
         signOut: () => {
             localStorage.removeItem('medterminal_patients');
             return supabase.auth.signOut();
+        },
+        updateProfile: (data) => supabase.auth.updateUser({ data }),
+        isUsernameAvailable: async (username) => {
+            if (!username) return null;
+            try {
+                // Try querying a public 'profiles' table if it exists
+                const { data, error } = await supabase.from('profiles').select('id').eq('username', username).limit(1);
+                if (!error) return (data?.length || 0) === 0;
+            } catch (_err) {
+                // ignore, fall through to Edge Function
+            }
+
+            try {
+                // Call the deployed Edge Function check_username
+                const { data, error } = await supabase.functions.invoke('check_username', {
+                    body: { username },
+                });
+                if (!error && data != null) {
+                    return data.available === true;
+                }
+            } catch (_err) {
+                // ignore
+            }
+
+            // Unable to verify remotely — allow with a warning shown by caller
+            return null;
         },
         resetPassword: (email) => supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${window.location.origin}/reset-password`,

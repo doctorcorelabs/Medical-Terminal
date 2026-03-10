@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
 import { PatientProvider } from './context/PatientContext';
 import { StaseProvider } from './context/StaseContext';
 import { useAuth } from './context/AuthContext';
@@ -17,6 +18,9 @@ import Login from './pages/Login';
 import News from './pages/News';
 import ResetPassword from './pages/ResetPassword';
 import Schedule from './pages/Schedule';
+import Tools from './pages/Tools';
+import ICD10Tool from './pages/tools/ICD10Tool';
+import MedCalculator from './pages/tools/MedCalculator';
 import { ScheduleProvider } from './context/ScheduleContext';
 
 function AppContent() {
@@ -36,6 +40,7 @@ function AppContent() {
 
   return (
     <ThemeProvider>
+      <ToastProvider>
       <StaseProvider>
       <PatientProvider>
       <ScheduleProvider>
@@ -62,12 +67,18 @@ function AppContent() {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/schedule" element={<Schedule />} />
+                <Route path="/tools" element={<Tools />} />
+                <Route path="/tools/icd10" element={<ICD10Tool />} />
+                <Route path="/tools/calculator" element={<MedCalculator />} />
               </Routes>
             </div>
           </main>
         </div>
       </ScheduleProvider>
-      </PatientProvider>      </StaseProvider>    </ThemeProvider>
+      </PatientProvider>
+      </StaseProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

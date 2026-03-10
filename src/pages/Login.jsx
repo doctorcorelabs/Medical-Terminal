@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function Login() {
-    const { signIn, signUp, resetPassword, updatePassword, isRecoveryMode, setIsRecoveryMode } = useAuth();
+    const { signIn, signUp, resetPassword, updatePassword, isRecoveryMode, setIsRecoveryMode, isUsernameAvailable } = useAuth();
+    const { addToast } = useToast();
     const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'forgot' | 'recovery'
     const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,7 +30,19 @@ export default function Login() {
                 const { error } = await signIn(email, password);
                 if (error) throw error;
             } else if (mode === 'signup') {
-                const { error } = await signUp(email, password);
+                // validate username
+                if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+                    throw new Error('Username harus 3-20 karakter (huruf, angka, atau _)');
+                }
+                // check availability if possible
+                const available = await isUsernameAvailable(username);
+                if (available === false) {
+                    throw new Error('Username sudah digunakan');
+                }
+                if (available === null) {
+                    addToast('Tidak dapat memeriksa ketersediaan username, melanjutkan pendaftaran.', 'info');
+                }
+                const { error } = await signUp(email, password, username);
                 if (error) throw error;
                 setMessage('Pendaftaran berhasil! Silakan periksa email Anda untuk konfirmasi pendaftaran (cek dibagian spam apabila tidak muncul)');
             } else if (mode === 'forgot') {
@@ -54,6 +69,7 @@ export default function Login() {
         setError('');
         setMessage('');
         setEmail('');
+        setUsername('');
         setPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -93,6 +109,14 @@ export default function Login() {
                             {/* Email - shown for login, signup, forgot */}
                             {mode !== 'recovery' && (
                                 <div className="space-y-1.5">
+                                    {mode === 'signup' && (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Username</label>
+                                            <input value={username} onChange={(e) => setUsername(e.target.value)} required={mode === 'signup'}
+                                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-slate-900 dark:text-slate-100"
+                                                placeholder="username" />
+                                        </div>
+                                    )}
                                     <label className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Email</label>
                                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
                                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-slate-900 dark:text-slate-100"
