@@ -62,6 +62,16 @@ const ALL_TOOLS = [
     route: null,
     available: false,
   },
+  {
+    id: 'drug-interaction',
+    name: 'Interaction Checker',
+    description: 'Cek interaksi antar obat menggunakan data label FDA via OpenFDA dan RxNorm NIH.',
+    icon: 'medication',
+    category: 'Farmakologi',
+    categoryColor: 'rose',
+    route: '/tools/drug-interaction',
+    available: true,
+  },
 ];
 
 const CATEGORY_COLORS = {
@@ -70,6 +80,7 @@ const CATEGORY_COLORS = {
   purple:  { badge: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' },
   pink:    { badge: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400' },
   orange:  { badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
+  rose:    { badge: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' },
 };
 
 export default function Tools() {
