@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
+import { useOffline } from '../context/OfflineContext';
 
 // ── Constants (same as FornasDrug.jsx) ────────────────────────────────────────
 const FLAGS = [
@@ -34,27 +35,30 @@ async function loadFornasDrugs() {
   if (_fetchPromise) return _fetchPromise;
 
   _fetchPromise = (async () => {
-    let all = [];
-    let from = 0;
-    const step = 1000;
-    while (true) {
-      const { data, error } = await supabase
-        .from(TABLE)
-        .select('id,sks_id,name,name_international,label,form_code,form,strength,unit,category_l1,category_l2,flag_fpktl,flag_fpktp,flag_pp,flag_prb,flag_oen,flag_program,flag_kanker')
-        .order('name')
-        .range(from, from + step - 1);
-      if (error) throw new Error(error.message);
-      all = all.concat(data ?? []);
-      if (!data || data.length < step) break;
-      from += step;
+    try {
+      let all = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from(TABLE)
+          .select('id,sks_id,name,name_international,label,form_code,form,strength,unit,category_l1,category_l2,flag_fpktl,flag_fpktp,flag_pp,flag_prb,flag_oen,flag_program,flag_kanker')
+          .order('name')
+          .range(from, from + step - 1);
+        if (error) throw new Error(error.message);
+        all = all.concat(data ?? []);
+        if (!data || data.length < step) break;
+        from += step;
+      }
+      _cachedData = all;
+      return all;
+    } finally {
+      // Always clear the in-flight promise so retries work after errors
+      _fetchPromise = null;
     }
-    _cachedData = all;
-    return all;
   })();
 
-  const result = await _fetchPromise;
-  _fetchPromise = null;
-  return result;
+  return _fetchPromise;
 }
 
 // Map Fornas sediaan form to prescription route
@@ -164,6 +168,7 @@ function PickerRow({ drug, query, onSelect }) {
  * drugFields shape: { name, dosage, frequency:'', route, fornas_source:true, fornas_form, fornas_category }
  */
 export default function FornasDrugPicker({ onSelect, onClose }) {
+  const { isOnline } = useOffline();
   const [allData, setAllData]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -174,13 +179,19 @@ export default function FornasDrugPicker({ onSelect, onClose }) {
   const debounceRef = useRef(null);
   const inputRef    = useRef(null);
 
-  // Load data (uses singleton cache)
-  useEffect(() => {
+  // Load data (uses singleton cache); extracted so retry button can call it
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
     loadFornasDrugs()
       .then(data => { setAllData(data); setLoading(false); })
       .catch(err  => { setError(err.message); setLoading(false); });
-    setTimeout(() => inputRef.current?.focus(), 80);
   }, []);
+
+  useEffect(() => {
+    load();
+    setTimeout(() => inputRef.current?.focus(), 80);
+  }, [load]);
 
   // Debounce search 250ms
   useEffect(() => {
@@ -352,9 +363,29 @@ export default function FornasDrugPicker({ onSelect, onClose }) {
 
             {error && (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-3">
-                <span className="material-symbols-outlined text-4xl text-red-400">error_outline</span>
-                <p className="text-sm font-medium text-red-500 dark:text-red-400">Gagal memuat data Fornas</p>
-                <p className="text-xs text-slate-400">{error}</p>
+                {!isOnline ? (
+                  <>
+                    <span className="material-symbols-outlined text-5xl text-amber-400">wifi_off</span>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Tidak ada koneksi internet</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
+                      Data Fornas memerlukan koneksi internet pada akses pertama. Sambungkan internet lalu coba lagi.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-5xl text-red-400">error_outline</span>
+                    <p className="text-sm font-bold text-red-500 dark:text-red-400">Gagal memuat data Fornas</p>
+                    <p className="text-xs text-slate-400 max-w-xs">{error}</p>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={load}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:brightness-110 transition shadow-md shadow-primary/20"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span>
+                  Coba Lagi
+                </button>
               </div>
             )}
 
@@ -396,7 +427,15 @@ export default function FornasDrugPicker({ onSelect, onClose }) {
           {/* Footer note */}
           <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-between gap-2">
             <p className="text-[10px] text-slate-400">Sumber: e-fornas.kemkes.go.id · Kemenkes RI</p>
-            <p className="text-[10px] text-slate-400">Frekuensi diisi manual</p>
+            <div className="flex items-center gap-2">
+              {!isOnline && allData.length > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-500">
+                  <span className="material-symbols-outlined text-[11px]">wifi_off</span>
+                  Cache
+                </span>
+              )}
+              <p className="text-[10px] text-slate-400">Frekuensi diisi manual</p>
+            </div>
           </div>
         </div>
       </div>

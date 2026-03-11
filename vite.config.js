@@ -56,6 +56,12 @@ export default defineConfig({
       },
       // Workbox configuration
       workbox: {
+        // Serve index.html for any navigation request (SPA deep-link support when offline)
+        navigateFallback: '/index.html',
+        // Don't intercept Netlify function calls or API paths with the fallback
+        navigateFallbackDenylist: [/^\/.netlify\//, /^\/api\//],
+        // Remove outdated caches left over from previous SW versions
+        cleanupOutdatedCaches: true,
         // Precache all built JS/CSS/HTML chunks
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         // Exclude large CSV from precache — handled via runtime CacheFirst below
@@ -76,6 +82,20 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Fornas drug reference data — CacheFirst 7 days (static lookup table, rarely changes)
+          // MUST come before the general Supabase rule — Workbox uses first-match order
+          {
+            urlPattern: /supabase\.co\/rest\/v1\/fornas_drugs/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'medx-fornas-data',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           // Supabase REST API — NetworkFirst: try server, fall back to cache (5s timeout)
           {
             urlPattern: /supabase\.co\/.*(rest|auth|functions).*/i,
@@ -84,7 +104,7 @@ export default defineConfig({
               cacheName: 'medx-supabase-api',
               networkTimeoutSeconds: 5,
               expiration: {
-                maxEntries: 30,
+                maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24, // 24 hours
               },
               cacheableResponse: { statuses: [0, 200] },

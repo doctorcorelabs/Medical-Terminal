@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
+import { useOffline } from '../../context/OfflineContext';
 
 const PAGE_SIZE = 50;
 const TABLE = 'fornas_drugs';
@@ -549,6 +550,7 @@ function InfoModal({ onClose }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function FornasDrug() {
   const navigate = useNavigate();
+  const { isOnline } = useOffline();
 
   // Data
   const [allData, setAllData]       = useState([]);
@@ -572,12 +574,12 @@ export default function FornasDrug() {
   const debounceRef = useRef(null);
 
   // ── Load all data once (table is ~1140 rows, small enough) ──────────────────
-  useEffect(() => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     // Fetch in pages of 1000 to handle Supabase's default 1000-row limit
-    async function fetchAll() {
+    async function doFetch() {
       let all = [];
       let from = 0;
       const step = 1000;
@@ -595,7 +597,7 @@ export default function FornasDrug() {
       return all;
     }
 
-    fetchAll()
+    doFetch()
       .then(data => {
         setAllData(data);
         setTotalCount(data.length);
@@ -606,6 +608,8 @@ export default function FornasDrug() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ── Debounce search ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -680,6 +684,18 @@ export default function FornasDrug() {
           </div>
         </div>
       </div>
+
+      {/* ── Offline banner ── */}
+      {!isOnline && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
+          <span className="material-symbols-outlined text-base shrink-0">wifi_off</span>
+          <p className="text-xs font-medium">
+            {allData.length > 0
+              ? 'Menampilkan data dari cache. Beberapa informasi mungkin tidak terbaru.'
+              : 'Tidak ada koneksi. Data Fornas belum tersedia di cache.'}
+          </p>
+        </div>
+      )}
 
       {/* ── Search bar ── */}
       <div className="relative mb-3">
@@ -776,13 +792,26 @@ export default function FornasDrug() {
       {/* ── Error ── */}
       {error && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <span className="material-symbols-outlined text-4xl text-red-400">error_outline</span>
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">Gagal memuat data Fornas</p>
-          <p className="text-xs text-slate-400">{error}</p>
+          {!isOnline ? (
+            <>
+              <span className="material-symbols-outlined text-5xl text-amber-400">wifi_off</span>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Tidak ada koneksi internet</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
+                Data Fornas memerlukan koneksi internet pada akses pertama. Sambungkan internet lalu coba lagi.
+              </p>
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-4xl text-red-400">error_outline</span>
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">Gagal memuat data Fornas</p>
+              <p className="text-xs text-slate-400">{error}</p>
+            </>
+          )}
           <button
-            onClick={() => window.location.reload()}
-            className="mt-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition"
+            onClick={fetchAll}
+            className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition shadow-lg shadow-primary/20"
           >
+            <span className="material-symbols-outlined text-sm">refresh</span>
             Coba Lagi
           </button>
         </div>
