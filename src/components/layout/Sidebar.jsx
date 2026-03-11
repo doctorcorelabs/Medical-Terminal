@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useStase } from '../../context/StaseContext';
+import { useOffline } from '../../context/OfflineContext';
 
 const navItems = [
     { to: '/', icon: 'home', label: 'Beranda' },
@@ -12,11 +13,13 @@ const navItems = [
     { to: '/tools', icon: 'medical_information', label: 'Tools' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
     { to: '/news', icon: 'newspaper', label: 'News' },
+    { to: '/conflicts', icon: 'merge_type', label: 'Konflik Data', conflictBadge: true },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
     const { user, signOut } = useAuth();
     const { pinnedStase } = useStase();
+    const { conflictCount } = useOffline();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const displayName = user?.user_metadata?.username || user?.email || 'Dokter Coass';
@@ -61,14 +64,20 @@ export default function Sidebar({ isOpen, onClose }) {
                             onClick={onClose}
                             title={isCollapsed ? item.label : ''}
                             className={({ isActive }) =>
-                                `flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${isCollapsed ? 'justify-center' : 'gap-3'} ${isActive
+                                `relative flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${isCollapsed ? 'justify-center' : 'gap-3'} ${isActive
                                     ? 'bg-primary/10 text-primary font-semibold'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                                 }`
                             }
                         >
                             <span className="material-symbols-outlined text-[22px] shrink-0">{item.icon}</span>
-                            {!isCollapsed && <span className="text-sm whitespace-nowrap overflow-hidden">{item.label}</span>}
+                            {!isCollapsed && <span className="text-sm whitespace-nowrap overflow-hidden flex-1">{item.label}</span>}
+                            {!isCollapsed && item.conflictBadge && conflictCount > 0 && (
+                                <span className="ml-auto min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold px-1">{conflictCount}</span>
+                            )}
+                            {isCollapsed && item.conflictBadge && conflictCount > 0 && (
+                                <span className="absolute top-1 right-1 min-w-3.5 h-3.5 flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold px-0.5">{conflictCount}</span>
+                            )}
                         </NavLink>
                     ))}
                 </nav>

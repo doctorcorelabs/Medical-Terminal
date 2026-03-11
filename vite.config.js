@@ -9,6 +9,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Use injectManifest so our custom sw.js handles Background Sync
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       // Include static assets to precache
       includeAssets: ['Favicon.png', 'vite.svg'],
       // Web App Manifest
@@ -54,81 +58,12 @@ export default defineConfig({
           },
         ],
       },
-      // Workbox configuration
-      workbox: {
-        // Serve index.html for any navigation request (SPA deep-link support when offline)
-        navigateFallback: '/index.html',
-        // Don't intercept Netlify function calls or API paths with the fallback
-        navigateFallbackDenylist: [/^\/.netlify\//, /^\/api\//],
-        // Remove outdated caches left over from previous SW versions
-        cleanupOutdatedCaches: true,
-        // Precache all built JS/CSS/HTML chunks
+      // injectManifest config: Workbox injects precache list into src/sw.js
+      injectManifest: {
+        // Precache all built assets; CSV handled by runtime CacheFirst in sw.js
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Exclude large CSV from precache — handled via runtime CacheFirst below
         globIgnores: ['**/icd10.csv'],
-        // Max precache entry size — increase for large JS bundles
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
-
-        runtimeCaching: [
-          // ICD-10 CSV — heavy file, CacheFirst for 30 days
-          {
-            urlPattern: /\/data\/icd10\.csv$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'medx-icd10-data',
-              expiration: {
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Fornas drug reference data — CacheFirst 7 days (static lookup table, rarely changes)
-          // MUST come before the general Supabase rule — Workbox uses first-match order
-          {
-            urlPattern: /supabase\.co\/rest\/v1\/fornas_drugs/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'medx-fornas-data',
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Supabase REST API — NetworkFirst: try server, fall back to cache (5s timeout)
-          {
-            urlPattern: /supabase\.co\/.*(rest|auth|functions).*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'medx-supabase-api',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Google Fonts — CacheFirst, 1 year
-          {
-            urlPattern: /https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'medx-google-fonts',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // AI Worker (Cloudflare) — NetworkOnly (no caching for AI calls)
-          {
-            urlPattern: /workers\.dev\/.*/i,
-            handler: 'NetworkOnly',
-          },
-        ],
       },
       // Dev options: enable SW in development for easier testing
       devOptions: {

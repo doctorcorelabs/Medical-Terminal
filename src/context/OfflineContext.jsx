@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { pendingSync } from '../services/offlineQueue';
 import { syncToSupabase, syncStasesToSupabase, syncSchedulesToSupabase } from '../services/dataService';
 import { useAuth } from './AuthContext';
+import { countConflicts } from '../services/idbQueue';
+import { storeSwConfig, triggerSwSync, onSwSyncComplete } from '../services/swConfig';
 
 const OfflineContext = createContext();
 
@@ -11,9 +13,37 @@ export function OfflineProvider({ children }) {
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncAt, setLastSyncAt] = useState(null);
     const [syncFailed, setSyncFailed] = useState(false);
+    const [conflictCount, setConflictCount] = useState(0);
     // Keep user ref so the `online` event handler can always access the latest user
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
+
+    // Store Supabase config into IDB for the service worker on mount
+    useEffect(() => { storeSwConfig(); }, []);
+
+    // Refresh conflict count from IDB
+    const refreshConflictCount = useCallback(() => {
+        countConflicts().then(setConflictCount).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        refreshConflictCount();
+    }, [refreshConflictCount]);
+
+    // Listen to SYNC_COMPLETE messages from the service worker
+    useEffect(() => {
+        const unsub = onSwSyncComplete(({ success }) => {
+            if (success) {
+                setLastSyncAt(new Date());
+                setSyncFailed(false);
+            } else {
+                setSyncFailed(true);
+            }
+            setIsSyncing(false);
+            refreshConflictCount();
+        });
+        return unsub;
+    }, [refreshConflictCount]);
 
     const flushPendingSync = useCallback(async (uid) => {
         const id = uid || userRef.current?.id;
@@ -57,6 +87,8 @@ export function OfflineProvider({ children }) {
     useEffect(() => {
         const handleOnline = () => {
             setIsOnline(true);
+            // Try Background Sync via SW first, then fallback to page-level flush
+            triggerSwSync().catch(() => {});
             flushPendingSync();
         };
         const handleOffline = () => {
@@ -79,7 +111,7 @@ export function OfflineProvider({ children }) {
     }, [user?.id]);
 
     return (
-        <OfflineContext.Provider value={{ isOnline, isSyncing, lastSyncAt, syncFailed, flushPendingSync }}>
+        <OfflineContext.Provider value={{ isOnline, isSyncing, lastSyncAt, syncFailed, flushPendingSync, conflictCount, refreshConflictCount }}>
             {children}
         </OfflineContext.Provider>
     );

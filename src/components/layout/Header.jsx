@@ -1,7 +1,9 @@
 import { useOffline } from '../../context/OfflineContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
-    const { isOnline, isSyncing, syncFailed, lastSyncAt } = useOffline();
+    const { isOnline, isSyncing, syncFailed, lastSyncAt, conflictCount } = useOffline();
+    const navigate = useNavigate();
 
     return (
         <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 shrink-0">
@@ -63,9 +65,21 @@ export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
                     </div>
                 )}
 
-                <button className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400">
-                    <span className="material-symbols-outlined">notifications</span>
-                    <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                <button
+                    onClick={() => conflictCount > 0 ? navigate('/conflicts') : undefined}
+                    title={conflictCount > 0 ? `${conflictCount} konflik data perlu ditinjau` : 'Notifikasi'}
+                    className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+                >
+                    <span className="material-symbols-outlined">
+                        {conflictCount > 0 ? 'merge_type' : 'notifications'}
+                    </span>
+                    {conflictCount > 0 ? (
+                        <span className="absolute top-1 right-1 size-4 flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold border-2 border-white dark:border-slate-900">
+                            {conflictCount}
+                        </span>
+                    ) : (
+                        <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                    )}
                 </button>
                 <div className="hidden md:flex items-center gap-2 pl-4 border-l border-slate-200 dark:border-slate-800">
                     <p className="text-xs text-slate-500 whitespace-nowrap">

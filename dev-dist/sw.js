@@ -81,12 +81,13 @@ define(['./workbox-51749ddc'], (function (workbox) { 'use strict';
     "url": "registerSW.js",
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
-    "url": "index.html",
-    "revision": "0.rea16nb6q08"
+    "url": "/index.html",
+    "revision": "0.aojqhq5fou8"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
-    allowlist: [/^\/$/]
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
+    allowlist: [/^\/$/],
+    denylist: [/^\/.netlify\//, /^\/api\//]
   }));
   workbox.registerRoute(/\/data\/icd10\.csv$/, new workbox.CacheFirst({
     "cacheName": "medx-icd10-data",
@@ -96,11 +97,20 @@ define(['./workbox-51749ddc'], (function (workbox) { 'use strict';
       statuses: [0, 200]
     })]
   }), 'GET');
+  workbox.registerRoute(/supabase\.co\/rest\/v1\/fornas_drugs/i, new workbox.CacheFirst({
+    "cacheName": "medx-fornas-data",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 20,
+      maxAgeSeconds: 604800
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
   workbox.registerRoute(/supabase\.co\/.*(rest|auth|functions).*/i, new workbox.NetworkFirst({
     "cacheName": "medx-supabase-api",
     "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 30,
+      maxEntries: 100,
       maxAgeSeconds: 86400
     }), new workbox.CacheableResponsePlugin({
       statuses: [0, 200]

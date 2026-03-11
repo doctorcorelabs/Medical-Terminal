@@ -1,6 +1,7 @@
 // Data management with localStorage and Supabase sync
 import { supabase } from './supabaseClient';
 import { pendingSync } from './offlineQueue';
+import { enqueue, clearQueueByType } from './idbQueue';
 const STORAGE_KEY = 'medterminal_patients';
 const STASE_KEY = 'medterminal_stases';
 const PINNED_KEY = 'medterminal_pinned_stase';
@@ -47,6 +48,8 @@ function saveData(patients) {
 export async function syncToSupabase(userId) {
     if (!userId) return;
     const patients = getStoredData();
+    // Enqueue BEFORE attempting sync — ensures SW retries if tab closes mid-sync
+    await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: patients } }).catch(() => {});
     try {
         const { error } = await supabase.from('user_patients').upsert({
             user_id: userId,
@@ -55,9 +58,11 @@ export async function syncToSupabase(userId) {
         });
         if (error) throw error;
         pendingSync.clearPatients();
+        clearQueueByType(userId, 'patients').catch(() => {}); // success: dequeue
     } catch (err) {
         console.error("Failed to sync to Supabase:", err);
         // Mark as pending so OfflineContext flushes when back online
+        // Queue item already written — SW will retry when online
         pendingSync.markPatients();
         throw err;
     }
@@ -134,6 +139,8 @@ export async function syncStasesToSupabase(userId) {
     if (!userId) return;
     const stases = getStoredStases();
     const pinnedStaseId = getPinnedStaseId();
+    // Enqueue BEFORE attempting sync
+    await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: stases, pinned_stase_id: pinnedStaseId } }).catch(() => {});
     try {
         const { error } = await supabase.from('user_stases').upsert({
             user_id: userId,
@@ -143,6 +150,7 @@ export async function syncStasesToSupabase(userId) {
         });
         if (error) throw error;
         pendingSync.clearStases();
+        clearQueueByType(userId, 'stases').catch(() => {}); // success: dequeue
     } catch (err) {
         console.error("Failed to sync stases to Supabase:", err);
         pendingSync.markStases();
@@ -619,6 +627,8 @@ function purgeExpiredSchedules(schedules) {
 export async function syncSchedulesToSupabase(userId) {
     if (!userId) return;
     const schedules = getStoredSchedules();
+    // Enqueue BEFORE attempting sync
+    await enqueue({ type: 'schedules', op: 'upsert', userId, payload: { schedules_data: schedules } }).catch(() => {});
     try {
         const { error } = await supabase.from('user_schedules').upsert({
             user_id: userId,
@@ -627,6 +637,7 @@ export async function syncSchedulesToSupabase(userId) {
         });
         if (error) throw error;
         pendingSync.clearSchedules();
+        clearQueueByType(userId, 'schedules').catch(() => {}); // success: dequeue
     } catch (err) {
         console.error('Failed to sync schedules to Supabase:', err);
         pendingSync.markSchedules();

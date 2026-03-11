@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
@@ -8,23 +8,36 @@ import { useAuth } from './context/AuthContext';
 import { OfflineProvider } from './context/OfflineContext';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
-import Dashboard from './pages/Dashboard';
-import Stase from './pages/Stase';
-import PatientList from './pages/PatientList';
-import AddPatient from './pages/AddPatient';
-import PatientDetail from './pages/PatientDetail';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
+// Eager — rendered immediately on first load or before auth check
 import Login from './pages/Login';
-import News from './pages/News';
 import ResetPassword from './pages/ResetPassword';
-import Schedule from './pages/Schedule';
-import Tools from './pages/Tools';
-import ICD10Tool from './pages/tools/ICD10Tool';
-import MedCalculator from './pages/tools/MedCalculator';
-import DrugInteraction from './pages/tools/DrugInteraction';
-import FornasDrug from './pages/tools/FornasDrug';
+import Dashboard from './pages/Dashboard';
+// Lazy — split into separate chunks to reduce initial bundle size
+const Stase           = lazy(() => import('./pages/Stase'));
+const PatientList     = lazy(() => import('./pages/PatientList'));
+const AddPatient      = lazy(() => import('./pages/AddPatient'));
+const PatientDetail   = lazy(() => import('./pages/PatientDetail'));
+const News            = lazy(() => import('./pages/News'));
+const Reports         = lazy(() => import('./pages/Reports'));
+const Settings        = lazy(() => import('./pages/Settings'));
+const Schedule        = lazy(() => import('./pages/Schedule'));
+const Tools           = lazy(() => import('./pages/Tools'));
+const ICD10Tool       = lazy(() => import('./pages/tools/ICD10Tool'));
+const MedCalculator   = lazy(() => import('./pages/tools/MedCalculator'));
+const DrugInteraction = lazy(() => import('./pages/tools/DrugInteraction'));
+const FornasDrug      = lazy(() => import('./pages/tools/FornasDrug'));
+const ConflictCenter  = lazy(() => import('./pages/ConflictCenter'));
 import { ScheduleProvider } from './context/ScheduleContext';
+
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <span className="material-symbols-outlined animate-spin text-primary text-3xl">
+        progress_activity
+      </span>
+    </div>
+  );
+}
 
 function AppContent() {
   const { user, isRecoveryMode } = useAuth();
@@ -58,22 +71,25 @@ function AppContent() {
             />
 
             <div className="flex-1 overflow-y-auto">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/stase" element={<Stase />} />
-                <Route path="/patients" element={<PatientList />} />
-                <Route path="/add-patient" element={<AddPatient />} />
-                <Route path="/patient/:id" element={<PatientDetail />} />
-                <Route path="/news" element={<News />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/schedule" element={<Schedule />} />
-                <Route path="/tools" element={<Tools />} />
-                <Route path="/tools/icd10" element={<ICD10Tool />} />
-                <Route path="/tools/calculator" element={<MedCalculator />} />
-                <Route path="/tools/drug-interaction" element={<DrugInteraction />} />
-                <Route path="/tools/fornas" element={<FornasDrug />} />
-              </Routes>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/stase" element={<Stase />} />
+                  <Route path="/patients" element={<PatientList />} />
+                  <Route path="/add-patient" element={<AddPatient />} />
+                  <Route path="/patient/:id" element={<PatientDetail />} />
+                  <Route path="/news" element={<News />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/tools" element={<Tools />} />
+                  <Route path="/tools/icd10" element={<ICD10Tool />} />
+                  <Route path="/tools/calculator" element={<MedCalculator />} />
+                  <Route path="/tools/drug-interaction" element={<DrugInteraction />} />
+                  <Route path="/tools/fornas" element={<FornasDrug />} />
+                  <Route path="/conflicts" element={<ConflictCenter />} />
+                </Routes>
+              </Suspense>
             </div>
           </main>
         </div>
