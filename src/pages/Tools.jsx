@@ -72,6 +72,16 @@ const ALL_TOOLS = [
     route: '/tools/drug-interaction',
     available: true,
   },
+  {
+    id: 'fornas',
+    name: 'Obat Fornas',
+    description: 'Daftar obat Formularium Nasional Kemenkes RI — sediaan, kelas terapi, restriksi, OEN, FKRTL, dan program.',
+    icon: 'local_pharmacy',
+    category: 'Farmakologi',
+    categoryColor: 'teal',
+    route: '/tools/fornas',
+    available: true,
+  },
 ];
 
 const CATEGORY_COLORS = {
@@ -81,6 +91,7 @@ const CATEGORY_COLORS = {
   pink:    { badge: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400' },
   orange:  { badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
   rose:    { badge: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' },
+  teal:    { badge: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
 };
 
 export default function Tools() {

@@ -1,0 +1,664 @@
+_id_obat,_nama_obat,_nama_obat_internasional
+7,abakavir,abacavir
+23,adenosin,adenosine
+30,afatinib,afatinib
+4870,air steril untuk injeksi,sterile water for injection
+39,air untuk irigasi,water for irigation
+45,akarbose,acarbose
+53,akuades,aquadest
+56,albendazol,albendazole
+60,albumin serum normal (human albumin),albumin serum normal (human albumin)
+65,alektinib,alectinib
+67,alendronat,alendronate
+102,alopurinol,allopurinol
+105,alprazolam,alprazolam
+109,alteplase,alteplase
+137,amfoterisin B,amphotericin B
+140,amikasin,amikacin
+145,aminofilin,aminophylline
+149,amiodaron,amiodarone
+151,amitriptilin,amitriptyline
+155,amlodipin,amlodipine
+161,amoksisilin,amoxicillin
+166,ampisilin,ampicillin
+4860,Analog Insulin Basal: insulin detemir,Analog Basal Insulin: insulin detemir
+4861,Analog Insulin Basal: insulin glargine,Analog Basal Insulin: insulin glargine
+4868,Analog Insulin Campuran: Co-formulation 70% insulin degludec (ultra-long acting insulin) dan 30% insulin aspart,Analog Mix Insulin: Co-formulation 70% insulin degludec (ultra-long acting insulin) and 30% insulin aspart
+4867,Analog Insulin Campuran: kombinasi 50% insulin protamine lispro dan 50% insulin lispro,Analog Mix Insulin: combination of 50% insulin protamine lispro and 50% insulin lispro
+4865,Analog Insulin Campuran: kombinasi 70% insulin protamine aspart dan 30% insulin aspart ,Analog Mix Insulin: combination of 70% insulin protamine aspart and 30% insulin aspart 
+4866,Analog Insulin Campuran: kombinasi 75% insulin protamine lispro dan 25% insulin lispro,Analog Mix Insulin: combination of 75% insulin protamine lispro and 25% insulin lispro
+4863,Analog Insulin Prandial: insulin aspart,Analog Prandial Insulin: insulin aspart
+4864,Analog Insulin Prandial: insulin glulisin,Analog Prandial Insulin: insulin glulisin
+4862,Analog Insulin Prandial: insulin lispro,Analog Prandial Insulin: insulin lispro
+178,anastrozol,anastrozole
+182,"anestetik lokal gigi, kombinasi KDT/FDC mengandung lidokain dan epinefrin","dental local anesthetic, fixed dose combination (FDC) contains lidocaine and epinephrine"
+194,"antasida, kombinasi aluminium  hidroksida dan magnesium hidroksida","antacid, combination of aluminum hydroxide and magnesium hydroxide"
+196,"antibakteri, kombinasi KDT/FDC mengandung basitrasin dan polimiksin B","antibacterial, fixed dose combination (FDC) contains bacitracin and polymyxin B"
+1704,anti-D (Rho(D)) imunoglobulin,anti-D (Rho(D)) immunoglobulin
+197,"antifungi, kombinasi KDT/FDC mengandung asam benzoat dan asam salisilat","antibacterial, fixed dose combination (FDC) contains benzoic acid and salicylic acid"
+203,"antihemoroid, kombinasi KDT/FDC mengandung bismut subgalat, heksaklorofen, lidokain, dan seng oksida","antihemorrhoids, fixed dose  combination (FDC) containing bismuth subgalate, hexachlorophene, lidocaine, and zinc oxide"
+225,aripiprazol,aripiprazole
+234,artesunat,artesunate
+235,articulating paper,articulating paper
+252,asam asetat,acetic acid
+253,asam asetilsalisilat (asetosal),acetylsalicylic acid (acetosal)
+257,asam askorbat (vitamin C),ascorbic acid (vit C)
+268,asam folat,folic acid
+270,asam fusidat,fusidic acid
+279,asam ibandronat,ibandronic acid
+299,asam mefenamat,mefenamic acid
+310,asam pipemidat,pipemidic acid
+313,asam retinoat,retinoic acid
+317,asam salisilat,salicylic acid
+329,asam traneksamat,tranexamic acid
+331,asam ursodeoksikolat,ursodeoxycholic acid
+334,asam zoledronat,zoledronic acid
+345,asetazolamid,acetazolamide
+358,asiklovir,aciclovir
+362,asparaginase,asparaginase
+367,atapulgit,attapulgite
+371,atenolol,atenolol
+380,atorvastatin,atorvastatin
+393,atrakurium,atracurium
+394,atropin,atropine
+411,azatioprin,azathioprine
+418,azitromisin,azithromycin
+421,bahan tumpatan sementara,temporary filling material
+434,barium sulfat,barium sulfate
+438,basiliksimab,basiliximab
+442,bedak salisil,salicyl powder
+443,bedakuilin fumarat,bedaquiline fumarate
+466,bendamustin,bendamustine
+483,benzatin benzilpenisilin,benzathine benzylpenicillin
+506,beraprost sodium,beraprost sodium
+514,betahistin,betahistine
+518,betaksolol,betaxolol
+519,betametason,betamethasone
+548,bikalutamid,bicalutamide
+556,bisakodil,bisacodyl
+561,bisoprolol,bisoprolol
+568,bleomisin,bleomycin
+573,bortezomib,bortezomib
+582,brentuksimab vedotin,brentuximab vedotin
+589,brinzolamid,brinzolamide
+605,bromokriptin,bromocriptine
+609,budesonid,budesonide
+624,bupivakain,bupivacaine
+626,bupivakain heavy,bupivacaine heavy
+636,busulfan,busulfan
+656,cisaprid,cisapride
+664,dabigatran eteksilat,dabigatran etexilate
+666,dakarbazin,dacarbazine
+667,daklatasvir,daclatasvir
+671,daktinomisin,dactinomycin
+684,dapson,dapsone
+701,daunorubisin,daunorubicin
+704,deferasiroks,deferasirox
+705,deferipron,deferiprone
+706,deferoksamin,deferoxamine
+712,deksametason,dexamethasone
+723,deksmedetomidin,dexmedetomidine
+737,delamanid,delamanid
+756,desfluran,desflurane
+762,desmopresin,desmopressin
+763,desogestrel,desogestrel
+767,desoksimetason,desoximetasone
+775,dialisa peritoneal,peritoneal dialysis
+779,diazepam,diazepam
+797,dienogest,dienogest
+799,dietilkarbamazin,diethylcarbamazine
+807,difenhidramin,diphenhydramine
+817,diflukortolon valerat,diflucortolone valerate
+831,digoksin,digoxin
+863,diltiazem,diltiazem
+866,dimenhidrinat,dimenhydrinate
+880,dinatrium edetat,disodium edetate
+881,dinatrium klodronat,clodronate disodium 
+903,DMSA (dimercaptosuccinic acid),DMSA (dimercaptosuccinic acid)
+904,dobutamin,dobutamine
+909,doksazosin,doxazosin
+915,doksisiklin,doxycycline
+917,doksorubisin,doxorubicin
+919,dolutegravir,dolutegravir
+923,domperidon,domperidone
+924,donepezil,donepezil
+927,dopamin,dopamine
+935,dosetaksel,docetaxel
+951,DTPA (diethylenetriamine pentaacetic acid),DTPA (diethylenetriamine pentaacetic acid)
+956,dutasterid,dutasteride
+968,efavirenz,efavirenz
+969,efedrin,ephedrine
+977,eksemestan,exemestane
+1004,eltrombopag,eltrombopag
+1040,enoksaparin sodium,enoxaparine sodium
+1050,entekavir,entecavir
+1062,epinefrin (adrenalin),epinephrine (adrenaline)
+1064,epirubisin,epirubicin
+1085,ergotamin,ergotamine
+1086,eribulin,eribulin
+1088,eritromisin,erythromycin
+1090,eritropoietin-alfa,erythropoietin-alfa
+1091,eritropoietin-beta,erythropoietin-beta
+1093,erlotinib,erlotinib
+1097,esitalopram,escitalopram
+1101,esomeprazol,esomeprazole
+1108,estrogen terkonjugasi,conjugated estrogens
+1116,etambutol,ethambutol
+1123,etanercept,etanercept
+1125,etanol 70%,ethanol 70%
+4,ethylenediamine tetramethylene phosphonic acid (153-Sm-EDTMP),ethylenediamine tetramethylene phosphonic acid (153-Sm-EDTMP)
+1136,etil klorida,ethyl chloride
+1161,etonogestrel,etonogestrel
+1163,etoposid,etoposide
+1172,eugenol,eugenol
+1173,everolimus,everolimus
+4875,faktor IX,factor IX
+1180,"faktor koagulasi II, faktor koagulasi VII, faktor koagulasi IX, faktor koagulasi X","coagulation factor II, coagulation factor VII, coagulation factor IX, coagulation factor X"
+1186,faktor VIIa (rekombinan),factor VIIa (recombinant)
+1187,faktor VIII (konsentrat),faktor VIII (concentrate)
+1201,FDG (fluoro deoxy glucose),FDG (fluoro deoxy glucose)
+1203,febuksostat,febuxostat
+1232,fenilefrin HCl,phenylephrine HCl
+1240,fenitoin,phenytoin
+1243,fenobarbital,phenobarbital
+1244,fenofibrat,fenofibrate
+1248,fenoksimetil penisilin (penisilin V),phenoxymethylpenicillin (penicillin V)
+1257,fenoterol HBr,fenoterol HBr
+1267,fentanil,fentanyl
+1275,ferakrilum,feracrylum
+1294,ferro sulfat,ferrous sulfate
+1306,filgrastim,filgrastim
+1310,finasterid,finasteride
+1317,fitomenadion (vitamin K1),phytomenadione (vitamin K1)
+1331,fludarabin,fludarabine
+1334,fludrokortison,fludrocortisone
+1339,flufenazin dekanoat,flufenazine decanoate
+1343,flukonazol,fluconazole
+1360,fluoksetin,fluoxetine
+1363,fluor,fluor
+1371,fluorometolon,fluorometholone
+1375,fluorourasil,fluorouracil
+1388,flusinolon asetonid,fluocinolone acetonide
+1397,flutikason furoat,fluticasone furoate
+1398,flutikason propionat,fluticasone propionate
+1401,fluvoksamin,fluvoxamine
+1408,fondaparinuks,fondaparinux
+1411,formokresol,formocresol
+1429,fosfomisin trometamol,fosfomycin trometamol
+1440,fraksi protein plasma,plasma protein fraction
+1442,framisetin sulfat,framycetin sulphate
+1448,fulvestrant,fulvestrant
+1452,furosemid,furosemide
+1458,gabapentin,gabapentin
+1459,gadobutrol,gadobutrol
+1462,gadoksetat disodium,gadoxetate disodium
+1464,gadoteric acid,gadoteric acid
+1467,galactose microparticle,galactose microparticle
+1479,gansiklovir,ganciclovir
+1480,garam oralit,oral rehydration salt
+1491,gefitinib,gefitinib
+1493,gemfibrozil,gemfibrozil
+1497,gemsitabin,gemcitabine
+1499,gentamisin,gentamicin
+1513,glibenklamid,glibenclamide
+1515,gliklazid,gliclazide
+1517,glikopironium,glycopyrronium
+1522,glikuidon,gliquidone
+1523,glimepirid,glimepiride
+1527,glipizid,glipizide
+1528,gliseril trinitrat,glyceryl trinitrate
+1529,gliserol,glycerol
+1547,goserelin asetat,goserelin acetate
+4837,green pit viper antivenin,green pit viper antivenin
+1552,griseofulvin,griseofulvin
+1569,haloperidol,haloperidol
+1570,haloperidol dekanoat,haloperidol decanoate
+4838,hemato polivalent snake antivenin,hemato polivalent snake antivenin
+1589,hemodialisa,hemodialysis
+1597,"heparin, Na (non porcine)","heparin, Na (non porcine)"
+1599,hepatitis B imunoglobulin (human),hepatitis B immunoglobulin (human)
+1609,hidrogen peroksida,hydrogen peroxide
+1610,hidroklorotiazid,hydrochlorothiazide
+1614,hidrokortison,hydrocortisone
+1626,hidroksiklorokuin,hydroxychloroquine
+1629,hidroksiurea,hydroxyurea
+1635,hidromorfon,hydromorphone
+1643,hiosin butilbromida,hyoscine butylbromide
+1650,homatropin,homatropine
+4857,Human Insulin Basal: insulin NPH (Neutral Protamine Hagedorn),Human Basal Insulin: NPH insulin (Neutral Protamine Hagedorn)
+4859,Human Insulin Campuran: kombinasi 70% insulin NPH dan 30% insulin regular,Human Mix Insulin: combination of 70% NPH insulin and 30% regular insulin
+4858,Human Insulin Prandial: insulin regular,Human Insulin Prandial: regular insulin
+1657,human tetanus imunoglobulin,human tetanus imunoglobulin
+1666,ibuprofen,ibuprofen
+1670,idarubisin,idarubicin
+1680,ifosfamid,ifosfamide
+1689,iloprost,iloprost
+1691,imatinib mesilat,imatinib mesylate
+1693,imidafenasin,imidaphenacin
+1694,imidapril,imidapril
+1713,imunoglobulin intravena,intravenous immunoglobulin
+1726,indakaterol,indacaterol
+1789,iodiksanol,iodixanol
+1801,iodium 131,iodium 131
+1806,ioheksol,iohexol
+1809,iopamidol,iopamidol
+1812,iopromid,iopromide
+1819,ipratropium bromida,ipratropium bromide
+1825,irbesartan,irbesartan
+1829,irinotekan,irinotecan
+1836,isofluran,isoflurane
+1841,isoniazid,isoniazid
+1848,isosorbid dinitrat,isosorbide dinitrate
+1857,itrakonazol,itraconazole
+1859,IUD levonorgestrel,IUD levonorgestrel
+1863,ivabradin,ivabradine
+1867,ivermektin,ivermectin
+1878,kafein,caffeine
+1880,kalamin,calamine
+1885,kalium aspartat,potassium aspartate
+1893,kalium klorida,potassium chloride
+1905,kalsitriol,calcitriol
+1910,"kalsium folinat (leukovorin, Ca)","calcium folinate (leucovorin, Ca)"
+1915,kalsium glukonat,calcium gluconate
+1917,kalsium hidroksida,calcium hydroxide
+4876,kalsium karbonat (setara dengan 500 mg Ca elemental),calcium carbonate (equivalent to 500 mg elemental Ca)
+1925,kalsium laktat (kalk),calcium lactate (calc)
+1931,kalsium polistiren sulfonat,calcium polystyrene sulfonate
+1944,kandesartan,candesartan
+1950,kapesitabin,capecitabine
+1956,kaptopril,captopril
+1959,karbamazepin,carbamazepine
+1964,karbimazol,carbimazole
+1966,karbogliserin,carboglycerin
+1969,karboksimetilselulosa,carboxymethylcellulose
+1974,karboplatin,carboplatin
+1992,karvedilol,carvedilol
+2005,ketamin,ketamine
+2010,ketokonazol,ketoconazole
+2011,ketoprofen,ketoprofen
+2012,ketorolak,ketorolac
+4839,king cobra antivenin,king cobra antivenin
+2017,klaritromisin,clarithromycin
+2024,klindamisin,clindamycin
+2027,klobazam,clobazam
+2031,klobetasol propionat,clobetasol propionate
+2036,klofazimin,clofazimine
+2046,kloksasilin,cloxacillin
+2053,klonazepam,clonazepam
+2055,klonidin,clonidine
+2061,klopidogrel,clopidogrel
+2063,kloral hidrat,chloral hydrate
+2065,klorambusil,chlorambucil
+2066,kloramfenikol,chloramphenicol
+2072,klorfeniramin,chlorphenamine
+2074,klorfenol kamfer mentol (CHKM),chlorophenol camphor menthol
+2075,klorheksidin,chlorhexidine
+2089,klorokuin,chloroquine
+2098,klorpromazin,chlorpromazine
+2109,klotrimazol,clotrimazole
+2110,klozapin,clozapine
+2117,kodein,codeine
+2126,kolekalsiferol (vitamin D3),colecalciferol
+2131,kolestiramin,colestyramine
+2139,kolkisin,colchicine
+2204,"kombinasi deksametason asetat, thymol, paraklorfenol, dan campor","combination of dexamethasone acetate, thymol, parachlorphenol, anf camphor"
+2311,"kombinasi KDT/FDC (anak) mengandung zidovudin, lamivudin dan nevirapin","fixed dose combination (FDC) contains zidovudine, lamivudine, and nevirapine"
+2312,kombinasi KDT/FDC (LPV/r) mengandung lopinavir dan ritonavir,fixed dose combination (FDC) contains lopinavir and ritonavir
+4854,kombinasi KDT/FDC mengandung abakavir dan lamivudin,Fixed Dose Combination (FDC) contains  abacavir and lamivudine
+2313,kombinasi KDT/FDC mengandung amoksisilin dan asam klavulanat,Fixed Dose Combination (FDC) contains amoxicillin and clavulanic acid
+2314,kombinasi KDT/FDC mengandung ampisilin dan sulbaktam,Fixed Dose Combination (FDC) contains ampicillin and sulbactam
+2315,kombinasi KDT/FDC mengandung artemether dan lumefantrin,fixed dose combination (FDC) contains artemether and lumefantrine
+2316,kombinasi KDT/FDC mengandung benserazid dan levodopa,fixed dose combination (FDC) contains benserazide dan levodopa
+2317,kombinasi KDT/FDC mengandung desogestrel dan etinilestradiol,fixed dose combination (FDC) contains desogestrel and ethinylestradiol
+2318,kombinasi KDT/FDC mengandung dihidroartemisinin dan piperakuin,fixed dose combination (FDC) contains dihydroartemisinin and piperaquin
+2319,kombinasi KDT/FDC mengandung ergotamin dan kafein,fixed dose combination (FDC) contains ergotamine and caffeine
+2320,kombinasi KDT/FDC mengandung Fe sulfat/Fe fumarat/Fe glukonat dan asam folat,fixed dose combination (FDC) contains Fe sulfate/Fe fumarate/Fe gluconate and folic acid
+2321,kombinasi KDT/FDC mengandung indakaterol dan glikopironium,fixed dose combination (FDC) contains indacaterol and glycopyrronium
+2322,kombinasi KDT/FDC mengandung ipratropium bromida dan fenoterol hidrobromida,fixed dose combination (FDC) contains ipratropium bromide and fenoterol hydrobromide
+2323,kombinasi KDT/FDC mengandung ipratropium bromida dan salbutamol,fixed dose combination (FDC) contains ipratropium bromide and salbutamol
+4853,kombinasi KDT/FDC mengandung isoniazid dan rifapentin,Fixed Dose Combination (FDC) contains isoniazid and rifapentine
+2324,kombinasi KDT/FDC mengandung kaolin dan pektin,fixed dose  combination (FDC) contains kaolin and pectin
+2325,"kombinasi KDT/FDC mengandung levodopa, karbidopa, dan entekapon","fixed dose combination (FDC) contains levodopa,  carbidopa, dan entecapone"
+2326,kombinasi KDT/FDC mengandung levonorgestrel dan etinilestradiol,fixed dose combination (FDC) contains levonorgestrel and ethinylestradiol
+2327,kombinasi KDT/FDC mengandung medroksi progesteron asetat dan estradiol sipionat,fixed dose combination (FDC) contains medroxyprogesterone acetate and estradiol cypionate
+2328,kombinasi KDT/FDC mengandung meglumin amidotrizoat dan sodium amidotrizoat,fixed dose combination (FDC) contains meglumine amidotrizoate dan sodium amidotrizoate
+2329,"kombinasi KDT/FDC mengandung parafin, gliserin, dan fenolftalein","fixed dose combination (FDC) contains paraffin, glycerin, and phenolphthalein"
+2330,kombinasi KDT/FDC mengandung salmeterol dan flutikason propionat,fixed dose combination (FDC)contains ipratropium bromide and salbutamol
+2331,kombinasi KDT/FDC mengandung sefoperazon dan sulbaktam,Fixed Dose Combination (FDC) contains cefoperazone and sulbactam
+4855,kombinasi KDT/FDC mengandung sofosbuvir dan daklatasvir,Fixed Dose Combination (FDC) contains  sofosbuvir and daclatasvir
+4856,kombinasi KDT/FDC mengandung sofosbuvir dan velpatasvir,Fixed Dose Combination (FDC) contains  sofosbuvir and velpatasvir
+2332,kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat dan emtrisitabin,fixed dose combination (FDC) contains tenofovir disoproxil fumarate and emtricitabine
+4874,kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat dan lamivudin,fixed dose combination (FDC) contains tenofovir disoproxil fumarate and lamivudine
+2333,"kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat, lamivudin dan dolutegravir","fixed dose combination (FDC) contains tenofovir disoproxil fumarate, lamivudine, and dolutegravir"
+2334,"kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat, lamivudin dan efavirenz","fixed dose combination (FDC) contains tenofovir disoproxil fumarate, lamivudine, and efavirenz"
+2335,kombinasi KDT/FDC mengandung tiotropium dan olodaterol,fixed dose combination (FDC) contains tiotropium and olodaterol
+2336,kombinasi KDT/FDC mengandung zidovudin dan lamivudin,fixed dose combination (FDC) contains zidovudine and lamivudine
+2337,"kombinasi KDT/FDC, setiap dosis mengandung budesonid dan formoterol","fixed dose combination (FDC), each dose contains budesonide and formoterol"
+2338,"kombinasi KDT/FDC, setiap mL mengandung brinzolamid dan timolol","fixed dose combination (FDC), each mL contains brinzolamide and timolol"
+2339,"kombinasi KDT/FDC, setiap mL mengandung latanoprost dan timolol","fixed dose combination (FDC), each mL contains latanoprost and timolol"
+2340,"kombinasi KDT/FDC, setiap mL mengandung natrium klorida dan kalium klorida",fixed dose combination (FDC) contains sodium chloride and pottasium chloride
+2341,"kombinasi KDT/FDC, setiap mL mengandung travoprost dan timolol","fixed dose combination (FDC), each mL contains travoprost and timolol"
+2378,"kombinasi lidokain, medicinal creosote phenol, eugenol, dan benzil alkohol","combination of lidocaine, medicinal creosote phenol, eugenol, and benzyl alcohol"
+2499,kombinasi triamsinolon asetonid dan dimetil-klortetrasiklin,combination of triamcinolone acetonide and dimethyl-chlortetracycline
+4830,Kombipak kusta tipe multibasiler (MB) untuk anak,combipack of leprosy type multibasiler (MB) for children
+4829,Kombipak kusta tipe multibasiler (MB) untuk dewasa,Combipack of leprosy type multibasiler (MB) for adult
+4827,Kombipak kusta tipe pausibasiler (PB) untuk anak,combipack of leprosy type pausibasiler (PB) for children
+4826,Kombipak kusta tipe pausibasiler (PB) untuk dewasa,Combipack of leprosy type pausibasiler (PB) for adult
+4852,Kombipak/paket azitromisin dan sefiksim,combipack/package of azithromycin and cefixime
+2516,komposit resin,resin composite
+2529,kotrimoksazol,cotrimoxazole
+2530,kotrimoksazol (dewasa),cotrimoxazole (adult)
+2531,kotrimoksazol forte (dewasa),cotrimoxazole forte (adult)
+2550,kuinin,quinine
+2561,laktulosa,lactulose
+2563,lamivudin,lamivudine
+2570,lamotrigin,lamotrigine
+2577,lansoprazol,lansoprazole
+2584,lapatinib,lapatinib
+2587,larutan kardioplegia,cardioplegia solutions
+2588,larutan Mengandung Asam Amino,solutions containing amino acids
+2589,Larutan Mengandung Asam Amino+ Elektrolit+Karbohidrat+Lipid,solutions containing amino acid + electrolyte + carbohydrate + lipid
+2590,Larutan Mengandung Elektrolit,solutions containing electrolyte
+2591,Larutan Mengandung Fosfat dengan/tanpa vitamin yang larut dalam air,solutions containing phosphates with/without water-soluble vitamins
+2592,Larutan Mengandung Karbohidrat,solutions containing carbohydrate
+2593,Larutan Mengandung Karbohidrat+Elektrolit,solutions containing carbohydrate + electrolyte
+2594,Larutan Mengandung Lipid,solutions containing lipid
+2595,"Larutan Mengandung Vitamin yang larut dalam lemak (Vitamin A, D, E, K)","solution contains fat-soluble vitamins (vitamins A, D, E, K)"
+2602,latanoprost,latanoprost
+2606,leflunomid,leflunomide
+2609,lenalidomid,lenalidomide
+2610,lenograstim,lenograstim
+2612,lenvatinib,lenvatinib
+2618,letrozol,letrozole
+2619,leuprorelin asetat,leuprorelin acetate
+2624,levetirasetam,levetiracetam
+2631,levofloksasin,levofloxacin
+2641,levonorgestrel,levonorgestrel
+2645,levotiroksin,levothyroxine
+2648,lidokain,lidocaine
+2656,linestrenol,lynestrenol
+2665,liquor carbonis detergens,liquor carbonis detergens
+2670,lisinopril,lisinopril
+2676,litium karbonat,lithium carbonate
+2692,loperamid,loperamide
+2698,loratadin,loratadine
+2699,lorazepam,lorazepam
+2711,low molecule ferri sucrose,low molecule ferri sucrose
+2725,MAA (macro aggregate albumin),MAA (macro aggregate albumin)
+2727,MAG3 (mercaptoacetyltriglysine),MAG3 (mercaptoacetyltriglysine)
+2745,magnesium sulfat,magnesium sulfate
+2751,manitol,mannitol
+2753,maprotilin,maprotiline
+2765,MDP (methylene diphosphonate),MDP (methylene diphosphonate)
+2766,mebendazol,mebendazole
+2777,medroksi progesteron asetat,medroxyprogesterone acetate
+2809,melfalan,melphalan
+2843,merkaptopurin,mercaptopurine
+2848,meropenem,meropenem
+2851,mesalazin,mesalazine
+2853,mesna,mesna
+2860,metadon,methadone
+2,meta-iodobenzylguanidine (131I-MIBG),meta-iodobenzylguanidine (131I-MIBG)
+2866,metamizol,metamizole sodium
+2878,metenamin mandelat (heksamin mandelat),methenamine mandelate (hexamine mandelate)
+2881,metformin,metformin
+2908,metildopa,Methyldopa
+2911,metilergometrin,methylergometrine
+2914,metilfenidat,methylphenidate
+2919,metilprednisolon,methylprednisolone
+2946,metoklopramid,metoclopramide
+2949,metoksi polietilen glikol-epoetin beta,methoxy polyethylene glycol-epoetin beta
+2955,metoprolol,metoprolol
+2963,metotreksat,methotrexate
+2967,metronidazol,metronidazole
+2973,MIBI (methoxyisobutyl isonitrile),MIBI (methoxyisobutyl isonitrile)
+2974,midazolam,midazolam
+2983,mikafungin,micafungin
+2984,mikofenolat mofetil,mycophenolate mofetil 
+2985,mikofenolat sodium,mycophenolate sodium
+2986,mikonazol,miconazole
+2990,milrinon,milrinone
+2994,minosiklin,minocycline
+3010,mitomisin,mitomycin
+3025,moksifloksasin,moxifloxacin
+3031,molnupiravir,molnupiravir
+3033,mometason furoat,mometasone furoate
+3040,morfin,morphine
+3057,mupirosin,mupirocin
+3066,nadroparin,nadroparin
+3079,nalokson,naloxone
+3060,n-asetil sistein,n-acetyl cysteine
+3088,natamisin,natamycin
+3098,natrium bikarbonat,sodium bicarbonate
+3100,natrium diklofenak,sodium diclofenac
+3108,natrium fluoresein,fluorescein sodium 
+3112,natrium fosfat,sodium phosphate
+3114,natrium fusidat,fusidic sodium
+3116,natrium hialuronat,sodium hyaluronate
+3117,natrium hipoklorit,sodium hypochlorite
+3126,natrium klorida,sodium chloride
+3150,natrium tiosulfat,thiosulfate
+3164,neostigmin,neostigmine
+4840,neuro polyvalent snake antivenin,neuro polyvalent snake antivenin
+3174,nevirapin,nevirapine
+3177,nifedipin,nifedipine
+3185,nikardipin,nicardipine
+3197,nilotinib,nilotinib
+3202,nimodipin,nimodipine
+3212,nistatin,nystatin
+3221,nitrogen oksida,nitrous oxide
+3229,nomegestrol asetat,nomegestrol acetate
+3235,norepinefrin,norepinephrine
+3237,noretisteron,norethisterone
+3254,OAT KDT Kategori 1,fixed dose combination (FDC) antituberculosis drug category 1 
+3256,OAT KDT Kategori Anak,fixed dose combination (FDC) antituberculosis drug child category 
+3257,OAT Kombipak Kategori 1,combipack antituberculosis drug category 1 
+3258,OAT Kombipak Kategori Anak,combipack antituberculosis drug child category
+3266,ofloksasin,ofloxacin
+3272,oksaliplatin,oxaliplatin
+3294,oksigen,oxygen
+3295,oksikodon,oxycodone
+3303,oksimetazolin,oxymetazoline
+3309,oksitetrasiklin,oxytetracycline
+3310,oksitosin,oxytocin
+3313,okskarbazepin,oxcarbazepine
+3323,oktreotid asetat,octreotide acetat
+3324,oktreotid LAR,octreotid LAR
+3326,olanzapin,olanzapine
+3338,olodaterol,olodaterol
+3341,olopatadin,olopatadine
+3348,omeprazol,omeprazole
+3355,ondansetron,ondansetron
+3385,paklitaksel,paclitaxel
+3392,paliperidon palmitat,paliperidone palmitate
+4802,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk bayi prematur,Food for Special Medical Purposes (FSMPs) for premature babies
+4815,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Galaktosemia,Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Galactosemia
+4800,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Isovaleric Acidemia (IVA),Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Isovaleric Acidemia (IVA)
+4812,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Maple Syrup Urine Disease (MSUD),Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Maple Syrup Urine Disease (MSUD)
+4814,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Phenylketonuria (PKU),Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Phenylketonuria (PKU)
+4813,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Tyrosinemia,Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Tyrosinemia
+4803,Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pelengkap gizi air susu ibu (human milk fortifier),Food for Special Medical Purposes (FSMPs) for nutritional complementary of breast milk (human milk fortifier)
+3415,parasetamol,paracetamol
+3425,pasta devitalisasi (non arsen),devitalizing paste (non arsenic)
+3426,pasta pengisi saluran akar,root canal filling paste
+3430,pazopanib,pazopanib
+3436,pegaspargase,pegaspargase
+3449,pegylated interferon alfa-2a,pegylated interferon alfa-2a
+3455,pemetreksed,pemetrexed
+3467,pengganti plasma golongan gelatin,gelatin group plasma substitute
+3489,perak nitrat,silver nitrate
+3490,perak sulfadiazin,silver sulfadiazine
+3504,perindopril arginin,perindopril arginine
+3511,permetrin,permethrin
+3519,petidin,pethidine
+3527,pilokarpin,pilocarpine
+3538,pioglitazon,pioglitazone
+3556,pirantel pamoat,pyrantel pamoate
+3558,pirazinamid,pyrazinamide
+3567,piridoksin (vitamin B6),pyridoxine (vit B6)
+3568,piridostigmin,pyridostigmine
+3569,pirimetamin,pyrimethamine
+3595,podofilin,podophyllin
+3602,polietilen glikol,polyethylene glycol
+3605,polikresulen,policresulen
+4842,polyvalent snake antivenin (Australia-Papua New Guinea),polyvalent snake antivenin (Australia-Papua New Guinea)
+4841,polyvalent snake antivenin (Indonesia),polyvalent snake antivenin (Indonesia)
+3619,ponatinib,ponatinib
+3622,povidon iodin,povidone-iodine
+3629,pramipeksol,pramipexole
+3637,pravastatin,pravastatin
+3643,prazikuantel,praziquantel
+3649,prednisolon,prednisolone
+3654,prednison,prednisone
+3655,pregabalin,pregabalin
+3667,primakuin,primaquine
+3681,prokain benzilpenisilin,procaine benzylpenicillin
+3684,prokaterol,procaterol
+3710,propiltiourasil,propylthiouracil
+3714,propofol,propofol
+3715,propranolol,propranolol
+3719,prostaglandin (PGE 1),prostaglandin (PGE 1)
+3721,protamin sulfat,protamine sulfate
+3736,quetiapin,quetiapine
+3753,ramipril,ramipril
+3760,ranibizumab,ranibizumab
+3762,ranitidin,ranitidine
+3776,remdesivir,remdesivir
+3777,remifentanil,remifentanil
+3798,retinol (vitamin A),retinol (vitamin A)
+3810,rifampisin,rifampicin 
+3815,rifapentin,rifapentine
+3831,risedronat,risedronic acid
+3832,risperidon,risperidone
+3836,rituksimab,rituximab
+3837,rivaroksaban,rivaroxaban
+3847,rokuronium,rocuronium
+3856,ropinirol,ropinirole
+3857,ropivakain,ropivacaine
+3862,rosuvastatin,rosuvastatin
+3882,ruksolitinib,ruxolitinib
+4843,russells viper antivenin,russells viper antivenin
+3891,sacubitril valsartan,sacubitril valsartan
+3896,salbutamol,salbutamol
+3900,salep 2âˆ’4,ointment 2âˆ’4
+4844,sea snake antivenin,sea snake antivenin
+3920,secukinumab,secukinumab
+3922,sefadroksil,cefadroxil
+3924,sefaleksin,cefalexin
+3932,sefazolin,cefazolin
+3936,sefepim,cefepime
+3940,sefiksim,cefixime
+3951,sefoperazon,cefoperazone
+3954,sefotaksim,cefotaxime
+3960,sefpirom,cefpirome
+3968,seftazidim,ceftazidime
+3976,seftriakson,ceftriaxone
+3978,sefuroksim,cefuroxime
+3987,selekoksib,celecoxib
+4022,sertralin,sertraline
+4025,serum antidifteri (A.D.S),diphtheria antitoxin
+4026,serum antirabies,rabies serum
+4027,serum antitetanus (A.T.S),tetanus antitoxin
+4031,setirizin,cetirizine
+4036,setuksimab,cetuximab
+4038,sevelamer karbonat,sevelamer carbonate
+4040,sevofluran,sevoflurane
+4042,sianokobalamin (vitamin B12),cyanocobalamin
+4056,siklofosfamid,cyclophosphamide
+4064,siklopentolat,cyclopentolate
+4067,siklosporin,ciclosporin
+4073,sildenafil,sildenafil
+4077,silodosin,silodosin
+4079,silostazol,cilostazol
+4089,simvastatin,simvastatin
+4111,siprofloksasin,ciprofloxacin
+4122,sisplatin,cisplatin
+4124,sitagliptin,sitagliptin
+4129,sitarabin,cytarabine
+4137,sodium hialuronat,sodium hyaluronate
+4138,sofosbuvir,sofosbuvir
+4142,solifenasin,solifenacin
+4147,somatostatin,somatostatin
+4150,somatropin,somatropin
+4164,spiramisin,spiramycin
+4167,spironolakton,spironolactone
+4170,stannous pyrophosphate,stannous pyrophosphate
+4181,streptokinase,streptokinase
+4182,streptomisin,streptomycin
+4188,sufentanil,sufentanil
+4189,sugammadeks,sugammadex
+4190,sukralfat,sucralfate
+4195,suksinilkolin,succinylcholine
+4200,sulfadiazin,sulfadiazine
+4227,sulfasalazin,sulfasalazine
+4235,sulfur colloid,colloidal sulfur
+4252,surfaktan,surfactan
+4253,surgical ginggival pack,surgical ginggival pack
+4266,takrolimus,tacrolimus
+4276,tamoksifen,tamoxifen
+4277,tamsulosin,tamsulosin
+4298,technetium 99m,technetium 99m
+4355,telbivudin,telbivudine
+4357,telmisartan,telmisartan
+4372,temozolomid,temozolomide
+4381,tenofovir alafenamide fumarat,tenofovir alafenamide fumarate
+4383,tenofovir disoproksil fumarat,tenofovir disoproxil fumarate
+4388,teofilin,theophylline
+4393,terazosin,terazosin
+4394,terbinafin,terbinafine
+4395,terbutalin,terbutaline
+4406,testosteron,testosterone
+4408,tetanus toxoid,tetanus toxoid
+4410,tetrakain,tetracaine
+4413,tetrasiklin,tetracycline
+4422,tiamazol,thiamazole
+4424,tiamin (vitamin B1),thiamine (vit B1)
+4441,tikagrelor,ticagrelor
+4458,timolol,timolol
+4471,tiopental,thiopental
+4479,tiotropium,tiotropium
+4500,tobramisin,tobramycin
+4524,topiramat,topiramate
+4528,tosilizumab,tocilizumab
+4536,tramadol,tramadol
+4547,trastuzumab,trastuzumab
+4551,travoprost,travoprost
+4559,triamsinolon asetonid,triamcinolone acetonide
+4571,trifluoperazin,trifluoperazine
+4576,triheksifenidil,trihexyphenidyl
+4619,tropikamid,tropicamide
+4626,tuberkulin protein purified derivative,tuberculin protein purified derivative
+4648,urea,urea
+4655,vaksin BCG,BCG vaccine
+4836,vaksin COVID-19 platform inactivated,vaksin COVID-19 platform inactivated
+4847,vaksin COVID-19 platform mRNA,COVID-19 vaccine - mRNA platform
+4848,vaksin COVID-19 platform protein sub unit rekombinan,COVID-19 vaccine - recombinant protein subunit platform
+4657,vaksin DPT-HB-Hib,DPT-HB-Hib vaccine
+4659,vaksin hepatitis B rekombinan,recombinant hepatitis B vaccine
+4849,vaksin human papilomavirus,human papillomavirus vaccine
+4850,vaksin human rotavirus,human rotavirus vaccine
+4851,"vaksin Japanese encephalitis, live attenuated",live attenuated Japanese encephalitis vaccine
+4660,vaksin jerap difteri tetanus (DT),diphtheria tetanus (DT) vaccine
+4661,vaksin jerap tetanus difteri (Td),tetanus diphtheria (Td) vaccine
+4666,vaksin measles rubella (MR),measles rubella (MR) vaccine
+4845,vaksin pneumokokus polisakarida konjugasi,conjugate polysaccharide pneumococcal vaccine
+4668,vaksin polio IPV,IPV polio vaccine
+4669,vaksin polio oral (b-OPV),oral polio vaccine (b-OPV)
+4670,"vaksin rabies, untuk manusia","rabies vaccine, for humans"
+4672,valasiklovir,valaciclovir
+4677,valgansiklovir,valganciclovir
+4679,valproat,valproate
+4682,valsartan,valsartan
+4691,vankomisin,vancomycin
+4696,vasopresin,vasopressin (argipressin)
+4706,verapamil,verapamil
+4719,vildagliptin,vildagliptin
+4724,vinblastin,vinblastine
+4731,vinkristin,vincristine
+4732,vinorelbin,vinorelbine
+4869,"vitamin B kompleks mengandung vitamin B1, vitamin B6, vitamin B12","vitamin complex B contains vitamin B1, vitamin B6, vitamin B12"
+4749,vorikonazol,voriconazole
+4757,warfarin,warfarin
+4772,zidovudin,zidovudine
+4778,zinc,zinc
+4792,zonisamid,zonisamide

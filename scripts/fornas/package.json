@@ -1,0 +1,21 @@
+{
+  "name": "fornas-extractor",
+  "version": "1.0.0",
+  "description": "Standalone scripts to extract national drug formulary data from e-fornas.kemkes.go.id",
+  "type": "module",
+  "scripts": {
+    "test:api": "node test-call.js",
+    "test:detail": "node test-detail.js",
+    "fetch:list": "node fetch-fornas.js",
+    "fetch:detail": "node fetch-fornas-detail.js",
+    "normalize": "node normalize-fornas.js fornas-enriched.json",
+    "upsert":        "node upsert-to-supabase.js",
+    "upsert:dry":    "node upsert-to-supabase.js --dry-run",
+    "all":           "node fetch-fornas.js && node fetch-fornas-detail.js && node normalize-fornas.js fornas-enriched.json && node upsert-to-supabase.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.0",
+    "axios": "^1.7.9",
+    "dotenv": "^17.3.1"
+  }
+}

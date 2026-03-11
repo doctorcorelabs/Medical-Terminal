@@ -1,0 +1,3317 @@
+[
+  {
+    "_id_obat": 7,
+    "_nama_obat": "abakavir",
+    "_nama_obat_internasional": "abacavir"
+  },
+  {
+    "_id_obat": 23,
+    "_nama_obat": "adenosin",
+    "_nama_obat_internasional": "adenosine"
+  },
+  {
+    "_id_obat": 30,
+    "_nama_obat": "afatinib",
+    "_nama_obat_internasional": "afatinib"
+  },
+  {
+    "_id_obat": 4870,
+    "_nama_obat": "air steril untuk injeksi",
+    "_nama_obat_internasional": "sterile water for injection"
+  },
+  {
+    "_id_obat": 39,
+    "_nama_obat": "air untuk irigasi",
+    "_nama_obat_internasional": "water for irigation"
+  },
+  {
+    "_id_obat": 45,
+    "_nama_obat": "akarbose",
+    "_nama_obat_internasional": "acarbose"
+  },
+  {
+    "_id_obat": 53,
+    "_nama_obat": "akuades",
+    "_nama_obat_internasional": "aquadest"
+  },
+  {
+    "_id_obat": 56,
+    "_nama_obat": "albendazol",
+    "_nama_obat_internasional": "albendazole"
+  },
+  {
+    "_id_obat": 60,
+    "_nama_obat": "albumin serum normal (human albumin)",
+    "_nama_obat_internasional": "albumin serum normal (human albumin)"
+  },
+  {
+    "_id_obat": 65,
+    "_nama_obat": "alektinib",
+    "_nama_obat_internasional": "alectinib"
+  },
+  {
+    "_id_obat": 67,
+    "_nama_obat": "alendronat",
+    "_nama_obat_internasional": "alendronate"
+  },
+  {
+    "_id_obat": 102,
+    "_nama_obat": "alopurinol",
+    "_nama_obat_internasional": "allopurinol"
+  },
+  {
+    "_id_obat": 105,
+    "_nama_obat": "alprazolam",
+    "_nama_obat_internasional": "alprazolam"
+  },
+  {
+    "_id_obat": 109,
+    "_nama_obat": "alteplase",
+    "_nama_obat_internasional": "alteplase"
+  },
+  {
+    "_id_obat": 137,
+    "_nama_obat": "amfoterisin B",
+    "_nama_obat_internasional": "amphotericin B"
+  },
+  {
+    "_id_obat": 140,
+    "_nama_obat": "amikasin",
+    "_nama_obat_internasional": "amikacin"
+  },
+  {
+    "_id_obat": 145,
+    "_nama_obat": "aminofilin",
+    "_nama_obat_internasional": "aminophylline"
+  },
+  {
+    "_id_obat": 149,
+    "_nama_obat": "amiodaron",
+    "_nama_obat_internasional": "amiodarone"
+  },
+  {
+    "_id_obat": 151,
+    "_nama_obat": "amitriptilin",
+    "_nama_obat_internasional": "amitriptyline"
+  },
+  {
+    "_id_obat": 155,
+    "_nama_obat": "amlodipin",
+    "_nama_obat_internasional": "amlodipine"
+  },
+  {
+    "_id_obat": 161,
+    "_nama_obat": "amoksisilin",
+    "_nama_obat_internasional": "amoxicillin"
+  },
+  {
+    "_id_obat": 166,
+    "_nama_obat": "ampisilin",
+    "_nama_obat_internasional": "ampicillin"
+  },
+  {
+    "_id_obat": 4860,
+    "_nama_obat": "Analog Insulin Basal: insulin detemir",
+    "_nama_obat_internasional": "Analog Basal Insulin: insulin detemir"
+  },
+  {
+    "_id_obat": 4861,
+    "_nama_obat": "Analog Insulin Basal: insulin glargine",
+    "_nama_obat_internasional": "Analog Basal Insulin: insulin glargine"
+  },
+  {
+    "_id_obat": 4868,
+    "_nama_obat": "Analog Insulin Campuran: Co-formulation 70% insulin degludec (ultra-long acting insulin) dan 30% insulin aspart",
+    "_nama_obat_internasional": "Analog Mix Insulin: Co-formulation 70% insulin degludec (ultra-long acting insulin) and 30% insulin aspart"
+  },
+  {
+    "_id_obat": 4867,
+    "_nama_obat": "Analog Insulin Campuran: kombinasi 50% insulin protamine lispro dan 50% insulin lispro",
+    "_nama_obat_internasional": "Analog Mix Insulin: combination of 50% insulin protamine lispro and 50% insulin lispro"
+  },
+  {
+    "_id_obat": 4865,
+    "_nama_obat": "Analog Insulin Campuran: kombinasi 70% insulin protamine aspart dan 30% insulin aspart ",
+    "_nama_obat_internasional": "Analog Mix Insulin: combination of 70% insulin protamine aspart and 30% insulin aspart "
+  },
+  {
+    "_id_obat": 4866,
+    "_nama_obat": "Analog Insulin Campuran: kombinasi 75% insulin protamine lispro dan 25% insulin lispro",
+    "_nama_obat_internasional": "Analog Mix Insulin: combination of 75% insulin protamine lispro and 25% insulin lispro"
+  },
+  {
+    "_id_obat": 4863,
+    "_nama_obat": "Analog Insulin Prandial: insulin aspart",
+    "_nama_obat_internasional": "Analog Prandial Insulin: insulin aspart"
+  },
+  {
+    "_id_obat": 4864,
+    "_nama_obat": "Analog Insulin Prandial: insulin glulisin",
+    "_nama_obat_internasional": "Analog Prandial Insulin: insulin glulisin"
+  },
+  {
+    "_id_obat": 4862,
+    "_nama_obat": "Analog Insulin Prandial: insulin lispro",
+    "_nama_obat_internasional": "Analog Prandial Insulin: insulin lispro"
+  },
+  {
+    "_id_obat": 178,
+    "_nama_obat": "anastrozol",
+    "_nama_obat_internasional": "anastrozole"
+  },
+  {
+    "_id_obat": 182,
+    "_nama_obat": "anestetik lokal gigi, kombinasi KDT/FDC mengandung lidokain dan epinefrin",
+    "_nama_obat_internasional": "dental local anesthetic, fixed dose combination (FDC) contains lidocaine and epinephrine"
+  },
+  {
+    "_id_obat": 194,
+    "_nama_obat": "antasida, kombinasi aluminium  hidroksida dan magnesium hidroksida",
+    "_nama_obat_internasional": "antacid, combination of aluminum hydroxide and magnesium hydroxide"
+  },
+  {
+    "_id_obat": 196,
+    "_nama_obat": "antibakteri, kombinasi KDT/FDC mengandung basitrasin dan polimiksin B",
+    "_nama_obat_internasional": "antibacterial, fixed dose combination (FDC) contains bacitracin and polymyxin B"
+  },
+  {
+    "_id_obat": 1704,
+    "_nama_obat": "anti-D (Rho(D)) imunoglobulin",
+    "_nama_obat_internasional": "anti-D (Rho(D)) immunoglobulin"
+  },
+  {
+    "_id_obat": 197,
+    "_nama_obat": "antifungi, kombinasi KDT/FDC mengandung asam benzoat dan asam salisilat",
+    "_nama_obat_internasional": "antibacterial, fixed dose combination (FDC) contains benzoic acid and salicylic acid"
+  },
+  {
+    "_id_obat": 203,
+    "_nama_obat": "antihemoroid, kombinasi KDT/FDC mengandung bismut subgalat, heksaklorofen, lidokain, dan seng oksida",
+    "_nama_obat_internasional": "antihemorrhoids, fixed dose  combination (FDC) containing bismuth subgalate, hexachlorophene, lidocaine, and zinc oxide"
+  },
+  {
+    "_id_obat": 225,
+    "_nama_obat": "aripiprazol",
+    "_nama_obat_internasional": "aripiprazole"
+  },
+  {
+    "_id_obat": 234,
+    "_nama_obat": "artesunat",
+    "_nama_obat_internasional": "artesunate"
+  },
+  {
+    "_id_obat": 235,
+    "_nama_obat": "articulating paper",
+    "_nama_obat_internasional": "articulating paper"
+  },
+  {
+    "_id_obat": 252,
+    "_nama_obat": "asam asetat",
+    "_nama_obat_internasional": "acetic acid"
+  },
+  {
+    "_id_obat": 253,
+    "_nama_obat": "asam asetilsalisilat (asetosal)",
+    "_nama_obat_internasional": "acetylsalicylic acid (acetosal)"
+  },
+  {
+    "_id_obat": 257,
+    "_nama_obat": "asam askorbat (vitamin C)",
+    "_nama_obat_internasional": "ascorbic acid (vit C)"
+  },
+  {
+    "_id_obat": 268,
+    "_nama_obat": "asam folat",
+    "_nama_obat_internasional": "folic acid"
+  },
+  {
+    "_id_obat": 270,
+    "_nama_obat": "asam fusidat",
+    "_nama_obat_internasional": "fusidic acid"
+  },
+  {
+    "_id_obat": 279,
+    "_nama_obat": "asam ibandronat",
+    "_nama_obat_internasional": "ibandronic acid"
+  },
+  {
+    "_id_obat": 299,
+    "_nama_obat": "asam mefenamat",
+    "_nama_obat_internasional": "mefenamic acid"
+  },
+  {
+    "_id_obat": 310,
+    "_nama_obat": "asam pipemidat",
+    "_nama_obat_internasional": "pipemidic acid"
+  },
+  {
+    "_id_obat": 313,
+    "_nama_obat": "asam retinoat",
+    "_nama_obat_internasional": "retinoic acid"
+  },
+  {
+    "_id_obat": 317,
+    "_nama_obat": "asam salisilat",
+    "_nama_obat_internasional": "salicylic acid"
+  },
+  {
+    "_id_obat": 329,
+    "_nama_obat": "asam traneksamat",
+    "_nama_obat_internasional": "tranexamic acid"
+  },
+  {
+    "_id_obat": 331,
+    "_nama_obat": "asam ursodeoksikolat",
+    "_nama_obat_internasional": "ursodeoxycholic acid"
+  },
+  {
+    "_id_obat": 334,
+    "_nama_obat": "asam zoledronat",
+    "_nama_obat_internasional": "zoledronic acid"
+  },
+  {
+    "_id_obat": 345,
+    "_nama_obat": "asetazolamid",
+    "_nama_obat_internasional": "acetazolamide"
+  },
+  {
+    "_id_obat": 358,
+    "_nama_obat": "asiklovir",
+    "_nama_obat_internasional": "aciclovir"
+  },
+  {
+    "_id_obat": 362,
+    "_nama_obat": "asparaginase",
+    "_nama_obat_internasional": "asparaginase"
+  },
+  {
+    "_id_obat": 367,
+    "_nama_obat": "atapulgit",
+    "_nama_obat_internasional": "attapulgite"
+  },
+  {
+    "_id_obat": 371,
+    "_nama_obat": "atenolol",
+    "_nama_obat_internasional": "atenolol"
+  },
+  {
+    "_id_obat": 380,
+    "_nama_obat": "atorvastatin",
+    "_nama_obat_internasional": "atorvastatin"
+  },
+  {
+    "_id_obat": 393,
+    "_nama_obat": "atrakurium",
+    "_nama_obat_internasional": "atracurium"
+  },
+  {
+    "_id_obat": 394,
+    "_nama_obat": "atropin",
+    "_nama_obat_internasional": "atropine"
+  },
+  {
+    "_id_obat": 411,
+    "_nama_obat": "azatioprin",
+    "_nama_obat_internasional": "azathioprine"
+  },
+  {
+    "_id_obat": 418,
+    "_nama_obat": "azitromisin",
+    "_nama_obat_internasional": "azithromycin"
+  },
+  {
+    "_id_obat": 421,
+    "_nama_obat": "bahan tumpatan sementara",
+    "_nama_obat_internasional": "temporary filling material"
+  },
+  {
+    "_id_obat": 434,
+    "_nama_obat": "barium sulfat",
+    "_nama_obat_internasional": "barium sulfate"
+  },
+  {
+    "_id_obat": 438,
+    "_nama_obat": "basiliksimab",
+    "_nama_obat_internasional": "basiliximab"
+  },
+  {
+    "_id_obat": 442,
+    "_nama_obat": "bedak salisil",
+    "_nama_obat_internasional": "salicyl powder"
+  },
+  {
+    "_id_obat": 443,
+    "_nama_obat": "bedakuilin fumarat",
+    "_nama_obat_internasional": "bedaquiline fumarate"
+  },
+  {
+    "_id_obat": 466,
+    "_nama_obat": "bendamustin",
+    "_nama_obat_internasional": "bendamustine"
+  },
+  {
+    "_id_obat": 483,
+    "_nama_obat": "benzatin benzilpenisilin",
+    "_nama_obat_internasional": "benzathine benzylpenicillin"
+  },
+  {
+    "_id_obat": 506,
+    "_nama_obat": "beraprost sodium",
+    "_nama_obat_internasional": "beraprost sodium"
+  },
+  {
+    "_id_obat": 514,
+    "_nama_obat": "betahistin",
+    "_nama_obat_internasional": "betahistine"
+  },
+  {
+    "_id_obat": 518,
+    "_nama_obat": "betaksolol",
+    "_nama_obat_internasional": "betaxolol"
+  },
+  {
+    "_id_obat": 519,
+    "_nama_obat": "betametason",
+    "_nama_obat_internasional": "betamethasone"
+  },
+  {
+    "_id_obat": 548,
+    "_nama_obat": "bikalutamid",
+    "_nama_obat_internasional": "bicalutamide"
+  },
+  {
+    "_id_obat": 556,
+    "_nama_obat": "bisakodil",
+    "_nama_obat_internasional": "bisacodyl"
+  },
+  {
+    "_id_obat": 561,
+    "_nama_obat": "bisoprolol",
+    "_nama_obat_internasional": "bisoprolol"
+  },
+  {
+    "_id_obat": 568,
+    "_nama_obat": "bleomisin",
+    "_nama_obat_internasional": "bleomycin"
+  },
+  {
+    "_id_obat": 573,
+    "_nama_obat": "bortezomib",
+    "_nama_obat_internasional": "bortezomib"
+  },
+  {
+    "_id_obat": 582,
+    "_nama_obat": "brentuksimab vedotin",
+    "_nama_obat_internasional": "brentuximab vedotin"
+  },
+  {
+    "_id_obat": 589,
+    "_nama_obat": "brinzolamid",
+    "_nama_obat_internasional": "brinzolamide"
+  },
+  {
+    "_id_obat": 605,
+    "_nama_obat": "bromokriptin",
+    "_nama_obat_internasional": "bromocriptine"
+  },
+  {
+    "_id_obat": 609,
+    "_nama_obat": "budesonid",
+    "_nama_obat_internasional": "budesonide"
+  },
+  {
+    "_id_obat": 624,
+    "_nama_obat": "bupivakain",
+    "_nama_obat_internasional": "bupivacaine"
+  },
+  {
+    "_id_obat": 626,
+    "_nama_obat": "bupivakain heavy",
+    "_nama_obat_internasional": "bupivacaine heavy"
+  },
+  {
+    "_id_obat": 636,
+    "_nama_obat": "busulfan",
+    "_nama_obat_internasional": "busulfan"
+  },
+  {
+    "_id_obat": 656,
+    "_nama_obat": "cisaprid",
+    "_nama_obat_internasional": "cisapride"
+  },
+  {
+    "_id_obat": 664,
+    "_nama_obat": "dabigatran eteksilat",
+    "_nama_obat_internasional": "dabigatran etexilate"
+  },
+  {
+    "_id_obat": 666,
+    "_nama_obat": "dakarbazin",
+    "_nama_obat_internasional": "dacarbazine"
+  },
+  {
+    "_id_obat": 667,
+    "_nama_obat": "daklatasvir",
+    "_nama_obat_internasional": "daclatasvir"
+  },
+  {
+    "_id_obat": 671,
+    "_nama_obat": "daktinomisin",
+    "_nama_obat_internasional": "dactinomycin"
+  },
+  {
+    "_id_obat": 684,
+    "_nama_obat": "dapson",
+    "_nama_obat_internasional": "dapsone"
+  },
+  {
+    "_id_obat": 701,
+    "_nama_obat": "daunorubisin",
+    "_nama_obat_internasional": "daunorubicin"
+  },
+  {
+    "_id_obat": 704,
+    "_nama_obat": "deferasiroks",
+    "_nama_obat_internasional": "deferasirox"
+  },
+  {
+    "_id_obat": 705,
+    "_nama_obat": "deferipron",
+    "_nama_obat_internasional": "deferiprone"
+  },
+  {
+    "_id_obat": 706,
+    "_nama_obat": "deferoksamin",
+    "_nama_obat_internasional": "deferoxamine"
+  },
+  {
+    "_id_obat": 712,
+    "_nama_obat": "deksametason",
+    "_nama_obat_internasional": "dexamethasone"
+  },
+  {
+    "_id_obat": 723,
+    "_nama_obat": "deksmedetomidin",
+    "_nama_obat_internasional": "dexmedetomidine"
+  },
+  {
+    "_id_obat": 737,
+    "_nama_obat": "delamanid",
+    "_nama_obat_internasional": "delamanid"
+  },
+  {
+    "_id_obat": 756,
+    "_nama_obat": "desfluran",
+    "_nama_obat_internasional": "desflurane"
+  },
+  {
+    "_id_obat": 762,
+    "_nama_obat": "desmopresin",
+    "_nama_obat_internasional": "desmopressin"
+  },
+  {
+    "_id_obat": 763,
+    "_nama_obat": "desogestrel",
+    "_nama_obat_internasional": "desogestrel"
+  },
+  {
+    "_id_obat": 767,
+    "_nama_obat": "desoksimetason",
+    "_nama_obat_internasional": "desoximetasone"
+  },
+  {
+    "_id_obat": 775,
+    "_nama_obat": "dialisa peritoneal",
+    "_nama_obat_internasional": "peritoneal dialysis"
+  },
+  {
+    "_id_obat": 779,
+    "_nama_obat": "diazepam",
+    "_nama_obat_internasional": "diazepam"
+  },
+  {
+    "_id_obat": 797,
+    "_nama_obat": "dienogest",
+    "_nama_obat_internasional": "dienogest"
+  },
+  {
+    "_id_obat": 799,
+    "_nama_obat": "dietilkarbamazin",
+    "_nama_obat_internasional": "diethylcarbamazine"
+  },
+  {
+    "_id_obat": 807,
+    "_nama_obat": "difenhidramin",
+    "_nama_obat_internasional": "diphenhydramine"
+  },
+  {
+    "_id_obat": 817,
+    "_nama_obat": "diflukortolon valerat",
+    "_nama_obat_internasional": "diflucortolone valerate"
+  },
+  {
+    "_id_obat": 831,
+    "_nama_obat": "digoksin",
+    "_nama_obat_internasional": "digoxin"
+  },
+  {
+    "_id_obat": 863,
+    "_nama_obat": "diltiazem",
+    "_nama_obat_internasional": "diltiazem"
+  },
+  {
+    "_id_obat": 866,
+    "_nama_obat": "dimenhidrinat",
+    "_nama_obat_internasional": "dimenhydrinate"
+  },
+  {
+    "_id_obat": 880,
+    "_nama_obat": "dinatrium edetat",
+    "_nama_obat_internasional": "disodium edetate"
+  },
+  {
+    "_id_obat": 881,
+    "_nama_obat": "dinatrium klodronat",
+    "_nama_obat_internasional": "clodronate disodium "
+  },
+  {
+    "_id_obat": 903,
+    "_nama_obat": "DMSA (dimercaptosuccinic acid)",
+    "_nama_obat_internasional": "DMSA (dimercaptosuccinic acid)"
+  },
+  {
+    "_id_obat": 904,
+    "_nama_obat": "dobutamin",
+    "_nama_obat_internasional": "dobutamine"
+  },
+  {
+    "_id_obat": 909,
+    "_nama_obat": "doksazosin",
+    "_nama_obat_internasional": "doxazosin"
+  },
+  {
+    "_id_obat": 915,
+    "_nama_obat": "doksisiklin",
+    "_nama_obat_internasional": "doxycycline"
+  },
+  {
+    "_id_obat": 917,
+    "_nama_obat": "doksorubisin",
+    "_nama_obat_internasional": "doxorubicin"
+  },
+  {
+    "_id_obat": 919,
+    "_nama_obat": "dolutegravir",
+    "_nama_obat_internasional": "dolutegravir"
+  },
+  {
+    "_id_obat": 923,
+    "_nama_obat": "domperidon",
+    "_nama_obat_internasional": "domperidone"
+  },
+  {
+    "_id_obat": 924,
+    "_nama_obat": "donepezil",
+    "_nama_obat_internasional": "donepezil"
+  },
+  {
+    "_id_obat": 927,
+    "_nama_obat": "dopamin",
+    "_nama_obat_internasional": "dopamine"
+  },
+  {
+    "_id_obat": 935,
+    "_nama_obat": "dosetaksel",
+    "_nama_obat_internasional": "docetaxel"
+  },
+  {
+    "_id_obat": 951,
+    "_nama_obat": "DTPA (diethylenetriamine pentaacetic acid)",
+    "_nama_obat_internasional": "DTPA (diethylenetriamine pentaacetic acid)"
+  },
+  {
+    "_id_obat": 956,
+    "_nama_obat": "dutasterid",
+    "_nama_obat_internasional": "dutasteride"
+  },
+  {
+    "_id_obat": 968,
+    "_nama_obat": "efavirenz",
+    "_nama_obat_internasional": "efavirenz"
+  },
+  {
+    "_id_obat": 969,
+    "_nama_obat": "efedrin",
+    "_nama_obat_internasional": "ephedrine"
+  },
+  {
+    "_id_obat": 977,
+    "_nama_obat": "eksemestan",
+    "_nama_obat_internasional": "exemestane"
+  },
+  {
+    "_id_obat": 1004,
+    "_nama_obat": "eltrombopag",
+    "_nama_obat_internasional": "eltrombopag"
+  },
+  {
+    "_id_obat": 1040,
+    "_nama_obat": "enoksaparin sodium",
+    "_nama_obat_internasional": "enoxaparine sodium"
+  },
+  {
+    "_id_obat": 1050,
+    "_nama_obat": "entekavir",
+    "_nama_obat_internasional": "entecavir"
+  },
+  {
+    "_id_obat": 1062,
+    "_nama_obat": "epinefrin (adrenalin)",
+    "_nama_obat_internasional": "epinephrine (adrenaline)"
+  },
+  {
+    "_id_obat": 1064,
+    "_nama_obat": "epirubisin",
+    "_nama_obat_internasional": "epirubicin"
+  },
+  {
+    "_id_obat": 1085,
+    "_nama_obat": "ergotamin",
+    "_nama_obat_internasional": "ergotamine"
+  },
+  {
+    "_id_obat": 1086,
+    "_nama_obat": "eribulin",
+    "_nama_obat_internasional": "eribulin"
+  },
+  {
+    "_id_obat": 1088,
+    "_nama_obat": "eritromisin",
+    "_nama_obat_internasional": "erythromycin"
+  },
+  {
+    "_id_obat": 1090,
+    "_nama_obat": "eritropoietin-alfa",
+    "_nama_obat_internasional": "erythropoietin-alfa"
+  },
+  {
+    "_id_obat": 1091,
+    "_nama_obat": "eritropoietin-beta",
+    "_nama_obat_internasional": "erythropoietin-beta"
+  },
+  {
+    "_id_obat": 1093,
+    "_nama_obat": "erlotinib",
+    "_nama_obat_internasional": "erlotinib"
+  },
+  {
+    "_id_obat": 1097,
+    "_nama_obat": "esitalopram",
+    "_nama_obat_internasional": "escitalopram"
+  },
+  {
+    "_id_obat": 1101,
+    "_nama_obat": "esomeprazol",
+    "_nama_obat_internasional": "esomeprazole"
+  },
+  {
+    "_id_obat": 1108,
+    "_nama_obat": "estrogen terkonjugasi",
+    "_nama_obat_internasional": "conjugated estrogens"
+  },
+  {
+    "_id_obat": 1116,
+    "_nama_obat": "etambutol",
+    "_nama_obat_internasional": "ethambutol"
+  },
+  {
+    "_id_obat": 1123,
+    "_nama_obat": "etanercept",
+    "_nama_obat_internasional": "etanercept"
+  },
+  {
+    "_id_obat": 1125,
+    "_nama_obat": "etanol 70%",
+    "_nama_obat_internasional": "ethanol 70%"
+  },
+  {
+    "_id_obat": 4,
+    "_nama_obat": "ethylenediamine tetramethylene phosphonic acid (153-Sm-EDTMP)",
+    "_nama_obat_internasional": "ethylenediamine tetramethylene phosphonic acid (153-Sm-EDTMP)"
+  },
+  {
+    "_id_obat": 1136,
+    "_nama_obat": "etil klorida",
+    "_nama_obat_internasional": "ethyl chloride"
+  },
+  {
+    "_id_obat": 1161,
+    "_nama_obat": "etonogestrel",
+    "_nama_obat_internasional": "etonogestrel"
+  },
+  {
+    "_id_obat": 1163,
+    "_nama_obat": "etoposid",
+    "_nama_obat_internasional": "etoposide"
+  },
+  {
+    "_id_obat": 1172,
+    "_nama_obat": "eugenol",
+    "_nama_obat_internasional": "eugenol"
+  },
+  {
+    "_id_obat": 1173,
+    "_nama_obat": "everolimus",
+    "_nama_obat_internasional": "everolimus"
+  },
+  {
+    "_id_obat": 4875,
+    "_nama_obat": "faktor IX",
+    "_nama_obat_internasional": "factor IX"
+  },
+  {
+    "_id_obat": 1180,
+    "_nama_obat": "faktor koagulasi II, faktor koagulasi VII, faktor koagulasi IX, faktor koagulasi X",
+    "_nama_obat_internasional": "coagulation factor II, coagulation factor VII, coagulation factor IX, coagulation factor X"
+  },
+  {
+    "_id_obat": 1186,
+    "_nama_obat": "faktor VIIa (rekombinan)",
+    "_nama_obat_internasional": "factor VIIa (recombinant)"
+  },
+  {
+    "_id_obat": 1187,
+    "_nama_obat": "faktor VIII (konsentrat)",
+    "_nama_obat_internasional": "faktor VIII (concentrate)"
+  },
+  {
+    "_id_obat": 1201,
+    "_nama_obat": "FDG (fluoro deoxy glucose)",
+    "_nama_obat_internasional": "FDG (fluoro deoxy glucose)"
+  },
+  {
+    "_id_obat": 1203,
+    "_nama_obat": "febuksostat",
+    "_nama_obat_internasional": "febuxostat"
+  },
+  {
+    "_id_obat": 1232,
+    "_nama_obat": "fenilefrin HCl",
+    "_nama_obat_internasional": "phenylephrine HCl"
+  },
+  {
+    "_id_obat": 1240,
+    "_nama_obat": "fenitoin",
+    "_nama_obat_internasional": "phenytoin"
+  },
+  {
+    "_id_obat": 1243,
+    "_nama_obat": "fenobarbital",
+    "_nama_obat_internasional": "phenobarbital"
+  },
+  {
+    "_id_obat": 1244,
+    "_nama_obat": "fenofibrat",
+    "_nama_obat_internasional": "fenofibrate"
+  },
+  {
+    "_id_obat": 1248,
+    "_nama_obat": "fenoksimetil penisilin (penisilin V)",
+    "_nama_obat_internasional": "phenoxymethylpenicillin (penicillin V)"
+  },
+  {
+    "_id_obat": 1257,
+    "_nama_obat": "fenoterol HBr",
+    "_nama_obat_internasional": "fenoterol HBr"
+  },
+  {
+    "_id_obat": 1267,
+    "_nama_obat": "fentanil",
+    "_nama_obat_internasional": "fentanyl"
+  },
+  {
+    "_id_obat": 1275,
+    "_nama_obat": "ferakrilum",
+    "_nama_obat_internasional": "feracrylum"
+  },
+  {
+    "_id_obat": 1294,
+    "_nama_obat": "ferro sulfat",
+    "_nama_obat_internasional": "ferrous sulfate"
+  },
+  {
+    "_id_obat": 1306,
+    "_nama_obat": "filgrastim",
+    "_nama_obat_internasional": "filgrastim"
+  },
+  {
+    "_id_obat": 1310,
+    "_nama_obat": "finasterid",
+    "_nama_obat_internasional": "finasteride"
+  },
+  {
+    "_id_obat": 1317,
+    "_nama_obat": "fitomenadion (vitamin K1)",
+    "_nama_obat_internasional": "phytomenadione (vitamin K1)"
+  },
+  {
+    "_id_obat": 1331,
+    "_nama_obat": "fludarabin",
+    "_nama_obat_internasional": "fludarabine"
+  },
+  {
+    "_id_obat": 1334,
+    "_nama_obat": "fludrokortison",
+    "_nama_obat_internasional": "fludrocortisone"
+  },
+  {
+    "_id_obat": 1339,
+    "_nama_obat": "flufenazin dekanoat",
+    "_nama_obat_internasional": "flufenazine decanoate"
+  },
+  {
+    "_id_obat": 1343,
+    "_nama_obat": "flukonazol",
+    "_nama_obat_internasional": "fluconazole"
+  },
+  {
+    "_id_obat": 1360,
+    "_nama_obat": "fluoksetin",
+    "_nama_obat_internasional": "fluoxetine"
+  },
+  {
+    "_id_obat": 1363,
+    "_nama_obat": "fluor",
+    "_nama_obat_internasional": "fluor"
+  },
+  {
+    "_id_obat": 1371,
+    "_nama_obat": "fluorometolon",
+    "_nama_obat_internasional": "fluorometholone"
+  },
+  {
+    "_id_obat": 1375,
+    "_nama_obat": "fluorourasil",
+    "_nama_obat_internasional": "fluorouracil"
+  },
+  {
+    "_id_obat": 1388,
+    "_nama_obat": "flusinolon asetonid",
+    "_nama_obat_internasional": "fluocinolone acetonide"
+  },
+  {
+    "_id_obat": 1397,
+    "_nama_obat": "flutikason furoat",
+    "_nama_obat_internasional": "fluticasone furoate"
+  },
+  {
+    "_id_obat": 1398,
+    "_nama_obat": "flutikason propionat",
+    "_nama_obat_internasional": "fluticasone propionate"
+  },
+  {
+    "_id_obat": 1401,
+    "_nama_obat": "fluvoksamin",
+    "_nama_obat_internasional": "fluvoxamine"
+  },
+  {
+    "_id_obat": 1408,
+    "_nama_obat": "fondaparinuks",
+    "_nama_obat_internasional": "fondaparinux"
+  },
+  {
+    "_id_obat": 1411,
+    "_nama_obat": "formokresol",
+    "_nama_obat_internasional": "formocresol"
+  },
+  {
+    "_id_obat": 1429,
+    "_nama_obat": "fosfomisin trometamol",
+    "_nama_obat_internasional": "fosfomycin trometamol"
+  },
+  {
+    "_id_obat": 1440,
+    "_nama_obat": "fraksi protein plasma",
+    "_nama_obat_internasional": "plasma protein fraction"
+  },
+  {
+    "_id_obat": 1442,
+    "_nama_obat": "framisetin sulfat",
+    "_nama_obat_internasional": "framycetin sulphate"
+  },
+  {
+    "_id_obat": 1448,
+    "_nama_obat": "fulvestrant",
+    "_nama_obat_internasional": "fulvestrant"
+  },
+  {
+    "_id_obat": 1452,
+    "_nama_obat": "furosemid",
+    "_nama_obat_internasional": "furosemide"
+  },
+  {
+    "_id_obat": 1458,
+    "_nama_obat": "gabapentin",
+    "_nama_obat_internasional": "gabapentin"
+  },
+  {
+    "_id_obat": 1459,
+    "_nama_obat": "gadobutrol",
+    "_nama_obat_internasional": "gadobutrol"
+  },
+  {
+    "_id_obat": 1462,
+    "_nama_obat": "gadoksetat disodium",
+    "_nama_obat_internasional": "gadoxetate disodium"
+  },
+  {
+    "_id_obat": 1464,
+    "_nama_obat": "gadoteric acid",
+    "_nama_obat_internasional": "gadoteric acid"
+  },
+  {
+    "_id_obat": 1467,
+    "_nama_obat": "galactose microparticle",
+    "_nama_obat_internasional": "galactose microparticle"
+  },
+  {
+    "_id_obat": 1479,
+    "_nama_obat": "gansiklovir",
+    "_nama_obat_internasional": "ganciclovir"
+  },
+  {
+    "_id_obat": 1480,
+    "_nama_obat": "garam oralit",
+    "_nama_obat_internasional": "oral rehydration salt"
+  },
+  {
+    "_id_obat": 1491,
+    "_nama_obat": "gefitinib",
+    "_nama_obat_internasional": "gefitinib"
+  },
+  {
+    "_id_obat": 1493,
+    "_nama_obat": "gemfibrozil",
+    "_nama_obat_internasional": "gemfibrozil"
+  },
+  {
+    "_id_obat": 1497,
+    "_nama_obat": "gemsitabin",
+    "_nama_obat_internasional": "gemcitabine"
+  },
+  {
+    "_id_obat": 1499,
+    "_nama_obat": "gentamisin",
+    "_nama_obat_internasional": "gentamicin"
+  },
+  {
+    "_id_obat": 1513,
+    "_nama_obat": "glibenklamid",
+    "_nama_obat_internasional": "glibenclamide"
+  },
+  {
+    "_id_obat": 1515,
+    "_nama_obat": "gliklazid",
+    "_nama_obat_internasional": "gliclazide"
+  },
+  {
+    "_id_obat": 1517,
+    "_nama_obat": "glikopironium",
+    "_nama_obat_internasional": "glycopyrronium"
+  },
+  {
+    "_id_obat": 1522,
+    "_nama_obat": "glikuidon",
+    "_nama_obat_internasional": "gliquidone"
+  },
+  {
+    "_id_obat": 1523,
+    "_nama_obat": "glimepirid",
+    "_nama_obat_internasional": "glimepiride"
+  },
+  {
+    "_id_obat": 1527,
+    "_nama_obat": "glipizid",
+    "_nama_obat_internasional": "glipizide"
+  },
+  {
+    "_id_obat": 1528,
+    "_nama_obat": "gliseril trinitrat",
+    "_nama_obat_internasional": "glyceryl trinitrate"
+  },
+  {
+    "_id_obat": 1529,
+    "_nama_obat": "gliserol",
+    "_nama_obat_internasional": "glycerol"
+  },
+  {
+    "_id_obat": 1547,
+    "_nama_obat": "goserelin asetat",
+    "_nama_obat_internasional": "goserelin acetate"
+  },
+  {
+    "_id_obat": 4837,
+    "_nama_obat": "green pit viper antivenin",
+    "_nama_obat_internasional": "green pit viper antivenin"
+  },
+  {
+    "_id_obat": 1552,
+    "_nama_obat": "griseofulvin",
+    "_nama_obat_internasional": "griseofulvin"
+  },
+  {
+    "_id_obat": 1569,
+    "_nama_obat": "haloperidol",
+    "_nama_obat_internasional": "haloperidol"
+  },
+  {
+    "_id_obat": 1570,
+    "_nama_obat": "haloperidol dekanoat",
+    "_nama_obat_internasional": "haloperidol decanoate"
+  },
+  {
+    "_id_obat": 4838,
+    "_nama_obat": "hemato polivalent snake antivenin",
+    "_nama_obat_internasional": "hemato polivalent snake antivenin"
+  },
+  {
+    "_id_obat": 1589,
+    "_nama_obat": "hemodialisa",
+    "_nama_obat_internasional": "hemodialysis"
+  },
+  {
+    "_id_obat": 1597,
+    "_nama_obat": "heparin, Na (non porcine)",
+    "_nama_obat_internasional": "heparin, Na (non porcine)"
+  },
+  {
+    "_id_obat": 1599,
+    "_nama_obat": "hepatitis B imunoglobulin (human)",
+    "_nama_obat_internasional": "hepatitis B immunoglobulin (human)"
+  },
+  {
+    "_id_obat": 1609,
+    "_nama_obat": "hidrogen peroksida",
+    "_nama_obat_internasional": "hydrogen peroxide"
+  },
+  {
+    "_id_obat": 1610,
+    "_nama_obat": "hidroklorotiazid",
+    "_nama_obat_internasional": "hydrochlorothiazide"
+  },
+  {
+    "_id_obat": 1614,
+    "_nama_obat": "hidrokortison",
+    "_nama_obat_internasional": "hydrocortisone"
+  },
+  {
+    "_id_obat": 1626,
+    "_nama_obat": "hidroksiklorokuin",
+    "_nama_obat_internasional": "hydroxychloroquine"
+  },
+  {
+    "_id_obat": 1629,
+    "_nama_obat": "hidroksiurea",
+    "_nama_obat_internasional": "hydroxyurea"
+  },
+  {
+    "_id_obat": 1635,
+    "_nama_obat": "hidromorfon",
+    "_nama_obat_internasional": "hydromorphone"
+  },
+  {
+    "_id_obat": 1643,
+    "_nama_obat": "hiosin butilbromida",
+    "_nama_obat_internasional": "hyoscine butylbromide"
+  },
+  {
+    "_id_obat": 1650,
+    "_nama_obat": "homatropin",
+    "_nama_obat_internasional": "homatropine"
+  },
+  {
+    "_id_obat": 4857,
+    "_nama_obat": "Human Insulin Basal: insulin NPH (Neutral Protamine Hagedorn)",
+    "_nama_obat_internasional": "Human Basal Insulin: NPH insulin (Neutral Protamine Hagedorn)"
+  },
+  {
+    "_id_obat": 4859,
+    "_nama_obat": "Human Insulin Campuran: kombinasi 70% insulin NPH dan 30% insulin regular",
+    "_nama_obat_internasional": "Human Mix Insulin: combination of 70% NPH insulin and 30% regular insulin"
+  },
+  {
+    "_id_obat": 4858,
+    "_nama_obat": "Human Insulin Prandial: insulin regular",
+    "_nama_obat_internasional": "Human Insulin Prandial: regular insulin"
+  },
+  {
+    "_id_obat": 1657,
+    "_nama_obat": "human tetanus imunoglobulin",
+    "_nama_obat_internasional": "human tetanus imunoglobulin"
+  },
+  {
+    "_id_obat": 1666,
+    "_nama_obat": "ibuprofen",
+    "_nama_obat_internasional": "ibuprofen"
+  },
+  {
+    "_id_obat": 1670,
+    "_nama_obat": "idarubisin",
+    "_nama_obat_internasional": "idarubicin"
+  },
+  {
+    "_id_obat": 1680,
+    "_nama_obat": "ifosfamid",
+    "_nama_obat_internasional": "ifosfamide"
+  },
+  {
+    "_id_obat": 1689,
+    "_nama_obat": "iloprost",
+    "_nama_obat_internasional": "iloprost"
+  },
+  {
+    "_id_obat": 1691,
+    "_nama_obat": "imatinib mesilat",
+    "_nama_obat_internasional": "imatinib mesylate"
+  },
+  {
+    "_id_obat": 1693,
+    "_nama_obat": "imidafenasin",
+    "_nama_obat_internasional": "imidaphenacin"
+  },
+  {
+    "_id_obat": 1694,
+    "_nama_obat": "imidapril",
+    "_nama_obat_internasional": "imidapril"
+  },
+  {
+    "_id_obat": 1713,
+    "_nama_obat": "imunoglobulin intravena",
+    "_nama_obat_internasional": "intravenous immunoglobulin"
+  },
+  {
+    "_id_obat": 1726,
+    "_nama_obat": "indakaterol",
+    "_nama_obat_internasional": "indacaterol"
+  },
+  {
+    "_id_obat": 1789,
+    "_nama_obat": "iodiksanol",
+    "_nama_obat_internasional": "iodixanol"
+  },
+  {
+    "_id_obat": 1801,
+    "_nama_obat": "iodium 131",
+    "_nama_obat_internasional": "iodium 131"
+  },
+  {
+    "_id_obat": 1806,
+    "_nama_obat": "ioheksol",
+    "_nama_obat_internasional": "iohexol"
+  },
+  {
+    "_id_obat": 1809,
+    "_nama_obat": "iopamidol",
+    "_nama_obat_internasional": "iopamidol"
+  },
+  {
+    "_id_obat": 1812,
+    "_nama_obat": "iopromid",
+    "_nama_obat_internasional": "iopromide"
+  },
+  {
+    "_id_obat": 1819,
+    "_nama_obat": "ipratropium bromida",
+    "_nama_obat_internasional": "ipratropium bromide"
+  },
+  {
+    "_id_obat": 1825,
+    "_nama_obat": "irbesartan",
+    "_nama_obat_internasional": "irbesartan"
+  },
+  {
+    "_id_obat": 1829,
+    "_nama_obat": "irinotekan",
+    "_nama_obat_internasional": "irinotecan"
+  },
+  {
+    "_id_obat": 1836,
+    "_nama_obat": "isofluran",
+    "_nama_obat_internasional": "isoflurane"
+  },
+  {
+    "_id_obat": 1841,
+    "_nama_obat": "isoniazid",
+    "_nama_obat_internasional": "isoniazid"
+  },
+  {
+    "_id_obat": 1848,
+    "_nama_obat": "isosorbid dinitrat",
+    "_nama_obat_internasional": "isosorbide dinitrate"
+  },
+  {
+    "_id_obat": 1857,
+    "_nama_obat": "itrakonazol",
+    "_nama_obat_internasional": "itraconazole"
+  },
+  {
+    "_id_obat": 1859,
+    "_nama_obat": "IUD levonorgestrel",
+    "_nama_obat_internasional": "IUD levonorgestrel"
+  },
+  {
+    "_id_obat": 1863,
+    "_nama_obat": "ivabradin",
+    "_nama_obat_internasional": "ivabradine"
+  },
+  {
+    "_id_obat": 1867,
+    "_nama_obat": "ivermektin",
+    "_nama_obat_internasional": "ivermectin"
+  },
+  {
+    "_id_obat": 1878,
+    "_nama_obat": "kafein",
+    "_nama_obat_internasional": "caffeine"
+  },
+  {
+    "_id_obat": 1880,
+    "_nama_obat": "kalamin",
+    "_nama_obat_internasional": "calamine"
+  },
+  {
+    "_id_obat": 1885,
+    "_nama_obat": "kalium aspartat",
+    "_nama_obat_internasional": "potassium aspartate"
+  },
+  {
+    "_id_obat": 1893,
+    "_nama_obat": "kalium klorida",
+    "_nama_obat_internasional": "potassium chloride"
+  },
+  {
+    "_id_obat": 1905,
+    "_nama_obat": "kalsitriol",
+    "_nama_obat_internasional": "calcitriol"
+  },
+  {
+    "_id_obat": 1910,
+    "_nama_obat": "kalsium folinat (leukovorin, Ca)",
+    "_nama_obat_internasional": "calcium folinate (leucovorin, Ca)"
+  },
+  {
+    "_id_obat": 1915,
+    "_nama_obat": "kalsium glukonat",
+    "_nama_obat_internasional": "calcium gluconate"
+  },
+  {
+    "_id_obat": 1917,
+    "_nama_obat": "kalsium hidroksida",
+    "_nama_obat_internasional": "calcium hydroxide"
+  },
+  {
+    "_id_obat": 4876,
+    "_nama_obat": "kalsium karbonat (setara dengan 500 mg Ca elemental)",
+    "_nama_obat_internasional": "calcium carbonate (equivalent to 500 mg elemental Ca)"
+  },
+  {
+    "_id_obat": 1925,
+    "_nama_obat": "kalsium laktat (kalk)",
+    "_nama_obat_internasional": "calcium lactate (calc)"
+  },
+  {
+    "_id_obat": 1931,
+    "_nama_obat": "kalsium polistiren sulfonat",
+    "_nama_obat_internasional": "calcium polystyrene sulfonate"
+  },
+  {
+    "_id_obat": 1944,
+    "_nama_obat": "kandesartan",
+    "_nama_obat_internasional": "candesartan"
+  },
+  {
+    "_id_obat": 1950,
+    "_nama_obat": "kapesitabin",
+    "_nama_obat_internasional": "capecitabine"
+  },
+  {
+    "_id_obat": 1956,
+    "_nama_obat": "kaptopril",
+    "_nama_obat_internasional": "captopril"
+  },
+  {
+    "_id_obat": 1959,
+    "_nama_obat": "karbamazepin",
+    "_nama_obat_internasional": "carbamazepine"
+  },
+  {
+    "_id_obat": 1964,
+    "_nama_obat": "karbimazol",
+    "_nama_obat_internasional": "carbimazole"
+  },
+  {
+    "_id_obat": 1966,
+    "_nama_obat": "karbogliserin",
+    "_nama_obat_internasional": "carboglycerin"
+  },
+  {
+    "_id_obat": 1969,
+    "_nama_obat": "karboksimetilselulosa",
+    "_nama_obat_internasional": "carboxymethylcellulose"
+  },
+  {
+    "_id_obat": 1974,
+    "_nama_obat": "karboplatin",
+    "_nama_obat_internasional": "carboplatin"
+  },
+  {
+    "_id_obat": 1992,
+    "_nama_obat": "karvedilol",
+    "_nama_obat_internasional": "carvedilol"
+  },
+  {
+    "_id_obat": 2005,
+    "_nama_obat": "ketamin",
+    "_nama_obat_internasional": "ketamine"
+  },
+  {
+    "_id_obat": 2010,
+    "_nama_obat": "ketokonazol",
+    "_nama_obat_internasional": "ketoconazole"
+  },
+  {
+    "_id_obat": 2011,
+    "_nama_obat": "ketoprofen",
+    "_nama_obat_internasional": "ketoprofen"
+  },
+  {
+    "_id_obat": 2012,
+    "_nama_obat": "ketorolak",
+    "_nama_obat_internasional": "ketorolac"
+  },
+  {
+    "_id_obat": 4839,
+    "_nama_obat": "king cobra antivenin",
+    "_nama_obat_internasional": "king cobra antivenin"
+  },
+  {
+    "_id_obat": 2017,
+    "_nama_obat": "klaritromisin",
+    "_nama_obat_internasional": "clarithromycin"
+  },
+  {
+    "_id_obat": 2024,
+    "_nama_obat": "klindamisin",
+    "_nama_obat_internasional": "clindamycin"
+  },
+  {
+    "_id_obat": 2027,
+    "_nama_obat": "klobazam",
+    "_nama_obat_internasional": "clobazam"
+  },
+  {
+    "_id_obat": 2031,
+    "_nama_obat": "klobetasol propionat",
+    "_nama_obat_internasional": "clobetasol propionate"
+  },
+  {
+    "_id_obat": 2036,
+    "_nama_obat": "klofazimin",
+    "_nama_obat_internasional": "clofazimine"
+  },
+  {
+    "_id_obat": 2046,
+    "_nama_obat": "kloksasilin",
+    "_nama_obat_internasional": "cloxacillin"
+  },
+  {
+    "_id_obat": 2053,
+    "_nama_obat": "klonazepam",
+    "_nama_obat_internasional": "clonazepam"
+  },
+  {
+    "_id_obat": 2055,
+    "_nama_obat": "klonidin",
+    "_nama_obat_internasional": "clonidine"
+  },
+  {
+    "_id_obat": 2061,
+    "_nama_obat": "klopidogrel",
+    "_nama_obat_internasional": "clopidogrel"
+  },
+  {
+    "_id_obat": 2063,
+    "_nama_obat": "kloral hidrat",
+    "_nama_obat_internasional": "chloral hydrate"
+  },
+  {
+    "_id_obat": 2065,
+    "_nama_obat": "klorambusil",
+    "_nama_obat_internasional": "chlorambucil"
+  },
+  {
+    "_id_obat": 2066,
+    "_nama_obat": "kloramfenikol",
+    "_nama_obat_internasional": "chloramphenicol"
+  },
+  {
+    "_id_obat": 2072,
+    "_nama_obat": "klorfeniramin",
+    "_nama_obat_internasional": "chlorphenamine"
+  },
+  {
+    "_id_obat": 2074,
+    "_nama_obat": "klorfenol kamfer mentol (CHKM)",
+    "_nama_obat_internasional": "chlorophenol camphor menthol"
+  },
+  {
+    "_id_obat": 2075,
+    "_nama_obat": "klorheksidin",
+    "_nama_obat_internasional": "chlorhexidine"
+  },
+  {
+    "_id_obat": 2089,
+    "_nama_obat": "klorokuin",
+    "_nama_obat_internasional": "chloroquine"
+  },
+  {
+    "_id_obat": 2098,
+    "_nama_obat": "klorpromazin",
+    "_nama_obat_internasional": "chlorpromazine"
+  },
+  {
+    "_id_obat": 2109,
+    "_nama_obat": "klotrimazol",
+    "_nama_obat_internasional": "clotrimazole"
+  },
+  {
+    "_id_obat": 2110,
+    "_nama_obat": "klozapin",
+    "_nama_obat_internasional": "clozapine"
+  },
+  {
+    "_id_obat": 2117,
+    "_nama_obat": "kodein",
+    "_nama_obat_internasional": "codeine"
+  },
+  {
+    "_id_obat": 2126,
+    "_nama_obat": "kolekalsiferol (vitamin D3)",
+    "_nama_obat_internasional": "colecalciferol"
+  },
+  {
+    "_id_obat": 2131,
+    "_nama_obat": "kolestiramin",
+    "_nama_obat_internasional": "colestyramine"
+  },
+  {
+    "_id_obat": 2139,
+    "_nama_obat": "kolkisin",
+    "_nama_obat_internasional": "colchicine"
+  },
+  {
+    "_id_obat": 2204,
+    "_nama_obat": "kombinasi deksametason asetat, thymol, paraklorfenol, dan campor",
+    "_nama_obat_internasional": "combination of dexamethasone acetate, thymol, parachlorphenol, anf camphor"
+  },
+  {
+    "_id_obat": 2311,
+    "_nama_obat": "kombinasi KDT/FDC (anak) mengandung zidovudin, lamivudin dan nevirapin",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains zidovudine, lamivudine, and nevirapine"
+  },
+  {
+    "_id_obat": 2312,
+    "_nama_obat": "kombinasi KDT/FDC (LPV/r) mengandung lopinavir dan ritonavir",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains lopinavir and ritonavir"
+  },
+  {
+    "_id_obat": 4854,
+    "_nama_obat": "kombinasi KDT/FDC mengandung abakavir dan lamivudin",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains  abacavir and lamivudine"
+  },
+  {
+    "_id_obat": 2313,
+    "_nama_obat": "kombinasi KDT/FDC mengandung amoksisilin dan asam klavulanat",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains amoxicillin and clavulanic acid"
+  },
+  {
+    "_id_obat": 2314,
+    "_nama_obat": "kombinasi KDT/FDC mengandung ampisilin dan sulbaktam",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains ampicillin and sulbactam"
+  },
+  {
+    "_id_obat": 2315,
+    "_nama_obat": "kombinasi KDT/FDC mengandung artemether dan lumefantrin",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains artemether and lumefantrine"
+  },
+  {
+    "_id_obat": 2316,
+    "_nama_obat": "kombinasi KDT/FDC mengandung benserazid dan levodopa",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains benserazide dan levodopa"
+  },
+  {
+    "_id_obat": 2317,
+    "_nama_obat": "kombinasi KDT/FDC mengandung desogestrel dan etinilestradiol",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains desogestrel and ethinylestradiol"
+  },
+  {
+    "_id_obat": 2318,
+    "_nama_obat": "kombinasi KDT/FDC mengandung dihidroartemisinin dan piperakuin",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains dihydroartemisinin and piperaquin"
+  },
+  {
+    "_id_obat": 2319,
+    "_nama_obat": "kombinasi KDT/FDC mengandung ergotamin dan kafein",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains ergotamine and caffeine"
+  },
+  {
+    "_id_obat": 2320,
+    "_nama_obat": "kombinasi KDT/FDC mengandung Fe sulfat/Fe fumarat/Fe glukonat dan asam folat",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains Fe sulfate/Fe fumarate/Fe gluconate and folic acid"
+  },
+  {
+    "_id_obat": 2321,
+    "_nama_obat": "kombinasi KDT/FDC mengandung indakaterol dan glikopironium",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains indacaterol and glycopyrronium"
+  },
+  {
+    "_id_obat": 2322,
+    "_nama_obat": "kombinasi KDT/FDC mengandung ipratropium bromida dan fenoterol hidrobromida",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains ipratropium bromide and fenoterol hydrobromide"
+  },
+  {
+    "_id_obat": 2323,
+    "_nama_obat": "kombinasi KDT/FDC mengandung ipratropium bromida dan salbutamol",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains ipratropium bromide and salbutamol"
+  },
+  {
+    "_id_obat": 4853,
+    "_nama_obat": "kombinasi KDT/FDC mengandung isoniazid dan rifapentin",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains isoniazid and rifapentine"
+  },
+  {
+    "_id_obat": 2324,
+    "_nama_obat": "kombinasi KDT/FDC mengandung kaolin dan pektin",
+    "_nama_obat_internasional": "fixed dose  combination (FDC) contains kaolin and pectin"
+  },
+  {
+    "_id_obat": 2325,
+    "_nama_obat": "kombinasi KDT/FDC mengandung levodopa, karbidopa, dan entekapon",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains levodopa,  carbidopa, dan entecapone"
+  },
+  {
+    "_id_obat": 2326,
+    "_nama_obat": "kombinasi KDT/FDC mengandung levonorgestrel dan etinilestradiol",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains levonorgestrel and ethinylestradiol"
+  },
+  {
+    "_id_obat": 2327,
+    "_nama_obat": "kombinasi KDT/FDC mengandung medroksi progesteron asetat dan estradiol sipionat",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains medroxyprogesterone acetate and estradiol cypionate"
+  },
+  {
+    "_id_obat": 2328,
+    "_nama_obat": "kombinasi KDT/FDC mengandung meglumin amidotrizoat dan sodium amidotrizoat",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains meglumine amidotrizoate dan sodium amidotrizoate"
+  },
+  {
+    "_id_obat": 2329,
+    "_nama_obat": "kombinasi KDT/FDC mengandung parafin, gliserin, dan fenolftalein",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains paraffin, glycerin, and phenolphthalein"
+  },
+  {
+    "_id_obat": 2330,
+    "_nama_obat": "kombinasi KDT/FDC mengandung salmeterol dan flutikason propionat",
+    "_nama_obat_internasional": "fixed dose combination (FDC)contains ipratropium bromide and salbutamol"
+  },
+  {
+    "_id_obat": 2331,
+    "_nama_obat": "kombinasi KDT/FDC mengandung sefoperazon dan sulbaktam",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains cefoperazone and sulbactam"
+  },
+  {
+    "_id_obat": 4855,
+    "_nama_obat": "kombinasi KDT/FDC mengandung sofosbuvir dan daklatasvir",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains  sofosbuvir and daclatasvir"
+  },
+  {
+    "_id_obat": 4856,
+    "_nama_obat": "kombinasi KDT/FDC mengandung sofosbuvir dan velpatasvir",
+    "_nama_obat_internasional": "Fixed Dose Combination (FDC) contains  sofosbuvir and velpatasvir"
+  },
+  {
+    "_id_obat": 2332,
+    "_nama_obat": "kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat dan emtrisitabin",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains tenofovir disoproxil fumarate and emtricitabine"
+  },
+  {
+    "_id_obat": 4874,
+    "_nama_obat": "kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat dan lamivudin",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains tenofovir disoproxil fumarate and lamivudine"
+  },
+  {
+    "_id_obat": 2333,
+    "_nama_obat": "kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat, lamivudin dan dolutegravir",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains tenofovir disoproxil fumarate, lamivudine, and dolutegravir"
+  },
+  {
+    "_id_obat": 2334,
+    "_nama_obat": "kombinasi KDT/FDC mengandung tenofovir disoproksil fumarat, lamivudin dan efavirenz",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains tenofovir disoproxil fumarate, lamivudine, and efavirenz"
+  },
+  {
+    "_id_obat": 2335,
+    "_nama_obat": "kombinasi KDT/FDC mengandung tiotropium dan olodaterol",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains tiotropium and olodaterol"
+  },
+  {
+    "_id_obat": 2336,
+    "_nama_obat": "kombinasi KDT/FDC mengandung zidovudin dan lamivudin",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains zidovudine and lamivudine"
+  },
+  {
+    "_id_obat": 2337,
+    "_nama_obat": "kombinasi KDT/FDC, setiap dosis mengandung budesonid dan formoterol",
+    "_nama_obat_internasional": "fixed dose combination (FDC), each dose contains budesonide and formoterol"
+  },
+  {
+    "_id_obat": 2338,
+    "_nama_obat": "kombinasi KDT/FDC, setiap mL mengandung brinzolamid dan timolol",
+    "_nama_obat_internasional": "fixed dose combination (FDC), each mL contains brinzolamide and timolol"
+  },
+  {
+    "_id_obat": 2339,
+    "_nama_obat": "kombinasi KDT/FDC, setiap mL mengandung latanoprost dan timolol",
+    "_nama_obat_internasional": "fixed dose combination (FDC), each mL contains latanoprost and timolol"
+  },
+  {
+    "_id_obat": 2340,
+    "_nama_obat": "kombinasi KDT/FDC, setiap mL mengandung natrium klorida dan kalium klorida",
+    "_nama_obat_internasional": "fixed dose combination (FDC) contains sodium chloride and pottasium chloride"
+  },
+  {
+    "_id_obat": 2341,
+    "_nama_obat": "kombinasi KDT/FDC, setiap mL mengandung travoprost dan timolol",
+    "_nama_obat_internasional": "fixed dose combination (FDC), each mL contains travoprost and timolol"
+  },
+  {
+    "_id_obat": 2378,
+    "_nama_obat": "kombinasi lidokain, medicinal creosote phenol, eugenol, dan benzil alkohol",
+    "_nama_obat_internasional": "combination of lidocaine, medicinal creosote phenol, eugenol, and benzyl alcohol"
+  },
+  {
+    "_id_obat": 2499,
+    "_nama_obat": "kombinasi triamsinolon asetonid dan dimetil-klortetrasiklin",
+    "_nama_obat_internasional": "combination of triamcinolone acetonide and dimethyl-chlortetracycline"
+  },
+  {
+    "_id_obat": 4830,
+    "_nama_obat": "Kombipak kusta tipe multibasiler (MB) untuk anak",
+    "_nama_obat_internasional": "combipack of leprosy type multibasiler (MB) for children"
+  },
+  {
+    "_id_obat": 4829,
+    "_nama_obat": "Kombipak kusta tipe multibasiler (MB) untuk dewasa",
+    "_nama_obat_internasional": "Combipack of leprosy type multibasiler (MB) for adult"
+  },
+  {
+    "_id_obat": 4827,
+    "_nama_obat": "Kombipak kusta tipe pausibasiler (PB) untuk anak",
+    "_nama_obat_internasional": "combipack of leprosy type pausibasiler (PB) for children"
+  },
+  {
+    "_id_obat": 4826,
+    "_nama_obat": "Kombipak kusta tipe pausibasiler (PB) untuk dewasa",
+    "_nama_obat_internasional": "Combipack of leprosy type pausibasiler (PB) for adult"
+  },
+  {
+    "_id_obat": 4852,
+    "_nama_obat": "Kombipak/paket azitromisin dan sefiksim",
+    "_nama_obat_internasional": "combipack/package of azithromycin and cefixime"
+  },
+  {
+    "_id_obat": 2516,
+    "_nama_obat": "komposit resin",
+    "_nama_obat_internasional": "resin composite"
+  },
+  {
+    "_id_obat": 2529,
+    "_nama_obat": "kotrimoksazol",
+    "_nama_obat_internasional": "cotrimoxazole"
+  },
+  {
+    "_id_obat": 2530,
+    "_nama_obat": "kotrimoksazol (dewasa)",
+    "_nama_obat_internasional": "cotrimoxazole (adult)"
+  },
+  {
+    "_id_obat": 2531,
+    "_nama_obat": "kotrimoksazol forte (dewasa)",
+    "_nama_obat_internasional": "cotrimoxazole forte (adult)"
+  },
+  {
+    "_id_obat": 2550,
+    "_nama_obat": "kuinin",
+    "_nama_obat_internasional": "quinine"
+  },
+  {
+    "_id_obat": 2561,
+    "_nama_obat": "laktulosa",
+    "_nama_obat_internasional": "lactulose"
+  },
+  {
+    "_id_obat": 2563,
+    "_nama_obat": "lamivudin",
+    "_nama_obat_internasional": "lamivudine"
+  },
+  {
+    "_id_obat": 2570,
+    "_nama_obat": "lamotrigin",
+    "_nama_obat_internasional": "lamotrigine"
+  },
+  {
+    "_id_obat": 2577,
+    "_nama_obat": "lansoprazol",
+    "_nama_obat_internasional": "lansoprazole"
+  },
+  {
+    "_id_obat": 2584,
+    "_nama_obat": "lapatinib",
+    "_nama_obat_internasional": "lapatinib"
+  },
+  {
+    "_id_obat": 2587,
+    "_nama_obat": "larutan kardioplegia",
+    "_nama_obat_internasional": "cardioplegia solutions"
+  },
+  {
+    "_id_obat": 2588,
+    "_nama_obat": "larutan Mengandung Asam Amino",
+    "_nama_obat_internasional": "solutions containing amino acids"
+  },
+  {
+    "_id_obat": 2589,
+    "_nama_obat": "Larutan Mengandung Asam Amino+ Elektrolit+Karbohidrat+Lipid",
+    "_nama_obat_internasional": "solutions containing amino acid + electrolyte + carbohydrate + lipid"
+  },
+  {
+    "_id_obat": 2590,
+    "_nama_obat": "Larutan Mengandung Elektrolit",
+    "_nama_obat_internasional": "solutions containing electrolyte"
+  },
+  {
+    "_id_obat": 2591,
+    "_nama_obat": "Larutan Mengandung Fosfat dengan/tanpa vitamin yang larut dalam air",
+    "_nama_obat_internasional": "solutions containing phosphates with/without water-soluble vitamins"
+  },
+  {
+    "_id_obat": 2592,
+    "_nama_obat": "Larutan Mengandung Karbohidrat",
+    "_nama_obat_internasional": "solutions containing carbohydrate"
+  },
+  {
+    "_id_obat": 2593,
+    "_nama_obat": "Larutan Mengandung Karbohidrat+Elektrolit",
+    "_nama_obat_internasional": "solutions containing carbohydrate + electrolyte"
+  },
+  {
+    "_id_obat": 2594,
+    "_nama_obat": "Larutan Mengandung Lipid",
+    "_nama_obat_internasional": "solutions containing lipid"
+  },
+  {
+    "_id_obat": 2595,
+    "_nama_obat": "Larutan Mengandung Vitamin yang larut dalam lemak (Vitamin A, D, E, K)",
+    "_nama_obat_internasional": "solution contains fat-soluble vitamins (vitamins A, D, E, K)"
+  },
+  {
+    "_id_obat": 2602,
+    "_nama_obat": "latanoprost",
+    "_nama_obat_internasional": "latanoprost"
+  },
+  {
+    "_id_obat": 2606,
+    "_nama_obat": "leflunomid",
+    "_nama_obat_internasional": "leflunomide"
+  },
+  {
+    "_id_obat": 2609,
+    "_nama_obat": "lenalidomid",
+    "_nama_obat_internasional": "lenalidomide"
+  },
+  {
+    "_id_obat": 2610,
+    "_nama_obat": "lenograstim",
+    "_nama_obat_internasional": "lenograstim"
+  },
+  {
+    "_id_obat": 2612,
+    "_nama_obat": "lenvatinib",
+    "_nama_obat_internasional": "lenvatinib"
+  },
+  {
+    "_id_obat": 2618,
+    "_nama_obat": "letrozol",
+    "_nama_obat_internasional": "letrozole"
+  },
+  {
+    "_id_obat": 2619,
+    "_nama_obat": "leuprorelin asetat",
+    "_nama_obat_internasional": "leuprorelin acetate"
+  },
+  {
+    "_id_obat": 2624,
+    "_nama_obat": "levetirasetam",
+    "_nama_obat_internasional": "levetiracetam"
+  },
+  {
+    "_id_obat": 2631,
+    "_nama_obat": "levofloksasin",
+    "_nama_obat_internasional": "levofloxacin"
+  },
+  {
+    "_id_obat": 2641,
+    "_nama_obat": "levonorgestrel",
+    "_nama_obat_internasional": "levonorgestrel"
+  },
+  {
+    "_id_obat": 2645,
+    "_nama_obat": "levotiroksin",
+    "_nama_obat_internasional": "levothyroxine"
+  },
+  {
+    "_id_obat": 2648,
+    "_nama_obat": "lidokain",
+    "_nama_obat_internasional": "lidocaine"
+  },
+  {
+    "_id_obat": 2656,
+    "_nama_obat": "linestrenol",
+    "_nama_obat_internasional": "lynestrenol"
+  },
+  {
+    "_id_obat": 2665,
+    "_nama_obat": "liquor carbonis detergens",
+    "_nama_obat_internasional": "liquor carbonis detergens"
+  },
+  {
+    "_id_obat": 2670,
+    "_nama_obat": "lisinopril",
+    "_nama_obat_internasional": "lisinopril"
+  },
+  {
+    "_id_obat": 2676,
+    "_nama_obat": "litium karbonat",
+    "_nama_obat_internasional": "lithium carbonate"
+  },
+  {
+    "_id_obat": 2692,
+    "_nama_obat": "loperamid",
+    "_nama_obat_internasional": "loperamide"
+  },
+  {
+    "_id_obat": 2698,
+    "_nama_obat": "loratadin",
+    "_nama_obat_internasional": "loratadine"
+  },
+  {
+    "_id_obat": 2699,
+    "_nama_obat": "lorazepam",
+    "_nama_obat_internasional": "lorazepam"
+  },
+  {
+    "_id_obat": 2711,
+    "_nama_obat": "low molecule ferri sucrose",
+    "_nama_obat_internasional": "low molecule ferri sucrose"
+  },
+  {
+    "_id_obat": 2725,
+    "_nama_obat": "MAA (macro aggregate albumin)",
+    "_nama_obat_internasional": "MAA (macro aggregate albumin)"
+  },
+  {
+    "_id_obat": 2727,
+    "_nama_obat": "MAG3 (mercaptoacetyltriglysine)",
+    "_nama_obat_internasional": "MAG3 (mercaptoacetyltriglysine)"
+  },
+  {
+    "_id_obat": 2745,
+    "_nama_obat": "magnesium sulfat",
+    "_nama_obat_internasional": "magnesium sulfate"
+  },
+  {
+    "_id_obat": 2751,
+    "_nama_obat": "manitol",
+    "_nama_obat_internasional": "mannitol"
+  },
+  {
+    "_id_obat": 2753,
+    "_nama_obat": "maprotilin",
+    "_nama_obat_internasional": "maprotiline"
+  },
+  {
+    "_id_obat": 2765,
+    "_nama_obat": "MDP (methylene diphosphonate)",
+    "_nama_obat_internasional": "MDP (methylene diphosphonate)"
+  },
+  {
+    "_id_obat": 2766,
+    "_nama_obat": "mebendazol",
+    "_nama_obat_internasional": "mebendazole"
+  },
+  {
+    "_id_obat": 2777,
+    "_nama_obat": "medroksi progesteron asetat",
+    "_nama_obat_internasional": "medroxyprogesterone acetate"
+  },
+  {
+    "_id_obat": 2809,
+    "_nama_obat": "melfalan",
+    "_nama_obat_internasional": "melphalan"
+  },
+  {
+    "_id_obat": 2843,
+    "_nama_obat": "merkaptopurin",
+    "_nama_obat_internasional": "mercaptopurine"
+  },
+  {
+    "_id_obat": 2848,
+    "_nama_obat": "meropenem",
+    "_nama_obat_internasional": "meropenem"
+  },
+  {
+    "_id_obat": 2851,
+    "_nama_obat": "mesalazin",
+    "_nama_obat_internasional": "mesalazine"
+  },
+  {
+    "_id_obat": 2853,
+    "_nama_obat": "mesna",
+    "_nama_obat_internasional": "mesna"
+  },
+  {
+    "_id_obat": 2860,
+    "_nama_obat": "metadon",
+    "_nama_obat_internasional": "methadone"
+  },
+  {
+    "_id_obat": 2,
+    "_nama_obat": "meta-iodobenzylguanidine (131I-MIBG)",
+    "_nama_obat_internasional": "meta-iodobenzylguanidine (131I-MIBG)"
+  },
+  {
+    "_id_obat": 2866,
+    "_nama_obat": "metamizol",
+    "_nama_obat_internasional": "metamizole sodium"
+  },
+  {
+    "_id_obat": 2878,
+    "_nama_obat": "metenamin mandelat (heksamin mandelat)",
+    "_nama_obat_internasional": "methenamine mandelate (hexamine mandelate)"
+  },
+  {
+    "_id_obat": 2881,
+    "_nama_obat": "metformin",
+    "_nama_obat_internasional": "metformin"
+  },
+  {
+    "_id_obat": 2908,
+    "_nama_obat": "metildopa",
+    "_nama_obat_internasional": "Methyldopa"
+  },
+  {
+    "_id_obat": 2911,
+    "_nama_obat": "metilergometrin",
+    "_nama_obat_internasional": "methylergometrine"
+  },
+  {
+    "_id_obat": 2914,
+    "_nama_obat": "metilfenidat",
+    "_nama_obat_internasional": "methylphenidate"
+  },
+  {
+    "_id_obat": 2919,
+    "_nama_obat": "metilprednisolon",
+    "_nama_obat_internasional": "methylprednisolone"
+  },
+  {
+    "_id_obat": 2946,
+    "_nama_obat": "metoklopramid",
+    "_nama_obat_internasional": "metoclopramide"
+  },
+  {
+    "_id_obat": 2949,
+    "_nama_obat": "metoksi polietilen glikol-epoetin beta",
+    "_nama_obat_internasional": "methoxy polyethylene glycol-epoetin beta"
+  },
+  {
+    "_id_obat": 2955,
+    "_nama_obat": "metoprolol",
+    "_nama_obat_internasional": "metoprolol"
+  },
+  {
+    "_id_obat": 2963,
+    "_nama_obat": "metotreksat",
+    "_nama_obat_internasional": "methotrexate"
+  },
+  {
+    "_id_obat": 2967,
+    "_nama_obat": "metronidazol",
+    "_nama_obat_internasional": "metronidazole"
+  },
+  {
+    "_id_obat": 2973,
+    "_nama_obat": "MIBI (methoxyisobutyl isonitrile)",
+    "_nama_obat_internasional": "MIBI (methoxyisobutyl isonitrile)"
+  },
+  {
+    "_id_obat": 2974,
+    "_nama_obat": "midazolam",
+    "_nama_obat_internasional": "midazolam"
+  },
+  {
+    "_id_obat": 2983,
+    "_nama_obat": "mikafungin",
+    "_nama_obat_internasional": "micafungin"
+  },
+  {
+    "_id_obat": 2984,
+    "_nama_obat": "mikofenolat mofetil",
+    "_nama_obat_internasional": "mycophenolate mofetil "
+  },
+  {
+    "_id_obat": 2985,
+    "_nama_obat": "mikofenolat sodium",
+    "_nama_obat_internasional": "mycophenolate sodium"
+  },
+  {
+    "_id_obat": 2986,
+    "_nama_obat": "mikonazol",
+    "_nama_obat_internasional": "miconazole"
+  },
+  {
+    "_id_obat": 2990,
+    "_nama_obat": "milrinon",
+    "_nama_obat_internasional": "milrinone"
+  },
+  {
+    "_id_obat": 2994,
+    "_nama_obat": "minosiklin",
+    "_nama_obat_internasional": "minocycline"
+  },
+  {
+    "_id_obat": 3010,
+    "_nama_obat": "mitomisin",
+    "_nama_obat_internasional": "mitomycin"
+  },
+  {
+    "_id_obat": 3025,
+    "_nama_obat": "moksifloksasin",
+    "_nama_obat_internasional": "moxifloxacin"
+  },
+  {
+    "_id_obat": 3031,
+    "_nama_obat": "molnupiravir",
+    "_nama_obat_internasional": "molnupiravir"
+  },
+  {
+    "_id_obat": 3033,
+    "_nama_obat": "mometason furoat",
+    "_nama_obat_internasional": "mometasone furoate"
+  },
+  {
+    "_id_obat": 3040,
+    "_nama_obat": "morfin",
+    "_nama_obat_internasional": "morphine"
+  },
+  {
+    "_id_obat": 3057,
+    "_nama_obat": "mupirosin",
+    "_nama_obat_internasional": "mupirocin"
+  },
+  {
+    "_id_obat": 3066,
+    "_nama_obat": "nadroparin",
+    "_nama_obat_internasional": "nadroparin"
+  },
+  {
+    "_id_obat": 3079,
+    "_nama_obat": "nalokson",
+    "_nama_obat_internasional": "naloxone"
+  },
+  {
+    "_id_obat": 3060,
+    "_nama_obat": "n-asetil sistein",
+    "_nama_obat_internasional": "n-acetyl cysteine"
+  },
+  {
+    "_id_obat": 3088,
+    "_nama_obat": "natamisin",
+    "_nama_obat_internasional": "natamycin"
+  },
+  {
+    "_id_obat": 3098,
+    "_nama_obat": "natrium bikarbonat",
+    "_nama_obat_internasional": "sodium bicarbonate"
+  },
+  {
+    "_id_obat": 3100,
+    "_nama_obat": "natrium diklofenak",
+    "_nama_obat_internasional": "sodium diclofenac"
+  },
+  {
+    "_id_obat": 3108,
+    "_nama_obat": "natrium fluoresein",
+    "_nama_obat_internasional": "fluorescein sodium "
+  },
+  {
+    "_id_obat": 3112,
+    "_nama_obat": "natrium fosfat",
+    "_nama_obat_internasional": "sodium phosphate"
+  },
+  {
+    "_id_obat": 3114,
+    "_nama_obat": "natrium fusidat",
+    "_nama_obat_internasional": "fusidic sodium"
+  },
+  {
+    "_id_obat": 3116,
+    "_nama_obat": "natrium hialuronat",
+    "_nama_obat_internasional": "sodium hyaluronate"
+  },
+  {
+    "_id_obat": 3117,
+    "_nama_obat": "natrium hipoklorit",
+    "_nama_obat_internasional": "sodium hypochlorite"
+  },
+  {
+    "_id_obat": 3126,
+    "_nama_obat": "natrium klorida",
+    "_nama_obat_internasional": "sodium chloride"
+  },
+  {
+    "_id_obat": 3150,
+    "_nama_obat": "natrium tiosulfat",
+    "_nama_obat_internasional": "thiosulfate"
+  },
+  {
+    "_id_obat": 3164,
+    "_nama_obat": "neostigmin",
+    "_nama_obat_internasional": "neostigmine"
+  },
+  {
+    "_id_obat": 4840,
+    "_nama_obat": "neuro polyvalent snake antivenin",
+    "_nama_obat_internasional": "neuro polyvalent snake antivenin"
+  },
+  {
+    "_id_obat": 3174,
+    "_nama_obat": "nevirapin",
+    "_nama_obat_internasional": "nevirapine"
+  },
+  {
+    "_id_obat": 3177,
+    "_nama_obat": "nifedipin",
+    "_nama_obat_internasional": "nifedipine"
+  },
+  {
+    "_id_obat": 3185,
+    "_nama_obat": "nikardipin",
+    "_nama_obat_internasional": "nicardipine"
+  },
+  {
+    "_id_obat": 3197,
+    "_nama_obat": "nilotinib",
+    "_nama_obat_internasional": "nilotinib"
+  },
+  {
+    "_id_obat": 3202,
+    "_nama_obat": "nimodipin",
+    "_nama_obat_internasional": "nimodipine"
+  },
+  {
+    "_id_obat": 3212,
+    "_nama_obat": "nistatin",
+    "_nama_obat_internasional": "nystatin"
+  },
+  {
+    "_id_obat": 3221,
+    "_nama_obat": "nitrogen oksida",
+    "_nama_obat_internasional": "nitrous oxide"
+  },
+  {
+    "_id_obat": 3229,
+    "_nama_obat": "nomegestrol asetat",
+    "_nama_obat_internasional": "nomegestrol acetate"
+  },
+  {
+    "_id_obat": 3235,
+    "_nama_obat": "norepinefrin",
+    "_nama_obat_internasional": "norepinephrine"
+  },
+  {
+    "_id_obat": 3237,
+    "_nama_obat": "noretisteron",
+    "_nama_obat_internasional": "norethisterone"
+  },
+  {
+    "_id_obat": 3254,
+    "_nama_obat": "OAT KDT Kategori 1",
+    "_nama_obat_internasional": "fixed dose combination (FDC) antituberculosis drug category 1 "
+  },
+  {
+    "_id_obat": 3256,
+    "_nama_obat": "OAT KDT Kategori Anak",
+    "_nama_obat_internasional": "fixed dose combination (FDC) antituberculosis drug child category "
+  },
+  {
+    "_id_obat": 3257,
+    "_nama_obat": "OAT Kombipak Kategori 1",
+    "_nama_obat_internasional": "combipack antituberculosis drug category 1 "
+  },
+  {
+    "_id_obat": 3258,
+    "_nama_obat": "OAT Kombipak Kategori Anak",
+    "_nama_obat_internasional": "combipack antituberculosis drug child category"
+  },
+  {
+    "_id_obat": 3266,
+    "_nama_obat": "ofloksasin",
+    "_nama_obat_internasional": "ofloxacin"
+  },
+  {
+    "_id_obat": 3272,
+    "_nama_obat": "oksaliplatin",
+    "_nama_obat_internasional": "oxaliplatin"
+  },
+  {
+    "_id_obat": 3294,
+    "_nama_obat": "oksigen",
+    "_nama_obat_internasional": "oxygen"
+  },
+  {
+    "_id_obat": 3295,
+    "_nama_obat": "oksikodon",
+    "_nama_obat_internasional": "oxycodone"
+  },
+  {
+    "_id_obat": 3303,
+    "_nama_obat": "oksimetazolin",
+    "_nama_obat_internasional": "oxymetazoline"
+  },
+  {
+    "_id_obat": 3309,
+    "_nama_obat": "oksitetrasiklin",
+    "_nama_obat_internasional": "oxytetracycline"
+  },
+  {
+    "_id_obat": 3310,
+    "_nama_obat": "oksitosin",
+    "_nama_obat_internasional": "oxytocin"
+  },
+  {
+    "_id_obat": 3313,
+    "_nama_obat": "okskarbazepin",
+    "_nama_obat_internasional": "oxcarbazepine"
+  },
+  {
+    "_id_obat": 3323,
+    "_nama_obat": "oktreotid asetat",
+    "_nama_obat_internasional": "octreotide acetat"
+  },
+  {
+    "_id_obat": 3324,
+    "_nama_obat": "oktreotid LAR",
+    "_nama_obat_internasional": "octreotid LAR"
+  },
+  {
+    "_id_obat": 3326,
+    "_nama_obat": "olanzapin",
+    "_nama_obat_internasional": "olanzapine"
+  },
+  {
+    "_id_obat": 3338,
+    "_nama_obat": "olodaterol",
+    "_nama_obat_internasional": "olodaterol"
+  },
+  {
+    "_id_obat": 3341,
+    "_nama_obat": "olopatadin",
+    "_nama_obat_internasional": "olopatadine"
+  },
+  {
+    "_id_obat": 3348,
+    "_nama_obat": "omeprazol",
+    "_nama_obat_internasional": "omeprazole"
+  },
+  {
+    "_id_obat": 3355,
+    "_nama_obat": "ondansetron",
+    "_nama_obat_internasional": "ondansetron"
+  },
+  {
+    "_id_obat": 3385,
+    "_nama_obat": "paklitaksel",
+    "_nama_obat_internasional": "paclitaxel"
+  },
+  {
+    "_id_obat": 3392,
+    "_nama_obat": "paliperidon palmitat",
+    "_nama_obat_internasional": "paliperidone palmitate"
+  },
+  {
+    "_id_obat": 4802,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk bayi prematur",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for premature babies"
+  },
+  {
+    "_id_obat": 4815,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Galaktosemia",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Galactosemia"
+  },
+  {
+    "_id_obat": 4800,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Isovaleric Acidemia (IVA)",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Isovaleric Acidemia (IVA)"
+  },
+  {
+    "_id_obat": 4812,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Maple Syrup Urine Disease (MSUD)",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Maple Syrup Urine Disease (MSUD)"
+  },
+  {
+    "_id_obat": 4814,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Phenylketonuria (PKU)",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Phenylketonuria (PKU)"
+  },
+  {
+    "_id_obat": 4813,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pasien kelainan metabolik Tyrosinemia",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for patients with inborn errors of metabolism - Tyrosinemia"
+  },
+  {
+    "_id_obat": 4803,
+    "_nama_obat": "Pangan Olahan untuk Keperluan Medis Khusus (PKMK) untuk pelengkap gizi air susu ibu (human milk fortifier)",
+    "_nama_obat_internasional": "Food for Special Medical Purposes (FSMPs) for nutritional complementary of breast milk (human milk fortifier)"
+  },
+  {
+    "_id_obat": 3415,
+    "_nama_obat": "parasetamol",
+    "_nama_obat_internasional": "paracetamol"
+  },
+  {
+    "_id_obat": 3425,
+    "_nama_obat": "pasta devitalisasi (non arsen)",
+    "_nama_obat_internasional": "devitalizing paste (non arsenic)"
+  },
+  {
+    "_id_obat": 3426,
+    "_nama_obat": "pasta pengisi saluran akar",
+    "_nama_obat_internasional": "root canal filling paste"
+  },
+  {
+    "_id_obat": 3430,
+    "_nama_obat": "pazopanib",
+    "_nama_obat_internasional": "pazopanib"
+  },
+  {
+    "_id_obat": 3436,
+    "_nama_obat": "pegaspargase",
+    "_nama_obat_internasional": "pegaspargase"
+  },
+  {
+    "_id_obat": 3449,
+    "_nama_obat": "pegylated interferon alfa-2a",
+    "_nama_obat_internasional": "pegylated interferon alfa-2a"
+  },
+  {
+    "_id_obat": 3455,
+    "_nama_obat": "pemetreksed",
+    "_nama_obat_internasional": "pemetrexed"
+  },
+  {
+    "_id_obat": 3467,
+    "_nama_obat": "pengganti plasma golongan gelatin",
+    "_nama_obat_internasional": "gelatin group plasma substitute"
+  },
+  {
+    "_id_obat": 3489,
+    "_nama_obat": "perak nitrat",
+    "_nama_obat_internasional": "silver nitrate"
+  },
+  {
+    "_id_obat": 3490,
+    "_nama_obat": "perak sulfadiazin",
+    "_nama_obat_internasional": "silver sulfadiazine"
+  },
+  {
+    "_id_obat": 3504,
+    "_nama_obat": "perindopril arginin",
+    "_nama_obat_internasional": "perindopril arginine"
+  },
+  {
+    "_id_obat": 3511,
+    "_nama_obat": "permetrin",
+    "_nama_obat_internasional": "permethrin"
+  },
+  {
+    "_id_obat": 3519,
+    "_nama_obat": "petidin",
+    "_nama_obat_internasional": "pethidine"
+  },
+  {
+    "_id_obat": 3527,
+    "_nama_obat": "pilokarpin",
+    "_nama_obat_internasional": "pilocarpine"
+  },
+  {
+    "_id_obat": 3538,
+    "_nama_obat": "pioglitazon",
+    "_nama_obat_internasional": "pioglitazone"
+  },
+  {
+    "_id_obat": 3556,
+    "_nama_obat": "pirantel pamoat",
+    "_nama_obat_internasional": "pyrantel pamoate"
+  },
+  {
+    "_id_obat": 3558,
+    "_nama_obat": "pirazinamid",
+    "_nama_obat_internasional": "pyrazinamide"
+  },
+  {
+    "_id_obat": 3567,
+    "_nama_obat": "piridoksin (vitamin B6)",
+    "_nama_obat_internasional": "pyridoxine (vit B6)"
+  },
+  {
+    "_id_obat": 3568,
+    "_nama_obat": "piridostigmin",
+    "_nama_obat_internasional": "pyridostigmine"
+  },
+  {
+    "_id_obat": 3569,
+    "_nama_obat": "pirimetamin",
+    "_nama_obat_internasional": "pyrimethamine"
+  },
+  {
+    "_id_obat": 3595,
+    "_nama_obat": "podofilin",
+    "_nama_obat_internasional": "podophyllin"
+  },
+  {
+    "_id_obat": 3602,
+    "_nama_obat": "polietilen glikol",
+    "_nama_obat_internasional": "polyethylene glycol"
+  },
+  {
+    "_id_obat": 3605,
+    "_nama_obat": "polikresulen",
+    "_nama_obat_internasional": "policresulen"
+  },
+  {
+    "_id_obat": 4842,
+    "_nama_obat": "polyvalent snake antivenin (Australia-Papua New Guinea)",
+    "_nama_obat_internasional": "polyvalent snake antivenin (Australia-Papua New Guinea)"
+  },
+  {
+    "_id_obat": 4841,
+    "_nama_obat": "polyvalent snake antivenin (Indonesia)",
+    "_nama_obat_internasional": "polyvalent snake antivenin (Indonesia)"
+  },
+  {
+    "_id_obat": 3619,
+    "_nama_obat": "ponatinib",
+    "_nama_obat_internasional": "ponatinib"
+  },
+  {
+    "_id_obat": 3622,
+    "_nama_obat": "povidon iodin",
+    "_nama_obat_internasional": "povidone-iodine"
+  },
+  {
+    "_id_obat": 3629,
+    "_nama_obat": "pramipeksol",
+    "_nama_obat_internasional": "pramipexole"
+  },
+  {
+    "_id_obat": 3637,
+    "_nama_obat": "pravastatin",
+    "_nama_obat_internasional": "pravastatin"
+  },
+  {
+    "_id_obat": 3643,
+    "_nama_obat": "prazikuantel",
+    "_nama_obat_internasional": "praziquantel"
+  },
+  {
+    "_id_obat": 3649,
+    "_nama_obat": "prednisolon",
+    "_nama_obat_internasional": "prednisolone"
+  },
+  {
+    "_id_obat": 3654,
+    "_nama_obat": "prednison",
+    "_nama_obat_internasional": "prednisone"
+  },
+  {
+    "_id_obat": 3655,
+    "_nama_obat": "pregabalin",
+    "_nama_obat_internasional": "pregabalin"
+  },
+  {
+    "_id_obat": 3667,
+    "_nama_obat": "primakuin",
+    "_nama_obat_internasional": "primaquine"
+  },
+  {
+    "_id_obat": 3681,
+    "_nama_obat": "prokain benzilpenisilin",
+    "_nama_obat_internasional": "procaine benzylpenicillin"
+  },
+  {
+    "_id_obat": 3684,
+    "_nama_obat": "prokaterol",
+    "_nama_obat_internasional": "procaterol"
+  },
+  {
+    "_id_obat": 3710,
+    "_nama_obat": "propiltiourasil",
+    "_nama_obat_internasional": "propylthiouracil"
+  },
+  {
+    "_id_obat": 3714,
+    "_nama_obat": "propofol",
+    "_nama_obat_internasional": "propofol"
+  },
+  {
+    "_id_obat": 3715,
+    "_nama_obat": "propranolol",
+    "_nama_obat_internasional": "propranolol"
+  },
+  {
+    "_id_obat": 3719,
+    "_nama_obat": "prostaglandin (PGE 1)",
+    "_nama_obat_internasional": "prostaglandin (PGE 1)"
+  },
+  {
+    "_id_obat": 3721,
+    "_nama_obat": "protamin sulfat",
+    "_nama_obat_internasional": "protamine sulfate"
+  },
+  {
+    "_id_obat": 3736,
+    "_nama_obat": "quetiapin",
+    "_nama_obat_internasional": "quetiapine"
+  },
+  {
+    "_id_obat": 3753,
+    "_nama_obat": "ramipril",
+    "_nama_obat_internasional": "ramipril"
+  },
+  {
+    "_id_obat": 3760,
+    "_nama_obat": "ranibizumab",
+    "_nama_obat_internasional": "ranibizumab"
+  },
+  {
+    "_id_obat": 3762,
+    "_nama_obat": "ranitidin",
+    "_nama_obat_internasional": "ranitidine"
+  },
+  {
+    "_id_obat": 3776,
+    "_nama_obat": "remdesivir",
+    "_nama_obat_internasional": "remdesivir"
+  },
+  {
+    "_id_obat": 3777,
+    "_nama_obat": "remifentanil",
+    "_nama_obat_internasional": "remifentanil"
+  },
+  {
+    "_id_obat": 3798,
+    "_nama_obat": "retinol (vitamin A)",
+    "_nama_obat_internasional": "retinol (vitamin A)"
+  },
+  {
+    "_id_obat": 3810,
+    "_nama_obat": "rifampisin",
+    "_nama_obat_internasional": "rifampicin "
+  },
+  {
+    "_id_obat": 3815,
+    "_nama_obat": "rifapentin",
+    "_nama_obat_internasional": "rifapentine"
+  },
+  {
+    "_id_obat": 3831,
+    "_nama_obat": "risedronat",
+    "_nama_obat_internasional": "risedronic acid"
+  },
+  {
+    "_id_obat": 3832,
+    "_nama_obat": "risperidon",
+    "_nama_obat_internasional": "risperidone"
+  },
+  {
+    "_id_obat": 3836,
+    "_nama_obat": "rituksimab",
+    "_nama_obat_internasional": "rituximab"
+  },
+  {
+    "_id_obat": 3837,
+    "_nama_obat": "rivaroksaban",
+    "_nama_obat_internasional": "rivaroxaban"
+  },
+  {
+    "_id_obat": 3847,
+    "_nama_obat": "rokuronium",
+    "_nama_obat_internasional": "rocuronium"
+  },
+  {
+    "_id_obat": 3856,
+    "_nama_obat": "ropinirol",
+    "_nama_obat_internasional": "ropinirole"
+  },
+  {
+    "_id_obat": 3857,
+    "_nama_obat": "ropivakain",
+    "_nama_obat_internasional": "ropivacaine"
+  },
+  {
+    "_id_obat": 3862,
+    "_nama_obat": "rosuvastatin",
+    "_nama_obat_internasional": "rosuvastatin"
+  },
+  {
+    "_id_obat": 3882,
+    "_nama_obat": "ruksolitinib",
+    "_nama_obat_internasional": "ruxolitinib"
+  },
+  {
+    "_id_obat": 4843,
+    "_nama_obat": "russells viper antivenin",
+    "_nama_obat_internasional": "russells viper antivenin"
+  },
+  {
+    "_id_obat": 3891,
+    "_nama_obat": "sacubitril valsartan",
+    "_nama_obat_internasional": "sacubitril valsartan"
+  },
+  {
+    "_id_obat": 3896,
+    "_nama_obat": "salbutamol",
+    "_nama_obat_internasional": "salbutamol"
+  },
+  {
+    "_id_obat": 3900,
+    "_nama_obat": "salep 2âˆ’4",
+    "_nama_obat_internasional": "ointment 2âˆ’4"
+  },
+  {
+    "_id_obat": 4844,
+    "_nama_obat": "sea snake antivenin",
+    "_nama_obat_internasional": "sea snake antivenin"
+  },
+  {
+    "_id_obat": 3920,
+    "_nama_obat": "secukinumab",
+    "_nama_obat_internasional": "secukinumab"
+  },
+  {
+    "_id_obat": 3922,
+    "_nama_obat": "sefadroksil",
+    "_nama_obat_internasional": "cefadroxil"
+  },
+  {
+    "_id_obat": 3924,
+    "_nama_obat": "sefaleksin",
+    "_nama_obat_internasional": "cefalexin"
+  },
+  {
+    "_id_obat": 3932,
+    "_nama_obat": "sefazolin",
+    "_nama_obat_internasional": "cefazolin"
+  },
+  {
+    "_id_obat": 3936,
+    "_nama_obat": "sefepim",
+    "_nama_obat_internasional": "cefepime"
+  },
+  {
+    "_id_obat": 3940,
+    "_nama_obat": "sefiksim",
+    "_nama_obat_internasional": "cefixime"
+  },
+  {
+    "_id_obat": 3951,
+    "_nama_obat": "sefoperazon",
+    "_nama_obat_internasional": "cefoperazone"
+  },
+  {
+    "_id_obat": 3954,
+    "_nama_obat": "sefotaksim",
+    "_nama_obat_internasional": "cefotaxime"
+  },
+  {
+    "_id_obat": 3960,
+    "_nama_obat": "sefpirom",
+    "_nama_obat_internasional": "cefpirome"
+  },
+  {
+    "_id_obat": 3968,
+    "_nama_obat": "seftazidim",
+    "_nama_obat_internasional": "ceftazidime"
+  },
+  {
+    "_id_obat": 3976,
+    "_nama_obat": "seftriakson",
+    "_nama_obat_internasional": "ceftriaxone"
+  },
+  {
+    "_id_obat": 3978,
+    "_nama_obat": "sefuroksim",
+    "_nama_obat_internasional": "cefuroxime"
+  },
+  {
+    "_id_obat": 3987,
+    "_nama_obat": "selekoksib",
+    "_nama_obat_internasional": "celecoxib"
+  },
+  {
+    "_id_obat": 4022,
+    "_nama_obat": "sertralin",
+    "_nama_obat_internasional": "sertraline"
+  },
+  {
+    "_id_obat": 4025,
+    "_nama_obat": "serum antidifteri (A.D.S)",
+    "_nama_obat_internasional": "diphtheria antitoxin"
+  },
+  {
+    "_id_obat": 4026,
+    "_nama_obat": "serum antirabies",
+    "_nama_obat_internasional": "rabies serum"
+  },
+  {
+    "_id_obat": 4027,
+    "_nama_obat": "serum antitetanus (A.T.S)",
+    "_nama_obat_internasional": "tetanus antitoxin"
+  },
+  {
+    "_id_obat": 4031,
+    "_nama_obat": "setirizin",
+    "_nama_obat_internasional": "cetirizine"
+  },
+  {
+    "_id_obat": 4036,
+    "_nama_obat": "setuksimab",
+    "_nama_obat_internasional": "cetuximab"
+  },
+  {
+    "_id_obat": 4038,
+    "_nama_obat": "sevelamer karbonat",
+    "_nama_obat_internasional": "sevelamer carbonate"
+  },
+  {
+    "_id_obat": 4040,
+    "_nama_obat": "sevofluran",
+    "_nama_obat_internasional": "sevoflurane"
+  },
+  {
+    "_id_obat": 4042,
+    "_nama_obat": "sianokobalamin (vitamin B12)",
+    "_nama_obat_internasional": "cyanocobalamin"
+  },
+  {
+    "_id_obat": 4056,
+    "_nama_obat": "siklofosfamid",
+    "_nama_obat_internasional": "cyclophosphamide"
+  },
+  {
+    "_id_obat": 4064,
+    "_nama_obat": "siklopentolat",
+    "_nama_obat_internasional": "cyclopentolate"
+  },
+  {
+    "_id_obat": 4067,
+    "_nama_obat": "siklosporin",
+    "_nama_obat_internasional": "ciclosporin"
+  },
+  {
+    "_id_obat": 4073,
+    "_nama_obat": "sildenafil",
+    "_nama_obat_internasional": "sildenafil"
+  },
+  {
+    "_id_obat": 4077,
+    "_nama_obat": "silodosin",
+    "_nama_obat_internasional": "silodosin"
+  },
+  {
+    "_id_obat": 4079,
+    "_nama_obat": "silostazol",
+    "_nama_obat_internasional": "cilostazol"
+  },
+  {
+    "_id_obat": 4089,
+    "_nama_obat": "simvastatin",
+    "_nama_obat_internasional": "simvastatin"
+  },
+  {
+    "_id_obat": 4111,
+    "_nama_obat": "siprofloksasin",
+    "_nama_obat_internasional": "ciprofloxacin"
+  },
+  {
+    "_id_obat": 4122,
+    "_nama_obat": "sisplatin",
+    "_nama_obat_internasional": "cisplatin"
+  },
+  {
+    "_id_obat": 4124,
+    "_nama_obat": "sitagliptin",
+    "_nama_obat_internasional": "sitagliptin"
+  },
+  {
+    "_id_obat": 4129,
+    "_nama_obat": "sitarabin",
+    "_nama_obat_internasional": "cytarabine"
+  },
+  {
+    "_id_obat": 4137,
+    "_nama_obat": "sodium hialuronat",
+    "_nama_obat_internasional": "sodium hyaluronate"
+  },
+  {
+    "_id_obat": 4138,
+    "_nama_obat": "sofosbuvir",
+    "_nama_obat_internasional": "sofosbuvir"
+  },
+  {
+    "_id_obat": 4142,
+    "_nama_obat": "solifenasin",
+    "_nama_obat_internasional": "solifenacin"
+  },
+  {
+    "_id_obat": 4147,
+    "_nama_obat": "somatostatin",
+    "_nama_obat_internasional": "somatostatin"
+  },
+  {
+    "_id_obat": 4150,
+    "_nama_obat": "somatropin",
+    "_nama_obat_internasional": "somatropin"
+  },
+  {
+    "_id_obat": 4164,
+    "_nama_obat": "spiramisin",
+    "_nama_obat_internasional": "spiramycin"
+  },
+  {
+    "_id_obat": 4167,
+    "_nama_obat": "spironolakton",
+    "_nama_obat_internasional": "spironolactone"
+  },
+  {
+    "_id_obat": 4170,
+    "_nama_obat": "stannous pyrophosphate",
+    "_nama_obat_internasional": "stannous pyrophosphate"
+  },
+  {
+    "_id_obat": 4181,
+    "_nama_obat": "streptokinase",
+    "_nama_obat_internasional": "streptokinase"
+  },
+  {
+    "_id_obat": 4182,
+    "_nama_obat": "streptomisin",
+    "_nama_obat_internasional": "streptomycin"
+  },
+  {
+    "_id_obat": 4188,
+    "_nama_obat": "sufentanil",
+    "_nama_obat_internasional": "sufentanil"
+  },
+  {
+    "_id_obat": 4189,
+    "_nama_obat": "sugammadeks",
+    "_nama_obat_internasional": "sugammadex"
+  },
+  {
+    "_id_obat": 4190,
+    "_nama_obat": "sukralfat",
+    "_nama_obat_internasional": "sucralfate"
+  },
+  {
+    "_id_obat": 4195,
+    "_nama_obat": "suksinilkolin",
+    "_nama_obat_internasional": "succinylcholine"
+  },
+  {
+    "_id_obat": 4200,
+    "_nama_obat": "sulfadiazin",
+    "_nama_obat_internasional": "sulfadiazine"
+  },
+  {
+    "_id_obat": 4227,
+    "_nama_obat": "sulfasalazin",
+    "_nama_obat_internasional": "sulfasalazine"
+  },
+  {
+    "_id_obat": 4235,
+    "_nama_obat": "sulfur colloid",
+    "_nama_obat_internasional": "colloidal sulfur"
+  },
+  {
+    "_id_obat": 4252,
+    "_nama_obat": "surfaktan",
+    "_nama_obat_internasional": "surfactan"
+  },
+  {
+    "_id_obat": 4253,
+    "_nama_obat": "surgical ginggival pack",
+    "_nama_obat_internasional": "surgical ginggival pack"
+  },
+  {
+    "_id_obat": 4266,
+    "_nama_obat": "takrolimus",
+    "_nama_obat_internasional": "tacrolimus"
+  },
+  {
+    "_id_obat": 4276,
+    "_nama_obat": "tamoksifen",
+    "_nama_obat_internasional": "tamoxifen"
+  },
+  {
+    "_id_obat": 4277,
+    "_nama_obat": "tamsulosin",
+    "_nama_obat_internasional": "tamsulosin"
+  },
+  {
+    "_id_obat": 4298,
+    "_nama_obat": "technetium 99m",
+    "_nama_obat_internasional": "technetium 99m"
+  },
+  {
+    "_id_obat": 4355,
+    "_nama_obat": "telbivudin",
+    "_nama_obat_internasional": "telbivudine"
+  },
+  {
+    "_id_obat": 4357,
+    "_nama_obat": "telmisartan",
+    "_nama_obat_internasional": "telmisartan"
+  },
+  {
+    "_id_obat": 4372,
+    "_nama_obat": "temozolomid",
+    "_nama_obat_internasional": "temozolomide"
+  },
+  {
+    "_id_obat": 4381,
+    "_nama_obat": "tenofovir alafenamide fumarat",
+    "_nama_obat_internasional": "tenofovir alafenamide fumarate"
+  },
+  {
+    "_id_obat": 4383,
+    "_nama_obat": "tenofovir disoproksil fumarat",
+    "_nama_obat_internasional": "tenofovir disoproxil fumarate"
+  },
+  {
+    "_id_obat": 4388,
+    "_nama_obat": "teofilin",
+    "_nama_obat_internasional": "theophylline"
+  },
+  {
+    "_id_obat": 4393,
+    "_nama_obat": "terazosin",
+    "_nama_obat_internasional": "terazosin"
+  },
+  {
+    "_id_obat": 4394,
+    "_nama_obat": "terbinafin",
+    "_nama_obat_internasional": "terbinafine"
+  },
+  {
+    "_id_obat": 4395,
+    "_nama_obat": "terbutalin",
+    "_nama_obat_internasional": "terbutaline"
+  },
+  {
+    "_id_obat": 4406,
+    "_nama_obat": "testosteron",
+    "_nama_obat_internasional": "testosterone"
+  },
+  {
+    "_id_obat": 4408,
+    "_nama_obat": "tetanus toxoid",
+    "_nama_obat_internasional": "tetanus toxoid"
+  },
+  {
+    "_id_obat": 4410,
+    "_nama_obat": "tetrakain",
+    "_nama_obat_internasional": "tetracaine"
+  },
+  {
+    "_id_obat": 4413,
+    "_nama_obat": "tetrasiklin",
+    "_nama_obat_internasional": "tetracycline"
+  },
+  {
+    "_id_obat": 4422,
+    "_nama_obat": "tiamazol",
+    "_nama_obat_internasional": "thiamazole"
+  },
+  {
+    "_id_obat": 4424,
+    "_nama_obat": "tiamin (vitamin B1)",
+    "_nama_obat_internasional": "thiamine (vit B1)"
+  },
+  {
+    "_id_obat": 4441,
+    "_nama_obat": "tikagrelor",
+    "_nama_obat_internasional": "ticagrelor"
+  },
+  {
+    "_id_obat": 4458,
+    "_nama_obat": "timolol",
+    "_nama_obat_internasional": "timolol"
+  },
+  {
+    "_id_obat": 4471,
+    "_nama_obat": "tiopental",
+    "_nama_obat_internasional": "thiopental"
+  },
+  {
+    "_id_obat": 4479,
+    "_nama_obat": "tiotropium",
+    "_nama_obat_internasional": "tiotropium"
+  },
+  {
+    "_id_obat": 4500,
+    "_nama_obat": "tobramisin",
+    "_nama_obat_internasional": "tobramycin"
+  },
+  {
+    "_id_obat": 4524,
+    "_nama_obat": "topiramat",
+    "_nama_obat_internasional": "topiramate"
+  },
+  {
+    "_id_obat": 4528,
+    "_nama_obat": "tosilizumab",
+    "_nama_obat_internasional": "tocilizumab"
+  },
+  {
+    "_id_obat": 4536,
+    "_nama_obat": "tramadol",
+    "_nama_obat_internasional": "tramadol"
+  },
+  {
+    "_id_obat": 4547,
+    "_nama_obat": "trastuzumab",
+    "_nama_obat_internasional": "trastuzumab"
+  },
+  {
+    "_id_obat": 4551,
+    "_nama_obat": "travoprost",
+    "_nama_obat_internasional": "travoprost"
+  },
+  {
+    "_id_obat": 4559,
+    "_nama_obat": "triamsinolon asetonid",
+    "_nama_obat_internasional": "triamcinolone acetonide"
+  },
+  {
+    "_id_obat": 4571,
+    "_nama_obat": "trifluoperazin",
+    "_nama_obat_internasional": "trifluoperazine"
+  },
+  {
+    "_id_obat": 4576,
+    "_nama_obat": "triheksifenidil",
+    "_nama_obat_internasional": "trihexyphenidyl"
+  },
+  {
+    "_id_obat": 4619,
+    "_nama_obat": "tropikamid",
+    "_nama_obat_internasional": "tropicamide"
+  },
+  {
+    "_id_obat": 4626,
+    "_nama_obat": "tuberkulin protein purified derivative",
+    "_nama_obat_internasional": "tuberculin protein purified derivative"
+  },
+  {
+    "_id_obat": 4648,
+    "_nama_obat": "urea",
+    "_nama_obat_internasional": "urea"
+  },
+  {
+    "_id_obat": 4655,
+    "_nama_obat": "vaksin BCG",
+    "_nama_obat_internasional": "BCG vaccine"
+  },
+  {
+    "_id_obat": 4836,
+    "_nama_obat": "vaksin COVID-19 platform inactivated",
+    "_nama_obat_internasional": "vaksin COVID-19 platform inactivated"
+  },
+  {
+    "_id_obat": 4847,
+    "_nama_obat": "vaksin COVID-19 platform mRNA",
+    "_nama_obat_internasional": "COVID-19 vaccine - mRNA platform"
+  },
+  {
+    "_id_obat": 4848,
+    "_nama_obat": "vaksin COVID-19 platform protein sub unit rekombinan",
+    "_nama_obat_internasional": "COVID-19 vaccine - recombinant protein subunit platform"
+  },
+  {
+    "_id_obat": 4657,
+    "_nama_obat": "vaksin DPT-HB-Hib",
+    "_nama_obat_internasional": "DPT-HB-Hib vaccine"
+  },
+  {
+    "_id_obat": 4659,
+    "_nama_obat": "vaksin hepatitis B rekombinan",
+    "_nama_obat_internasional": "recombinant hepatitis B vaccine"
+  },
+  {
+    "_id_obat": 4849,
+    "_nama_obat": "vaksin human papilomavirus",
+    "_nama_obat_internasional": "human papillomavirus vaccine"
+  },
+  {
+    "_id_obat": 4850,
+    "_nama_obat": "vaksin human rotavirus",
+    "_nama_obat_internasional": "human rotavirus vaccine"
+  },
+  {
+    "_id_obat": 4851,
+    "_nama_obat": "vaksin Japanese encephalitis, live attenuated",
+    "_nama_obat_internasional": "live attenuated Japanese encephalitis vaccine"
+  },
+  {
+    "_id_obat": 4660,
+    "_nama_obat": "vaksin jerap difteri tetanus (DT)",
+    "_nama_obat_internasional": "diphtheria tetanus (DT) vaccine"
+  },
+  {
+    "_id_obat": 4661,
+    "_nama_obat": "vaksin jerap tetanus difteri (Td)",
+    "_nama_obat_internasional": "tetanus diphtheria (Td) vaccine"
+  },
+  {
+    "_id_obat": 4666,
+    "_nama_obat": "vaksin measles rubella (MR)",
+    "_nama_obat_internasional": "measles rubella (MR) vaccine"
+  },
+  {
+    "_id_obat": 4845,
+    "_nama_obat": "vaksin pneumokokus polisakarida konjugasi",
+    "_nama_obat_internasional": "conjugate polysaccharide pneumococcal vaccine"
+  },
+  {
+    "_id_obat": 4668,
+    "_nama_obat": "vaksin polio IPV",
+    "_nama_obat_internasional": "IPV polio vaccine"
+  },
+  {
+    "_id_obat": 4669,
+    "_nama_obat": "vaksin polio oral (b-OPV)",
+    "_nama_obat_internasional": "oral polio vaccine (b-OPV)"
+  },
+  {
+    "_id_obat": 4670,
+    "_nama_obat": "vaksin rabies, untuk manusia",
+    "_nama_obat_internasional": "rabies vaccine, for humans"
+  },
+  {
+    "_id_obat": 4672,
+    "_nama_obat": "valasiklovir",
+    "_nama_obat_internasional": "valaciclovir"
+  },
+  {
+    "_id_obat": 4677,
+    "_nama_obat": "valgansiklovir",
+    "_nama_obat_internasional": "valganciclovir"
+  },
+  {
+    "_id_obat": 4679,
+    "_nama_obat": "valproat",
+    "_nama_obat_internasional": "valproate"
+  },
+  {
+    "_id_obat": 4682,
+    "_nama_obat": "valsartan",
+    "_nama_obat_internasional": "valsartan"
+  },
+  {
+    "_id_obat": 4691,
+    "_nama_obat": "vankomisin",
+    "_nama_obat_internasional": "vancomycin"
+  },
+  {
+    "_id_obat": 4696,
+    "_nama_obat": "vasopresin",
+    "_nama_obat_internasional": "vasopressin (argipressin)"
+  },
+  {
+    "_id_obat": 4706,
+    "_nama_obat": "verapamil",
+    "_nama_obat_internasional": "verapamil"
+  },
+  {
+    "_id_obat": 4719,
+    "_nama_obat": "vildagliptin",
+    "_nama_obat_internasional": "vildagliptin"
+  },
+  {
+    "_id_obat": 4724,
+    "_nama_obat": "vinblastin",
+    "_nama_obat_internasional": "vinblastine"
+  },
+  {
+    "_id_obat": 4731,
+    "_nama_obat": "vinkristin",
+    "_nama_obat_internasional": "vincristine"
+  },
+  {
+    "_id_obat": 4732,
+    "_nama_obat": "vinorelbin",
+    "_nama_obat_internasional": "vinorelbine"
+  },
+  {
+    "_id_obat": 4869,
+    "_nama_obat": "vitamin B kompleks mengandung vitamin B1, vitamin B6, vitamin B12",
+    "_nama_obat_internasional": "vitamin complex B contains vitamin B1, vitamin B6, vitamin B12"
+  },
+  {
+    "_id_obat": 4749,
+    "_nama_obat": "vorikonazol",
+    "_nama_obat_internasional": "voriconazole"
+  },
+  {
+    "_id_obat": 4757,
+    "_nama_obat": "warfarin",
+    "_nama_obat_internasional": "warfarin"
+  },
+  {
+    "_id_obat": 4772,
+    "_nama_obat": "zidovudin",
+    "_nama_obat_internasional": "zidovudine"
+  },
+  {
+    "_id_obat": 4778,
+    "_nama_obat": "zinc",
+    "_nama_obat_internasional": "zinc"
+  },
+  {
+    "_id_obat": 4792,
+    "_nama_obat": "zonisamid",
+    "_nama_obat_internasional": "zonisamide"
+  }
+]

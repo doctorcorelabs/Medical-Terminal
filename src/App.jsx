@@ -23,6 +23,7 @@ import Tools from './pages/Tools';
 import ICD10Tool from './pages/tools/ICD10Tool';
 import MedCalculator from './pages/tools/MedCalculator';
 import DrugInteraction from './pages/tools/DrugInteraction';
+import FornasDrug from './pages/tools/FornasDrug';
 import { ScheduleProvider } from './context/ScheduleContext';
 
 function AppContent() {
@@ -71,6 +72,7 @@ function AppContent() {
                 <Route path="/tools/icd10" element={<ICD10Tool />} />
                 <Route path="/tools/calculator" element={<MedCalculator />} />
                 <Route path="/tools/drug-interaction" element={<DrugInteraction />} />
+                <Route path="/tools/fornas" element={<FornasDrug />} />
               </Routes>
             </div>
           </main>
