@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { deleteAllPatientsData, syncToSupabase } from '../services/dataService';
+import { deleteAllPatientsData, syncToSupabase, getAllStases, addStase, syncStasesToSupabase } from '../services/dataService';
+import StaseMappingModal from '../components/StaseMappingModal';
 
 export default function Settings() {
     const { user, updateProfile, isUsernameAvailable } = useAuth();
@@ -14,6 +15,7 @@ export default function Settings() {
     const [showFinalConfirm, setShowFinalConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [pendingImport, setPendingImport] = useState(null); // { patients: [] } while mapping modal is open
     const { addToast } = useToast();
 
     // Step 1: user typed the phrase → advance to final warning
@@ -84,31 +86,52 @@ export default function Settings() {
     const importData = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        // Reset input so the same file can be re-selected after cancel
+        e.target.value = '';
         const reader = new FileReader();
-        reader.onload = async (ev) => {
+        reader.onload = (ev) => {
             try {
                 const imported = JSON.parse(ev.target.result);
                 if (!Array.isArray(imported)) throw new Error('Bukan array');
-                // Merge: keep existing patients and append imported ones that don't already exist (deduplicated by id)
-                const existing = JSON.parse(localStorage.getItem('medterminal_patients') || '[]');
-                const existingIds = new Set(existing.map(p => p.id));
-                const newPatients = imported.filter(p => p.id && !existingIds.has(p.id));
-                const merged = [...existing, ...newPatients];
-                localStorage.setItem('medterminal_patients', JSON.stringify(merged));
-                addToast(`${newPatients.length} pasien berhasil diimpor.`, 'success');
-                if (user?.id) {
-                    setImporting(true);
-                    addToast('Menyinkronkan data ke server…', 'info');
-                    try {
-                        await syncToSupabase(user.id);
-                    } catch {
-                        addToast('Data tersimpan lokal, tapi gagal sinkron ke server.', 'error');
-                    }
-                }
-                window.location.reload();
+                // Ensure every patient has an id
+                const normalized = imported.map(p => ({ ...p, id: p.id || crypto.randomUUID() }));
+                // Open mapping modal (it auto-skips if no unknown stases)
+                setPendingImport({ patients: normalized });
             } catch { addToast('File JSON tidak valid atau format tidak didukung', 'error'); }
         };
         reader.readAsText(file);
+    };
+
+    const applyImport = async (mappedPatients, newStases) => {
+        setPendingImport(null);
+        setImporting(true);
+        try {
+            // 1. Create new stases locally first
+            if (newStases.length > 0) {
+                const current = getAllStases();
+                const merged = [...current, ...newStases];
+                localStorage.setItem('medterminal_stases', JSON.stringify(merged));
+            }
+            // 2. Merge patients (deduplicated by id)
+            const existing = JSON.parse(localStorage.getItem('medterminal_patients') || '[]');
+            const existingIds = new Set(existing.map(p => p.id));
+            const incoming = mappedPatients.filter(p => !existingIds.has(p.id));
+            const mergedPatients = [...existing, ...incoming];
+            localStorage.setItem('medterminal_patients', JSON.stringify(mergedPatients));
+            addToast(`${incoming.length} pasien berhasil diimpor.`, 'success');
+            // 3. Sync to Supabase
+            if (user?.id) {
+                addToast('Menyinkronkan data ke server…', 'info');
+                try {
+                    if (newStases.length > 0) await syncStasesToSupabase(user.id);
+                    await syncToSupabase(user.id);
+                } catch {
+                    addToast('Data tersimpan lokal, tapi gagal sinkron ke server.', 'error');
+                }
+            }
+        } finally {
+            window.location.reload();
+        }
     };
 
     return (
@@ -163,6 +186,15 @@ export default function Settings() {
                     </div>
                 </div>
             </div>
+
+            {/* Stase mapping modal — shown after a JSON file is loaded */}
+            <StaseMappingModal
+                open={!!pendingImport}
+                importedPatients={pendingImport?.patients ?? []}
+                localStases={getAllStases()}
+                onApply={applyImport}
+                onCancel={() => setPendingImport(null)}
+            />
 
             {/* Step 1: typed confirmation */}
             <ConfirmDialog

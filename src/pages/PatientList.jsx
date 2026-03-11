@@ -34,6 +34,8 @@ export default function PatientList() {
     const transferDropdownRef = useRef(null);
     const [openCardMenuId, setOpenCardMenuId] = useState(null);
     const cardMenuRef = useRef(null);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
     useEffect(() => {
         if (!transferPatientId) return;
@@ -157,6 +159,17 @@ export default function PatientList() {
     // Patient for the open transfer dropdown
     const transferPatient = transferPatientId ? patients.find(p => p.id === transferPatientId) : null;
 
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+    const selectAll = () => setSelectedIds(new Set(filteredPatients.map(p => p.id)));
+    const clearAll = () => setSelectedIds(new Set());
+    const exitSelection = () => { setSelectionMode(false); setSelectedIds(new Set()); };
+
     return (
         <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 gap-5 lg:gap-6 pb-20 lg:pb-8 animate-[fadeIn_0.3s_ease-out]">
 
@@ -202,6 +215,13 @@ export default function PatientList() {
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Dashboard klinis real-time dengan AI diagnostik.</p>
                 </div>
                 <div className="flex gap-2 sm:gap-3 shrink-0">
+                    <button
+                        onClick={() => { if (selectionMode) { setSelectionMode(false); setSelectedIds(new Set()); } else { setSelectionMode(true); } }}
+                        className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${selectionMode ? 'bg-primary/10 text-primary border-primary/30' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                    >
+                        <span className="material-symbols-outlined text-lg">{selectionMode ? 'check_box' : 'check_box_outline_blank'}</span>
+                        <span className="hidden sm:inline">Pilih</span>
+                    </button>
                     <div className="relative" ref={exportMenuRef}>
                         <button
                             onClick={(e) => {
@@ -237,7 +257,9 @@ export default function PatientList() {
                             >
                                 <button
                                     onClick={() => {
-                                        exportPatientListPDF(patients);
+                                        if (selectionMode && selectedIds.size === 0) return;
+                                        const toExport = selectionMode ? patients.filter(p => selectedIds.has(p.id)) : patients;
+                                        exportPatientListPDF(toExport);
                                         setShowExportMenu(false);
                                         setExportMenuPos(null);
                                     }}
@@ -246,12 +268,14 @@ export default function PatientList() {
                                     <span className="material-symbols-outlined text-red-500 text-xl">picture_as_pdf</span>
                                     <div>
                                         <p className="text-sm font-bold text-slate-800 dark:text-white">Export PDF</p>
-                                        <p className="text-[10px] text-slate-400">Laporan daftar pasien lengkap</p>
+                                        <p className="text-[10px] text-slate-400">{selectionMode && selectedIds.size > 0 ? `${selectedIds.size} pasien dipilih` : 'Laporan daftar pasien lengkap'}</p>
                                     </div>
                                 </button>
                                 <button
                                     onClick={() => {
-                                        const data = JSON.stringify(patients, null, 2);
+                                        if (selectionMode && selectedIds.size === 0) return;
+                                        const toExport = selectionMode ? patients.filter(p => selectedIds.has(p.id)) : patients;
+                                        const data = JSON.stringify(toExport, null, 2);
                                         const blob = new Blob([data], { type: 'application/json' });
                                         const url = URL.createObjectURL(blob);
                                         const a = document.createElement('a');
@@ -265,7 +289,7 @@ export default function PatientList() {
                                     <span className="material-symbols-outlined text-blue-500 text-xl">data_object</span>
                                     <div>
                                         <p className="text-sm font-bold text-slate-800 dark:text-white">Export JSON</p>
-                                        <p className="text-[10px] text-slate-400">Data mentah untuk backup</p>
+                                        <p className="text-[10px] text-slate-400">{selectionMode && selectedIds.size > 0 ? `${selectedIds.size} pasien dipilih` : 'Data mentah untuk backup'}</p>
                                     </div>
                                 </button>
                             </div>
@@ -391,6 +415,36 @@ export default function PatientList() {
                 </div>
             </div>
 
+            {/* Selection Toolbar */}
+            {selectionMode && (
+                <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                    <input
+                        type="checkbox"
+                        checked={selectedIds.size > 0 && selectedIds.size === filteredPatients.length}
+                        ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredPatients.length; }}
+                        onChange={() => selectedIds.size === filteredPatients.length ? clearAll() : selectAll()}
+                        className="w-4 h-4 rounded accent-primary cursor-pointer"
+                    />
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        {selectedIds.size > 0 ? `${selectedIds.size} pasien dipilih` : 'Pilih pasien untuk diekspor'}
+                    </span>
+                    {selectedIds.size < filteredPatients.length && (
+                        <button onClick={selectAll} className="text-xs text-primary font-bold hover:underline">
+                            Pilih Semua ({filteredPatients.length})
+                        </button>
+                    )}
+                    {selectedIds.size > 0 && (
+                        <button onClick={clearAll} className="text-xs text-slate-500 font-bold hover:underline">
+                            Batal Pilih
+                        </button>
+                    )}
+                    <button onClick={exitSelection} className="ml-auto flex items-center gap-1 text-xs text-slate-500 hover:text-red-500 font-bold transition-colors">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                        Selesai
+                    </button>
+                </div>
+            )}
+
             {/* Tabel Data */}
             {filteredPatients.length === 0 ? (
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center">
@@ -406,6 +460,7 @@ export default function PatientList() {
                             <table className="w-full text-left border-collapse min-w-175">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                        {selectionMode && <th className="pl-3 pr-0 py-3 w-8"></th>}
                                         <th className="px-3 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Info Pasien</th>
                                         <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10 text-center">Umur</th>
                                         <th className="px-2 py-3 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-32.5">Tanda Vital</th>
@@ -420,9 +475,14 @@ export default function PatientList() {
                                     {filteredPatients.map(p => (
                                         <tr
                                             key={p.id}
-                                            onClick={() => navigate(`/patient/${p.id}`)}
-                                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
+                                            onClick={() => selectionMode ? toggleSelect(p.id) : navigate(`/patient/${p.id}`)}
+                                            className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors cursor-pointer ${selectionMode && selectedIds.has(p.id) ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
                                         >
+                                            {selectionMode && (
+                                                <td className="pl-3 pr-0 py-3 align-middle w-8" onClick={e => e.stopPropagation()}>
+                                                    <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} className="w-4 h-4 rounded accent-primary cursor-pointer" />
+                                                </td>
+                                            )}
                                             <td className="px-3 py-3 align-top">
                                                 <div className="flex items-start gap-2 mt-1">
                                                     <div className="size-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0 border border-slate-300 dark:border-slate-600 shadow-sm">
@@ -547,11 +607,16 @@ export default function PatientList() {
                         {filteredPatients.map(p => (
                             <div
                                 key={p.id}
-                                onClick={() => navigate(`/patient/${p.id}`)}
-                                className="relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 cursor-pointer hover:border-primary/30 transition-all"
+                                onClick={() => selectionMode ? toggleSelect(p.id) : navigate(`/patient/${p.id}`)}
+                                className={`relative bg-white dark:bg-slate-900 rounded-xl border p-4 cursor-pointer transition-all ${selectionMode && selectedIds.has(p.id) ? 'border-primary/50 bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
                             >
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
+                                        {selectionMode && (
+                                            <div onClick={e => e.stopPropagation()}>
+                                                <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} className="w-4 h-4 rounded accent-primary cursor-pointer shrink-0" />
+                                            </div>
+                                        )}
                                         <div className="size-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
                                             <span className="material-symbols-outlined text-slate-500">person</span>
                                         </div>
