@@ -6,6 +6,7 @@ import { checkLabValue, labReferences, labCategories, formatDateTime } from '../
 import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
 import BloodGroupPicker from '../components/BloodGroupPicker';
+import FornasDrugPicker from '../components/FornasDrugPicker';
 
 export default function AddPatient() {
     const navigate = useNavigate();
@@ -33,9 +34,14 @@ export default function AddPatient() {
     const [symptomInput, setSymptomInput] = useState({ name: '', severity: 'sedang', notes: '' });
     const [examInput, setExamInput] = useState({ findings: '', system: 'umum' });
     const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '' });
-    const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral' });
+    const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral', fornas_source: false, fornas_form: '', fornas_category: '' });
     const [reportInput, setReportInput] = useState({ notes: '', condition: '' });
     const [showDiagnosisPicker, setShowDiagnosisPicker] = useState(false);
+    const [showFornasPicker, setShowFornasPicker] = useState(false);
+
+    const handleFornasPrescSelect = (fields) => {
+        setPrescInput(p => ({ ...p, ...fields }));
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -289,14 +295,44 @@ export default function AddPatient() {
 
                     {activeTab === 'obat' && (
                         <TabContent title="Resep Obat" icon="medication"
-                            onAdd={() => { if (!prescInput.name) return; addItem('prescriptions', prescInput, setPrescInput, { name: '', dosage: '', frequency: '', route: 'oral' }) }}
+                            onAdd={() => { if (!prescInput.name) return; addItem('prescriptions', prescInput, setPrescInput, { name: '', dosage: '', frequency: '', route: 'oral', fornas_source: false, fornas_form: '', fornas_category: '' }) }}
                             items={form.prescriptions} onRemove={(id) => removeItem('prescriptions', id)}
                             renderForm={
                                 <div className="space-y-4">
-                                    <input type="text" value={prescInput.name} onChange={e => setPrescInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama obat" className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
+                                    {/* Fornas shortcut */}
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Obat</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowFornasPicker(true)}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-teal-200 dark:border-teal-800/50 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition"
+                                        >
+                                            <span className="material-symbols-outlined text-[13px]">local_pharmacy</span>
+                                            Pilih dari Fornas
+                                        </button>
+                                    </div>
+                                    {/* Fornas selected indicator */}
+                                    {prescInput.fornas_source && (
+                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/40">
+                                            <span className="material-symbols-outlined text-teal-500 text-[14px] shrink-0">verified</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wide">Dari Fornas</p>
+                                                {prescInput.fornas_category && <p className="text-[11px] text-teal-600 dark:text-teal-400 truncate">{prescInput.fornas_category}</p>}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPrescInput(p => ({ ...p, fornas_source: false, fornas_form: '', fornas_category: '' }))}
+                                                className="shrink-0 p-0.5 rounded text-teal-400 hover:text-teal-700 dark:hover:text-teal-200 transition"
+                                                title="Hapus pilihan Fornas"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">close</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                    <input type="text" value={prescInput.name} onChange={e => setPrescInput(p => ({ ...p, name: e.target.value, fornas_source: false, fornas_form: '' }))} placeholder="Nama obat" className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
                                     <div className="flex gap-2">
-                                        <input type="text" value={prescInput.dosage} onChange={e => setPrescInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm" />
-                                        <input type="text" value={prescInput.frequency} onChange={e => setPrescInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm" />
+                                        <input type="text" value={prescInput.dosage} onChange={e => setPrescInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (cth. 500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm" />
+                                        <input type="text" value={prescInput.frequency} onChange={e => setPrescInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (cth. 3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm" />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute</label>
@@ -309,15 +345,29 @@ export default function AddPatient() {
                                             ))}
                                         </div>
                                     </div>
-                                    <button onClick={() => { if (!prescInput.name) return; addItem('prescriptions', prescInput, setPrescInput, { name: '', dosage: '', frequency: '', route: 'oral' }) }} type="button" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-md">Tambah Obat</button>
+                                    <button onClick={() => { if (!prescInput.name) return; addItem('prescriptions', prescInput, setPrescInput, { name: '', dosage: '', frequency: '', route: 'oral', fornas_source: false, fornas_form: '', fornas_category: '' }) }} type="button" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-md">Tambah Obat</button>
                                 </div>
                             }
                             renderItem={(o) => (
                                 <div className="text-sm">
-                                    <p className="font-bold">{o.name} {o.dosage}</p>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <p className="font-bold">{o.name}{o.dosage ? ` ${o.dosage}` : ''}</p>
+                                        {o.fornas_source && (
+                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800/40 rounded-full px-1.5 py-0.5 uppercase">
+                                                <span className="material-symbols-outlined text-[10px]">verified</span>
+                                                Fornas
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase">{o.frequency} • {o.route}</p>
                                 </div>
                             )}
+                        />
+                    )}
+                    {showFornasPicker && (
+                        <FornasDrugPicker
+                            onSelect={handleFornasPrescSelect}
+                            onClose={() => setShowFornasPicker(false)}
                         />
                     )}
 

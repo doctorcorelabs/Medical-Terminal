@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { exportPatientPDF } from '../services/pdfExportService';
 import BloodGroupPicker from '../components/BloodGroupPicker';
+import FornasDrugPicker from '../components/FornasDrugPicker';
 
 function getNowLocalISO() {
     const now = new Date();
@@ -45,7 +46,7 @@ export default function PatientDetail() {
     const [symptomInput, setSymptomInput] = useState({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() });
     const [examInput, setExamInput] = useState({ findings: '', system: 'umum', date: getNowLocalISO() });
     const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() });
-    const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO() });
+    const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO(), fornas_source: false, fornas_form: '', fornas_category: '' });
     const [reportInput, setReportInput] = useState({ notes: '', condition: '', date: getNowLocalISO() });
 
     if (!patient) {
@@ -183,7 +184,7 @@ export default function PatientDetail() {
                 onAI={() => callAI('labs', () => getSupportingExamInsight((patient.supportingExams || []).map(e => `${e.testName}: ${e.value} ${e.unit}`).join(', '), patient.diagnosis || ''))}
                 aiResult={aiResults.labs} aiLoading={aiLoading.labs} />}
             {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
-                onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, { ...prescInput, date: prescInput.date ? new Date(prescInput.date).toISOString() : new Date().toISOString() }); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO() }); }}
+                onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, { ...prescInput, date: prescInput.date ? new Date(prescInput.date).toISOString() : new Date().toISOString() }); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO(), fornas_source: false, fornas_form: '', fornas_category: '' }); }}
                 onRemove={(prescId) => removePrescription(patient.id, prescId)}
                 onUpdate={(prescId, updates) => updatePrescription(patient.id, prescId, updates)}
                 onAI={() => callAI('drugs', () => getMedicationRecommendation(patient.diagnosis, (patient.symptoms || []).map(s => s.name).join(', ')))}
@@ -1338,6 +1339,8 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
+    const [showFornasPicker, setShowFornasPicker] = useState(false);
+    const [showEditFornasPicker, setShowEditFornasPicker] = useState(false);
 
     const routeOptions = [
         { v: 'oral', l: 'Oral', i: 'pill' },
@@ -1352,7 +1355,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
         setEditingId(p.id);
         const dt = p.date ? new Date(p.date) : new Date();
         const localDt = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        setEditData({ name: p.name, dosage: p.dosage || '', frequency: p.frequency || '', route: p.route || 'oral', date: localDt });
+        setEditData({ name: p.name, dosage: p.dosage || '', frequency: p.frequency || '', route: p.route || 'oral', date: localDt, fornas_source: p.fornas_source || false, fornas_form: p.fornas_form || '', fornas_category: p.fornas_category || '' });
     };
 
     const saveEdit = () => {
@@ -1371,7 +1374,44 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                 <div className="space-y-5 min-w-0">
                     <Kartu judul="Tambah Obat">
                         <form onSubmit={onAdd} className="space-y-3">
-                            <input type="text" value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama obat (cth. Amoxicillin)" required className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm" />
+                            {/* Fornas shortcut row */}
+                            <div className="flex items-center justify-between gap-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Obat</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFornasPicker(true)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-teal-200 dark:border-teal-800/50 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition"
+                                >
+                                    <span className="material-symbols-outlined text-[13px]">local_pharmacy</span>
+                                    Pilih dari Fornas
+                                </button>
+                            </div>
+                            {/* Fornas selected indicator */}
+                            {input.fornas_source && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/40">
+                                    <span className="material-symbols-outlined text-teal-500 text-[14px] shrink-0">verified</span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wide">Dari Fornas</p>
+                                        {input.fornas_category && <p className="text-[11px] text-teal-600 dark:text-teal-400 truncate">{input.fornas_category}</p>}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setInput(p => ({ ...p, fornas_source: false, fornas_form: '', fornas_category: '' }))}
+                                        className="shrink-0 p-0.5 rounded text-teal-400 hover:text-teal-700 dark:hover:text-teal-200 transition"
+                                        title="Hapus pilihan Fornas"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                </div>
+                            )}
+                            <input
+                                type="text"
+                                value={input.name}
+                                onChange={e => setInput(p => ({ ...p, name: e.target.value, fornas_source: false, fornas_form: '' }))}
+                                placeholder="Nama obat (cth. Amoxicillin)"
+                                required
+                                className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            />
                             <div className="flex gap-3">
                                 <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
                                 <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
@@ -1407,7 +1447,32 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                                 <div key={p.id}>
                                     {editingId === p.id ? (
                                         <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
-                                            <input type="text" value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
+                                            {/* Edit — Fornas shortcut */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Obat</label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowEditFornasPicker(true)}
+                                                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold border border-teal-200 dark:border-teal-800/50 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition"
+                                                >
+                                                    <span className="material-symbols-outlined text-[12px]">local_pharmacy</span>
+                                                    Pilih dari Fornas
+                                                </button>
+                                            </div>
+                                            {/* Edit — Fornas indicator */}
+                                            {editData.fornas_source && (
+                                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/40">
+                                                    <span className="material-symbols-outlined text-teal-500 text-[13px] shrink-0">verified</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[10px] font-bold text-teal-700 dark:text-teal-400 uppercase">Dari Fornas</p>
+                                                        {editData.fornas_category && <p className="text-[11px] text-teal-600 dark:text-teal-400 truncate">{editData.fornas_category}</p>}
+                                                    </div>
+                                                    <button type="button" onClick={() => setEditData(d => ({ ...d, fornas_source: false, fornas_form: '', fornas_category: '' }))} className="shrink-0 p-0.5 rounded text-teal-400 hover:text-teal-700 transition">
+                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <input type="text" value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value, fornas_source: false, fornas_form: '' }))}
                                                 placeholder="Nama obat" className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 transition-all shadow-sm" />
                                             <div className="flex gap-3">
                                                 <input type="text" value={editData.dosage} onChange={e => setEditData(d => ({ ...d, dosage: e.target.value }))}
@@ -1438,8 +1503,16 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                                     ) : (
                                         <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 group">
                                             <div className="min-w-0">
-                                                <p className="font-semibold text-sm truncate">{p.name} {p.dosage}</p>
-                                                <p className="text-xs text-slate-500">{p.frequency} • {p.route}</p>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <p className="font-semibold text-sm truncate">{p.name}{p.dosage ? ` ${p.dosage}` : ''}</p>
+                                                    {p.fornas_source && (
+                                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800/40 rounded-full px-1.5 py-0.5 uppercase">
+                                                            <span className="material-symbols-outlined text-[10px]">verified</span>
+                                                            Fornas
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-slate-500">{p.frequency} • {p.route}{p.fornas_form ? ` • ${p.fornas_form}` : ''}</p>
                                                 <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><span className="material-symbols-outlined text-[11px]">schedule</span>{formatDateTime(p.date)}</p>
                                             </div>
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
@@ -1477,9 +1550,15 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="text-sm font-bold">{p.name}</span>
+                                                {p.fornas_source && (
+                                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800/40 rounded-full px-1.5 py-0.5 uppercase">
+                                                        <span className="material-symbols-outlined text-[10px]">verified</span>Fornas
+                                                    </span>
+                                                )}
                                                 {p.dosage && <span className="text-xs text-slate-500">{p.dosage}</span>}
                                                 {p.frequency && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-semibold">{p.frequency}</span>}
                                                 {p.route && <span className="text-[10px] font-bold uppercase text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-full">{p.route}</span>}
+                                                {p.fornas_form && <span className="text-[10px] font-bold uppercase text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded-full">{p.fornas_form}</span>}
                                             </div>
                                             <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(p.date)}</span>
                                         </div>
@@ -1489,6 +1568,21 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                         </div>
                     </div>
                 </Kartu>
+            )}
+
+            {/* Fornas picker — add mode */}
+            {showFornasPicker && (
+                <FornasDrugPicker
+                    onSelect={fields => setInput(p => ({ ...p, ...fields }))}
+                    onClose={() => setShowFornasPicker(false)}
+                />
+            )}
+            {/* Fornas picker — edit mode */}
+            {showEditFornasPicker && (
+                <FornasDrugPicker
+                    onSelect={fields => setEditData(d => ({ ...d, ...fields }))}
+                    onClose={() => setShowEditFornasPicker(false)}
+                />
             )}
         </div>
     );

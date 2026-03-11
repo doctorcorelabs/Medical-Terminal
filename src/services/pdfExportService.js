@@ -519,23 +519,35 @@ export function exportPatientPDF(patient) {
         if (prescriptions.length > 0) {
             y = tbl(doc, {
                 startY: y,
-                head: [['No', 'Nama Obat', 'Dosis', 'Frekuensi', 'Rute', 'Tanggal']],
-                body: prescriptions.map((p, i) => [i + 1, p.name || '-', p.dosage || '-', p.frequency || '-', (p.route || '-').toUpperCase(), fmtDateTime(p.date)]),
+                head: [['No', 'Nama Obat', 'Dosis', 'Sediaan', 'Frekuensi', 'Rute', 'Tanggal']],
+                body: prescriptions.map((p, i) => [
+                    i + 1,
+                    p.fornas_source ? (p.name || '-') + '  \u2646' : p.name || '-',
+                    p.dosage || '-',
+                    p.fornas_form || '-',
+                    p.frequency || '-',
+                    (p.route || '-').toUpperCase(),
+                    fmtDateTime(p.date),
+                ]),
                 theme: 'grid',
                 headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
                 styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
                 alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 18, halign: 'center', fontStyle: 'bold' }, 5: { cellWidth: 35 } },
+                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20 }, 3: { cellWidth: 22 }, 4: { cellWidth: 25 }, 5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }, 6: { cellWidth: 30 } },
                 margin: { left: 14, right: 14 },
-            }) + 6;
+            }) + 4;
+            if (prescriptions.some(p => p.fornas_source)) {
+                doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+                doc.text('\u2646 Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
+            }
             if (prescriptions.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
                 doc.text('Timeline Pemberian Obat (urut waktu)', 14, y); y += 5;
                 y = renderSectionTimeline(doc, prescriptions, y, {
                     dateField: 'date',
-                    labelFn: p => `${p.name || '-'} ${p.dosage || ''}`.trim(),
-                    subLabelFn: p => [p.frequency, p.route ? (p.route || '').toUpperCase() : ''].filter(Boolean).join(' • ') || null,
+                    labelFn: p => `${p.fornas_source ? (p.name || '-') + ' \u2646' : p.name || '-'} ${p.dosage || ''}`.trim(),
+                    subLabelFn: p => [p.frequency, p.route ? (p.route || '').toUpperCase() : '', p.fornas_form || ''].filter(Boolean).join(' \u2022 ') || null,
                 }, pageWidth);
             }
         } else {
