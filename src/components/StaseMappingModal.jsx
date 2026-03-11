@@ -54,7 +54,7 @@ export default function StaseMappingModal({ open, importedPatients, localStases,
                 unknownStaseIds.map(id => [id, { mode: 'none', targetId: '', newName: '', newColor: COLOR_PALETTE[0] }])
             )
         );
-    }, [unknownStaseIds]); // eslint-disable-line
+    }, [unknownStaseIds]);
 
     const setField = (staseId, field, value) =>
         setMapping(prev => ({ ...prev, [staseId]: { ...prev[staseId], [field]: value } }));

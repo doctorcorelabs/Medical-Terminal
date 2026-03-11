@@ -58,6 +58,7 @@ export function ScheduleProvider({ children }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSchedule() {
     const context = useContext(ScheduleContext);
     if (!context) throw new Error('useSchedule must be used within ScheduleProvider');

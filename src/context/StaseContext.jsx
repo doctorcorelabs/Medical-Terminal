@@ -79,6 +79,7 @@ export function StaseProvider({ children }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStase() {
     const context = useContext(StaseContext);
     if (!context) throw new Error('useStase must be used within StaseProvider');

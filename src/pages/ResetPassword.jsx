@@ -42,8 +42,8 @@ export default function ResetPassword() {
             setError('Konfirmasi password tidak cocok.');
             return;
         }
-        if (newPassword.length < 6) {
-            setError('Password minimal 6 karakter.');
+        if (newPassword.length < 8) {
+            setError('Password minimal 8 karakter.');
             return;
         }
 

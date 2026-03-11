@@ -57,7 +57,7 @@ export default function Login() {
                 setMessage('Link reset password telah dikirim ke email Anda. Silakan periksa kotak masuk Anda (cek dibagian spam apabila tidak muncul).');
             } else if (mode === 'recovery') {
                 if (newPassword !== confirmPassword) throw new Error('Konfirmasi password tidak cocok.');
-                if (newPassword.length < 6) throw new Error('Password minimal 6 karakter.');
+                if (newPassword.length < 8) throw new Error('Password minimal 8 karakter.');
                 const { error } = await updatePassword(newPassword);
                 if (error) throw error;
                 setMessage('Password berhasil diperbarui! Anda akan diarahkan ke halaman login.');
@@ -144,7 +144,7 @@ export default function Login() {
                                             </button>
                                         )}
                                     </div>
-                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
+                                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8}
                                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-slate-900 dark:text-slate-100"
                                         placeholder="••••••••" />
                                 </div>
@@ -155,13 +155,13 @@ export default function Login() {
                                 <>
                                     <div className="space-y-1.5">
                                         <label className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Password Baru</label>
-                                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6}
+                                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8}
                                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-slate-900 dark:text-slate-100"
-                                            placeholder="Min. 6 karakter" />
+                                            placeholder="Min. 8 karakter" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Konfirmasi Password</label>
-                                        <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6}
+                                        <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8}
                                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-slate-900 dark:text-slate-100"
                                             placeholder="Ulangi password baru" />
                                     </div>

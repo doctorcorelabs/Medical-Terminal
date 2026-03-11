@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
-import { checkLabValue, labReferences, labCategories, formatDateTime } from '../services/dataService';
+import { checkLabValue, labReferences, labCategories } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
 import BloodGroupPicker from '../components/BloodGroupPicker';
@@ -445,7 +445,7 @@ function VitalInput({ label, unit, ...props }) {
     );
 }
 
-function TabContent({ title, icon, onAdd, items, onRemove, renderForm, renderItem }) {
+function TabContent({ title, icon, onAdd: _onAdd, items, onRemove, renderForm, renderItem }) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-[fadeIn_0.2s_ease-out]">
             <div className="space-y-6">

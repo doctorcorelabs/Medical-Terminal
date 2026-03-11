@@ -14,6 +14,7 @@ const DANGER = [239, 68, 68];
 // Strip Unicode symbols not supported by jsPDF default font (e.g. ↑ ↓ ✓ ⚠)
 function cleanLabel(label) {
     if (!label) return '-';
+    // eslint-disable-next-line no-control-regex
     return label.replace(/[^\x00-\x7E\u00C0-\u024F]/g, '').trim() || label.trim();
 }
 
@@ -141,7 +142,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
         const totalSpace = mw - totalWordWidth;
         const spacePerGap = totalSpace / (words.length - 1);
         let wx = curX;
-        words.forEach((word, i) => {
+        words.forEach((word, _i) => {
             doc.text(word, wx, curY);
             wx += doc.getTextWidth(word) + spacePerGap;
         });

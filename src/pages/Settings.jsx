@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { deleteAllPatientsData, syncToSupabase, getAllStases, addStase, syncStasesToSupabase } from '../services/dataService';
+import { deleteAllPatientsData, syncToSupabase, getAllStases, syncStasesToSupabase } from '../services/dataService';
 import StaseMappingModal from '../components/StaseMappingModal';
 
 export default function Settings() {
     const { user, updateProfile, isUsernameAvailable } = useAuth();
-    const [workerUrl, setWorkerUrl] = useState(() => localStorage.getItem('ai_worker_url') || '');
-    const [saved, setSaved] = useState(false);
     const [username, setUsername] = useState(() => user?.user_metadata?.username || '');
     const [savedUser, setSavedUser] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -41,12 +39,6 @@ export default function Settings() {
     const handleCancelDelete = () => {
         setShowConfirm(false);
         setShowFinalConfirm(false);
-    };
-
-    const saveWorkerUrl = () => {
-        localStorage.setItem('ai_worker_url', workerUrl);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
     };
 
     const saveUsername = async () => {
@@ -226,8 +218,8 @@ export default function Settings() {
                     <span className="material-symbols-outlined text-lg">info</span>Tentang MedxTerminal
                 </h4>
                 <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-                    <p>Versi: 1.0.0-MVP (localStorage)</p>
-                    <p>Mesin AI: OpenRouter (Gemini 2.5 Flash)</p>
+                    <p>Versi: 1.2.0-MVP (localStorage)</p>
+                    <p>Mesin AI: Gemini dan ChatGPT</p>
                     <p>Data disimpan secara lokal di peramban Anda.</p>
                 </div>
             </div>

@@ -21,7 +21,7 @@ export default function LabReferenceModal({ onClose }) {
 
     const q = search.toLowerCase().trim();
 
-    const filtered = Object.entries(labReferences).filter(([key, ref]) => {
+    const filtered = Object.entries(labReferences).filter(([_key, ref]) => {
         const matchCat = activeCategory === 'all' || ref.category === activeCategory;
         const matchQ = !q || ref.name.toLowerCase().includes(q) || (ref.metode || '').toLowerCase().includes(q) || ref.unit.toLowerCase().includes(q);
         return matchCat && matchQ;

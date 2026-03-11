@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
     ReactFlow,
     Controls,
@@ -190,7 +190,7 @@ export default function SymptomGraph({ symptoms, aiResult }) {
             proOptions={{ hideAttribution: true }}
             style={{ borderRadius: '12px' }}
         >
-            <Controls className="!bg-white dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 !shadow-lg !rounded-xl" />
+            <Controls className="bg-white! dark:bg-slate-800! border-slate-200! dark:border-slate-700! shadow-lg! rounded-xl!" />
             <Background color="#e2e8f0" gap={20} />
         </ReactFlow>
     );

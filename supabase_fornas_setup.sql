@@ -127,6 +127,7 @@ CREATE TRIGGER fornas_drugs_set_updated_at
 ALTER TABLE public.fornas_drugs ENABLE ROW LEVEL SECURITY;
 
 -- Public read access — anyone (authenticated or anon) can search drugs
+DROP POLICY IF EXISTS "fornas_drugs_select_public" ON public.fornas_drugs;
 CREATE POLICY "fornas_drugs_select_public"
     ON public.fornas_drugs
     FOR SELECT
@@ -134,16 +135,19 @@ CREATE POLICY "fornas_drugs_select_public"
 
 -- Only service-role (backend script) can insert/update/delete
 -- The upsert-to-supabase.js script must use SUPABASE_SERVICE_ROLE_KEY, not anon key.
+DROP POLICY IF EXISTS "fornas_drugs_insert_service" ON public.fornas_drugs;
 CREATE POLICY "fornas_drugs_insert_service"
     ON public.fornas_drugs
     FOR INSERT
     WITH CHECK (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "fornas_drugs_update_service" ON public.fornas_drugs;
 CREATE POLICY "fornas_drugs_update_service"
     ON public.fornas_drugs
     FOR UPDATE
     USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "fornas_drugs_delete_service" ON public.fornas_drugs;
 CREATE POLICY "fornas_drugs_delete_service"
     ON public.fornas_drugs
     FOR DELETE
@@ -152,7 +156,9 @@ CREATE POLICY "fornas_drugs_delete_service"
 -- ── Helpful views ──────────────────────────────────────────────────────────────
 
 -- Quick stats view
-CREATE OR REPLACE VIEW public.fornas_drugs_stats AS
+CREATE OR REPLACE VIEW public.fornas_drugs_stats
+    WITH (security_invoker = true)
+AS
 SELECT
     COUNT(*)                                          AS total_variants,
     COUNT(DISTINCT source_id)                         AS total_drugs,

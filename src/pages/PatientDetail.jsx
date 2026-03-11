@@ -42,7 +42,7 @@ export default function PatientDetail() {
         } else {
             setAiResults({});
         }
-    }, [patient?.id]);
+    }, [patient?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     const [symptomInput, setSymptomInput] = useState({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() });
     const [examInput, setExamInput] = useState({ findings: '', system: 'umum', date: getNowLocalISO() });
     const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() });
@@ -201,7 +201,7 @@ export default function PatientDetail() {
 }
 
 /* ====== TAB RINGKASAN ====== */
-function TabRingkasan({ patient, navigate, updatePatient }) {
+function TabRingkasan({ patient, navigate: _navigate, updatePatient }) {
     const [headerEditing, setHeaderEditing] = useState(false);
     const [headerTemp, setHeaderTemp] = useState({});
 

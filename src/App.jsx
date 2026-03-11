@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { PatientProvider } from './context/PatientContext';
@@ -88,6 +88,7 @@ function AppContent() {
                   <Route path="/tools/drug-interaction" element={<DrugInteraction />} />
                   <Route path="/tools/fornas" element={<FornasDrug />} />
                   <Route path="/conflicts" element={<ConflictCenter />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>
             </div>

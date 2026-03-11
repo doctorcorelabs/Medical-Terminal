@@ -193,6 +193,7 @@ export function PatientProvider({ children }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePatients() {
     const context = useContext(PatientContext);
     if (!context) throw new Error('usePatients must be used within PatientProvider');

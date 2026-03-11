@@ -91,7 +91,7 @@ export async function fetchFromSupabase(userId) {
         await syncToSupabase(userId);
     }
     try {
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('user_patients')
             .select('patients_data')
             .eq('user_id', userId)

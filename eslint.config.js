@@ -5,7 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.netlify', 'dev-dist', 'scripts', 'cloudflare-worker', 'supabase-functions', 'supabase']),
+
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -23,7 +24,16 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]|^_',
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+      }],
+      // Standard React pattern: calling setState/async loaders inside useEffect is intentional
+      'react-hooks/set-state-in-effect': 'off',
+      // Context files deliberately export both a Provider component and a useX hook
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
 ])

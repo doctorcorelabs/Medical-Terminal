@@ -134,9 +134,10 @@ function NewsCard({ article, featured = false }) {
 
 function StatsBadge({ articles }) {
     const sources = [...new Set(articles.map(a => a.source))].length;
-    const categories = [...new Set(articles.map(a => a.category))].length;
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
     const today = articles.filter(a => {
-        const diff = Date.now() - new Date(a.pubDate);
+        const diff = now - new Date(a.pubDate);
         return diff < 24 * 60 * 60 * 1000;
     }).length;
 

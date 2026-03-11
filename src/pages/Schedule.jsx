@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { usePatients } from '../context/PatientContext';
 
@@ -475,7 +475,7 @@ function DayView({ schedules, currentDate, onEventClick, onOpenModal }) {
             ? Math.max(0, (timeToMinutes(timed[0].startTime) ?? 420) / 60 - 1)
             : 7;
         scrollRef.current.scrollTop = targetH * HOUR_PX;
-    }, [ds]);
+    }, [ds]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function eventStyle(ev) {
         const start    = timeToMinutes(ev.startTime) ?? 0;

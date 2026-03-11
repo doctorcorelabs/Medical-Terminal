@@ -257,7 +257,7 @@ function RecentPanel({ entries, loading, onSelect }) {
           </div>
         ) : (
           <div className="p-3 space-y-2">
-            {entries.map((entry, idx) => (
+            {entries.map((entry, _idx) => (
               <button
                 key={entry.drug_key}
                 onClick={() => onSelect(entry)}
@@ -341,7 +341,7 @@ export default function DrugInteraction() {
           .slice(0, RECENT_MAX_DISPLAY);
         setRecentEntries(withInteractions);
       }
-    } catch (_) {
+    } catch (__) {
       // silently fail
     } finally {
       setRecentLoading(false);
@@ -426,7 +426,7 @@ export default function DrugInteraction() {
 
       // 4. Refresh recent panel
       await fetchRecentAnalyses();
-    } catch (err) {
+    } catch (_err) {
       setError('Gagal terhubung ke server. Periksa koneksi internet Anda.');
     } finally {
       setLoading(false);

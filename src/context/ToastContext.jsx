@@ -27,7 +27,7 @@ export function ToastProvider({ children }) {
 }
 
 function ToastItem({ toast, onClose }) {
-  const { id, message, type, ttl = 3500 } = toast;
+  const { message, type, ttl = 3500 } = toast;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -58,6 +58,7 @@ function ToastItem({ toast, onClose }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast must be used within ToastProvider');

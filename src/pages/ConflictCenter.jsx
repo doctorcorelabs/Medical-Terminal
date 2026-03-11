@@ -207,7 +207,7 @@ export default function ConflictCenter() {
             .finally(() => setLoading(false));
     }, [activeId]);
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleResolved = useCallback(async (id, merged) => {
         // Apply the user's merged choice back to local storage then re-sync

@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
 import { useSchedule } from '../context/ScheduleContext';
-import { calculateRecoveryProgress, getRelativeTime } from '../services/dataService';
+import { getRelativeTime } from '../services/dataService';
 
 const SCHED_CATS = [
     { id: 'pasien',  label: 'Pasien',  color: '#3b82f6', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'    },
@@ -55,7 +55,7 @@ export default function Dashboard() {
             window.removeEventListener('resize', measureAll);
             if (ro) ro.disconnect();
         };
-    }, [aksiRef.current, leftColRef.current, jadwalContentRef.current]);
+    }, []);
 
     const todayStr = (() => {
         const d = new Date();
