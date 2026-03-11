@@ -8,7 +8,32 @@ const PINNED_KEY = 'medterminal_pinned_stase';
 function getStoredData() {
     try {
         const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
+        const parsed = data ? JSON.parse(data) : [];
+        // Normalize legacy combined bloodType values like 'A+' into { bloodType: 'A', rhesus: '+' }
+        if (Array.isArray(parsed)) {
+            return parsed.map(p => {
+                if (!p) return p;
+                const patient = { ...p };
+                // If rhesus already exists, keep as-is
+                if (typeof patient.rhesus === 'string') return patient;
+                // If bloodType is a combined string like 'A+' or 'AB-' split it
+                if (typeof patient.bloodType === 'string' && patient.bloodType.length > 0) {
+                    const bt = patient.bloodType.trim();
+                    const last = bt.slice(-1);
+                    if (last === '+' || last === '-') {
+                        patient.rhesus = last;
+                        patient.bloodType = bt.slice(0, -1);
+                    } else {
+                        patient.rhesus = patient.rhesus || '';
+                    }
+                } else {
+                    patient.bloodType = patient.bloodType || '';
+                    patient.rhesus = patient.rhesus || '';
+                }
+                return patient;
+            });
+        }
+        return parsed;
     } catch {
         return [];
     }

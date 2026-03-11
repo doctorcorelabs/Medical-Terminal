@@ -22,6 +22,7 @@ export default function Reports() {
         patients.forEach((p, i) => {
             text += `${i + 1}. ${p.name} (${p.age || '-'} th, ${p.gender === 'female' ? 'P' : 'L'})\n`;
             text += `   Masuk: ${formatDate(p.admissionDate)} | Hari ke-${calculateDaysInHospital(p.admissionDate)}\n`;
+            text += `   Gol. Darah: ${p.bloodType ? `${p.bloodType}${p.rhesus || ''}` : '-'}\n`;
             text += `   Dx: ${p.diagnosis || '-'}\n`;
             text += `   KU: ${p.chiefComplaint || '-'}\n`;
             text += `   VS: DJ ${p.heartRate || '-'}, TD ${p.bloodPressure || '-'}, S ${p.temperature || '-'}°C, RR ${p.respRate || '-'}, SpO2 ${p.spO2 || '-'}%\n`;

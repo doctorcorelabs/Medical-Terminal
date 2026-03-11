@@ -12,6 +12,7 @@ import DDxRadar from '../components/visualization/DDxRadar';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { exportPatientPDF } from '../services/pdfExportService';
+import BloodGroupPicker from '../components/BloodGroupPicker';
 
 function getNowLocalISO() {
     const now = new Date();
@@ -222,6 +223,7 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
             admissionDate: patient.admissionDate ? (new Date(patient.admissionDate)).toISOString().slice(0, 10) : '',
             room: patient.room || '',
             bloodType: patient.bloodType || '',
+            rhesus: patient.rhesus || '',
             condition: patient.condition || 'stable',
             weight: patient.weight || '',
             height: patient.height || '',
@@ -250,6 +252,7 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
             admissionDate: headerTemp.admissionDate || null,
             room: headerTemp.room || null,
             bloodType: headerTemp.bloodType || null,
+            rhesus: headerTemp.rhesus || null,
             condition: headerTemp.condition || patient.condition,
             weight: toNum(String(headerTemp.weight)),
             height: toNum(String(headerTemp.height)),
@@ -302,7 +305,7 @@ function TabRingkasan({ patient, navigate, updatePatient }) {
                                 { label: 'Umur', value: patient.age ? `${patient.age} Tahun` : '-' },
                                 { label: 'J. Kelamin', value: patient.gender === 'female' ? 'Perempuan' : 'Laki-laki' },
                                 { label: 'Tgl Masuk', value: formatDate(patient.admissionDate) },
-                                { label: 'Gol. Darah', value: patient.bloodType || '-', className: 'text-red-500 font-bold' },
+                                { label: 'Gol. Darah', value: patient.bloodType ? `${patient.bloodType}${patient.rhesus || ''}` : '-', className: 'text-red-500 font-bold' },
                             ].map(item => (
                                 <div key={item.label} className="min-w-0">
                                     <p className="text-[10px] sm:text-xs text-slate-400 font-medium truncate">{item.label}</p>
@@ -477,8 +480,11 @@ function EditPatientModal({ patient, headerTemp, setHeaderTemp, onSave, onCancel
                         <EditSection title="Detail Medis" icon="clinical_notes">
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-3">
-                                    <EditSelect label="Gol. Darah" value={headerTemp.bloodType || ''} onChange={set('bloodType')}
-                                        options={[{ v: '', l: '-' }, { v: 'A+', l: 'A+' }, { v: 'B+', l: 'B+' }, { v: 'AB+', l: 'AB+' }, { v: 'O+', l: 'O+' }, { v: 'A-', l: 'A-' }, { v: 'B-', l: 'B-' }, { v: 'AB-', l: 'AB-' }, { v: 'O-', l: 'O-' }]} />
+                                    <BloodGroupPicker label="Gol. Darah"
+                                        valueType={headerTemp.bloodType || ''}
+                                        valueRhesus={headerTemp.rhesus || ''}
+                                        onChangeType={(val) => setVal('bloodType', val)}
+                                        onChangeRhesus={(val) => setVal('rhesus', val)} />
                                     <EditSelect label="Kondisi" value={headerTemp.condition || 'stable'} onChange={set('condition')}
                                         options={[{ v: 'stable', l: 'Stabil' }, { v: 'improving', l: 'Membaik' }, { v: 'urgent', l: 'Mendesak' }, { v: 'critical', l: 'Kritis' }]} />
                                 </div>

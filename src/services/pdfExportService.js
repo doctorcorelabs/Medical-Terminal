@@ -42,6 +42,12 @@ function genderLabel(g) {
     return g === 'female' ? 'Perempuan' : 'Laki-laki';
 }
 
+function formatBlood(patient) {
+    if (!patient) return '-';
+    if (patient.bloodType) return `${patient.bloodType}${patient.rhesus || ''}`;
+    return '-';
+}
+
 function sectionTitle(doc, title, y, pageWidth) {
     if (y > 260) { doc.addPage(); y = 20; }
     doc.setFillColor(...PRIMARY);
@@ -323,7 +329,7 @@ export function exportPatientPDF(patient) {
         y = sectionTitle(doc, '1. Identitas Pasien', y, pageWidth);
         const identityData = [
             ['Nama Lengkap', patient.name || '-', 'Umur', patient.age ? `${patient.age} Tahun` : '-'],
-            ['Jenis Kelamin', genderLabel(patient.gender), 'Gol. Darah', patient.bloodType || '-'],
+            ['Jenis Kelamin', genderLabel(patient.gender), 'Gol. Darah', formatBlood(patient)],
             ['Tanggal Masuk', fmtDate(patient.admissionDate), 'Kondisi', conditionLabel(patient.condition)],
             ['Tinggi Badan', patient.height ? `${patient.height} cm` : '-', 'Berat Badan', patient.weight ? `${patient.weight} kg` : '-'],
             ['Diagnosis', patient.diagnosis || '-', 'Alergi', patient.allergies || 'Tidak ada'],

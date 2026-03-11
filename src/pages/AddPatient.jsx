@@ -5,6 +5,7 @@ import { useStase } from '../context/StaseContext';
 import { checkLabValue, labReferences, labCategories, formatDateTime } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
+import BloodGroupPicker from '../components/BloodGroupPicker';
 
 export default function AddPatient() {
     const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function AddPatient() {
     }, [activeTab]);
     const [form, setForm] = useState({
         name: '', age: '', gender: 'male', room: '', bloodType: '', admissionDate: new Date().toISOString().split('T')[0],
+        rhesus: '',
         targetDays: '', chiefComplaint: '', diagnosis: '', condition: 'stable', status: 'active',
         heartRate: '', bloodPressure: '', temperature: '', respRate: '', spO2: '',
         weight: '', height: '', allergies: '', medicalHistory: '',
@@ -139,7 +141,9 @@ export default function AddPatient() {
                                 <FormSection title="Detail Medis" icon="clinical_notes">
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
-                                            <SelectGroup label="Gol. Darah" name="bloodType" value={form.bloodType} onChange={handleChange} options={[{ v: '', l: '-' }, { v: 'A+', l: 'A+' }, { v: 'B+', l: 'B+' }, { v: 'AB+', l: 'AB+' }, { v: 'O+', l: 'O+' }, { v: 'A-', l: 'A-' }, { v: 'B-', l: 'B-' }, { v: 'AB-', l: 'AB-' }, { v: 'O-', l: 'O-' }]} />
+                                            <BloodGroupPicker label="Gol. Darah" valueType={form.bloodType} valueRhesus={form.rhesus}
+                                                onChangeType={(val) => setForm(p => ({ ...p, bloodType: val }))}
+                                                onChangeRhesus={(val) => setForm(p => ({ ...p, rhesus: val }))} />
                                             <SelectGroup label="Kondisi" name="condition" value={form.condition} onChange={handleChange} options={[
                                                 { v: 'stable', l: 'Stabil' },
                                                 { v: 'improving', l: 'Membaik' },

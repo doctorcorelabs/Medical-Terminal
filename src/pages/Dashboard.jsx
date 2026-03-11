@@ -75,7 +75,9 @@ export default function Dashboard() {
         const today = new Date().toDateString();
         return acc + (p.dailyReports || []).filter(r => new Date(r.date).toDateString() === today).length;
     }, 0);
-    const dischargedCount = patients.filter(p => p.status === 'discharged').length;
+    // UI-only: Treat patients with condition 'improving' as "Pasien Pulang" on the Dashboard.
+    // This does NOT modify the underlying `status` field or persisted data — it's a display rule only.
+    const dischargedCount = patients.filter(p => p.condition === 'improving').length;
 
     const dayName = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
 
