@@ -45,6 +45,11 @@ export function AuthProvider({ children }) {
         signIn: (email, password, captchaToken) => supabase.auth.signInWithPassword({ email, password, options: { captchaToken } }),
         signOut: () => {
             localStorage.removeItem('medterminal_patients');
+            localStorage.removeItem('medterminal_stases');
+            localStorage.removeItem('medterminal_pinned_stase');
+            localStorage.removeItem('medterminal_pending_patients_sync');
+            localStorage.removeItem('medterminal_pending_stases_sync');
+            localStorage.removeItem('medterminal_pending_schedules_sync');
             return supabase.auth.signOut();
         },
         updateProfile: (data) => supabase.auth.updateUser({ data }),

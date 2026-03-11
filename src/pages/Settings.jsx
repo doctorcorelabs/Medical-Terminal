@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { deleteAllPatientsData, syncToSupabase } from '../services/dataService';
 
 export default function Settings() {
     const { user, updateProfile, isUsernameAvailable } = useAuth();
@@ -8,7 +10,36 @@ export default function Settings() {
     const [saved, setSaved] = useState(false);
     const [username, setUsername] = useState(() => user?.user_metadata?.username || '');
     const [savedUser, setSavedUser] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [importing, setImporting] = useState(false);
     const { addToast } = useToast();
+
+    // Step 1: user typed the phrase → advance to final warning
+    const handleConfirmTyped = () => {
+        setShowConfirm(false);
+        setShowFinalConfirm(true);
+    };
+
+    // Step 2: user confirmed final warning → delete everywhere
+    const handleFinalDelete = async () => {
+        setDeleting(true);
+        try {
+            await deleteAllPatientsData(user?.id);
+            addToast('Semua data telah dihapus permanen', 'success');
+            setTimeout(() => window.location.reload(), 300);
+        } catch (err) {
+            addToast('Gagal menghapus data dari server: ' + (err.message || ''), 'error');
+            setDeleting(false);
+            setShowFinalConfirm(false);
+        }
+    };
+
+    const handleCancelDelete = () => {
+        setShowConfirm(false);
+        setShowFinalConfirm(false);
+    };
 
     const saveWorkerUrl = () => {
         localStorage.setItem('ai_worker_url', workerUrl);
@@ -54,12 +85,28 @@ export default function Settings() {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
             try {
-                JSON.parse(ev.target.result);
-                localStorage.setItem('medterminal_patients', ev.target.result);
+                const imported = JSON.parse(ev.target.result);
+                if (!Array.isArray(imported)) throw new Error('Bukan array');
+                // Merge: keep existing patients and append imported ones that don't already exist (deduplicated by id)
+                const existing = JSON.parse(localStorage.getItem('medterminal_patients') || '[]');
+                const existingIds = new Set(existing.map(p => p.id));
+                const newPatients = imported.filter(p => p.id && !existingIds.has(p.id));
+                const merged = [...existing, ...newPatients];
+                localStorage.setItem('medterminal_patients', JSON.stringify(merged));
+                addToast(`${newPatients.length} pasien berhasil diimpor.`, 'success');
+                if (user?.id) {
+                    setImporting(true);
+                    addToast('Menyinkronkan data ke server…', 'info');
+                    try {
+                        await syncToSupabase(user.id);
+                    } catch {
+                        addToast('Data tersimpan lokal, tapi gagal sinkron ke server.', 'error');
+                    }
+                }
                 window.location.reload();
-            } catch { addToast('File JSON tidak valid', 'error'); }
+            } catch { addToast('File JSON tidak valid atau format tidak didukung', 'error'); }
         };
         reader.readAsText(file);
     };
@@ -103,19 +150,43 @@ export default function Settings() {
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
                             <span className="material-symbols-outlined text-lg">download</span>Ekspor JSON
                         </button>
-                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700">
-                            <span className="material-symbols-outlined text-lg">upload</span>Impor JSON
-                            <input type="file" accept=".json" onChange={importData} className="hidden" />
+                        <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-bold transition-colors border border-slate-200 dark:border-slate-700 ${importing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer'}`}>
+                            <span className="material-symbols-outlined text-lg">{importing ? 'sync' : 'upload'}</span>{importing ? 'Mengimpor…' : 'Impor JSON'}
+                            <input type="file" accept=".json" onChange={importData} disabled={importing} className="hidden" />
                         </label>
                     </div>
                     <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-                        <button onClick={() => { if (confirm('Apakah Anda yakin? Semua data akan dihapus.')) { localStorage.removeItem('medterminal_patients'); window.location.reload(); } }}
+                        <button onClick={() => setShowConfirm(true)}
                             className="flex items-center gap-2 text-red-500 text-sm font-semibold hover:underline">
                             <span className="material-symbols-outlined text-lg">delete_forever</span>Hapus Semua Data
                         </button>
                     </div>
                 </div>
             </div>
+
+            {/* Step 1: typed confirmation */}
+            <ConfirmDialog
+                open={showConfirm}
+                title="Hapus Semua Data"
+                message="Ketik frasa di bawah untuk melanjutkan. Tindakan ini tidak dapat dibatalkan."
+                requireTypedConfirmation="Hapus Semua Data"
+                confirmLabel="Lanjutkan"
+                cancelLabel="Batal"
+                onConfirm={handleConfirmTyped}
+                onCancel={handleCancelDelete}
+            />
+
+            {/* Step 2: final irreversible warning */}
+            <ConfirmDialog
+                open={showFinalConfirm}
+                danger
+                title="Peringatan Terakhir"
+                message={`Data yang dihapus akan hilang permanen dari database${user ? ' dan server' : ''}. Tindakan ini tidak dapat dikembalikan.`}
+                confirmLabel={deleting ? 'Menghapus…' : 'Ya, Hapus Permanen'}
+                cancelLabel="Tidak, Batalkan"
+                onConfirm={handleFinalDelete}
+                onCancel={handleCancelDelete}
+            />
 
             {/* Info */}
             <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-5 lg:p-6">

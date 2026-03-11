@@ -9,13 +9,16 @@ export function StaseProvider({ children }) {
     const [stases, setStases] = useState([]);
     const [pinnedStaseId, setPinnedStaseIdState] = useState(null);
 
-    // Load stases from Supabase on login
+    // Load stases from Supabase on login, reset on logout
     useEffect(() => {
         if (user) {
             dataService.fetchStasesFromSupabase(user.id).then(({ stases: s, pinnedStaseId: pinId }) => {
                 setStases(s);
                 setPinnedStaseIdState(pinId);
             });
+        } else {
+            setStases([]);
+            setPinnedStaseIdState(null);
         }
     }, [user]);
 

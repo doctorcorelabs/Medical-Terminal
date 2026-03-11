@@ -38,6 +38,22 @@ export async function syncToSupabase(userId) {
     }
 }
 
+export async function deleteAllPatientsData(userId) {
+    // 1. Wipe local cache
+    localStorage.removeItem(STORAGE_KEY);
+    pendingSync.clearPatients();
+    // 2. Delete the row from Supabase (if logged in)
+    if (userId) {
+        try {
+            const { error } = await supabase.from('user_patients').delete().eq('user_id', userId);
+            if (error) throw error;
+        } catch (err) {
+            console.error('Failed to delete patients from Supabase:', err);
+            throw err;
+        }
+    }
+}
+
 export async function fetchFromSupabase(userId) {
     if (!userId) return getStoredData();
     // If there are offline changes, push them first so server has the latest data
