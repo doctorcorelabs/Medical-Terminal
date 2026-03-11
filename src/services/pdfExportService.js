@@ -301,10 +301,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
     return y;
 }
 
-export function exportPatientPDF(patient) {
-    try {
-        console.log('[PDF Export] Starting PDF generation for:', patient?.name);
-        const doc = new jsPDF('p', 'mm', 'a4');
+function _renderPatientToDoc(doc, patient) {
         const pageWidth = doc.internal.pageSize.getWidth();
         let y = 14;
 
@@ -904,15 +901,47 @@ export function exportPatientPDF(patient) {
             y = rcy + rRadius + 25;
         }
 
-        // ===== FOOTERS =====
-        addFooters(doc);
+}
 
-        // ===== SAVE =====
+// ================================================================
+// EXPORT SINGLE PATIENT PDF
+// ================================================================
+export function exportPatientPDF(patient) {
+    try {
+        console.log('[PDF Export] Starting PDF generation for:', patient?.name);
+        const doc = new jsPDF('p', 'mm', 'a4');
+        _renderPatientToDoc(doc, patient);
+        addFooters(doc);
         const safeName = (patient.name || 'pasien').replace(/[^a-zA-Z0-9]/g, '_');
         doc.save(`Laporan_Medis_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
         console.log('[PDF Export] PDF generated successfully');
     } catch (err) {
         console.error('[PDF Export] Error generating PDF:', err);
+        alert('Gagal membuat PDF: ' + err.message);
+    }
+}
+
+// ================================================================
+// EXPORT MULTIPLE PATIENTS DETAIL PDF (one patient per set of pages)
+// ================================================================
+export function exportMultiplePatientsPDF(patients) {
+    try {
+        if (!patients || patients.length === 0) {
+            alert('Tidak ada pasien yang dipilih.');
+            return;
+        }
+        console.log('[PDF Export] Starting multi-patient PDF for', patients.length, 'patients');
+        const doc = new jsPDF('p', 'mm', 'a4');
+        patients.forEach((patient, idx) => {
+            if (idx > 0) doc.addPage();
+            _renderPatientToDoc(doc, patient);
+        });
+        addFooters(doc);
+        const dateStr = new Date().toISOString().slice(0, 10);
+        doc.save(`Laporan_Detail_${patients.length}_Pasien_${dateStr}.pdf`);
+        console.log('[PDF Export] Multi-patient PDF generated successfully');
+    } catch (err) {
+        console.error('[PDF Export] Error generating multi-patient PDF:', err);
         alert('Gagal membuat PDF: ' + err.message);
     }
 }

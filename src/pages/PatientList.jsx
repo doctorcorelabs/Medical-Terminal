@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
 import { calculateDaysInHospital, getRelativeTime } from '../services/dataService';
-import { exportPatientListPDF } from '../services/pdfExportService';
+import { exportPatientListPDF, exportMultiplePatientsPDF } from '../services/pdfExportService';
 
 export default function PatientList() {
     const navigate = useNavigate();
@@ -36,6 +36,8 @@ export default function PatientList() {
     const cardMenuRef = useRef(null);
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [showReorderModal, setShowReorderModal] = useState(false);
+    const [reorderList, setReorderList] = useState([]);
 
     useEffect(() => {
         if (!transferPatientId) return;
@@ -171,7 +173,7 @@ export default function PatientList() {
     const exitSelection = () => { setSelectionMode(false); setSelectedIds(new Set()); };
 
     return (
-        <div className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 gap-5 lg:gap-6 pb-20 lg:pb-8 animate-[fadeIn_0.3s_ease-out]">
+        <div className={`flex-1 flex flex-col p-4 md:p-6 lg:p-8 gap-5 lg:gap-6 ${selectionMode ? 'pb-40 lg:pb-28' : 'pb-20 lg:pb-8'} animate-[fadeIn_0.3s_ease-out]`}>
 
             {/* Fixed-position transfer dropdown — outside all overflow containers */}
             {transferPatient && dropdownPos && (
@@ -253,29 +255,54 @@ export default function PatientList() {
                             <div
                                 ref={exportMenuFixedRef}
                                 style={{ position: 'fixed', top: exportMenuPos.top, ...(exportMenuPos.left != null ? { left: exportMenuPos.left } : { right: exportMenuPos.right }), zIndex: 9999 }}
-                                className="w-56 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-[fadeIn_0.15s_ease-out]"
+                                className="w-64 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-[fadeIn_0.15s_ease-out]"
                             >
+                                {/* Header label */}
+                                <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Opsi Ekspor</p>
+                                </div>
+
+                                {/* 1. PDF Laporan — instant summary list */}
                                 <button
                                     onClick={() => {
-                                        if (selectionMode && selectedIds.size === 0) return;
-                                        const toExport = selectionMode ? patients.filter(p => selectedIds.has(p.id)) : patients;
-                                        exportPatientListPDF(toExport);
+                                        exportPatientListPDF(filteredPatients);
                                         setShowExportMenu(false);
                                         setExportMenuPos(null);
                                     }}
                                     className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800"
                                 >
-                                    <span className="material-symbols-outlined text-red-500 text-xl">picture_as_pdf</span>
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-800 dark:text-white">Export PDF</p>
-                                        <p className="text-[10px] text-slate-400">{selectionMode && selectedIds.size > 0 ? `${selectedIds.size} pasien dipilih` : 'Laporan daftar pasien lengkap'}</p>
+                                    <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
+                                        <span className="material-symbols-outlined text-red-500 text-[18px]">summarize</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-slate-800 dark:text-white">PDF Laporan</p>
+                                        <p className="text-[10px] text-slate-400">Ringkasan {filteredPatients.length} pasien</p>
                                     </div>
                                 </button>
+
+                                {/* 2. PDF Detail Pasien — enters selection mode */}
                                 <button
                                     onClick={() => {
-                                        if (selectionMode && selectedIds.size === 0) return;
-                                        const toExport = selectionMode ? patients.filter(p => selectedIds.has(p.id)) : patients;
-                                        const data = JSON.stringify(toExport, null, 2);
+                                        setShowExportMenu(false);
+                                        setExportMenuPos(null);
+                                        setSelectionMode(true);
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors border-b border-slate-100 dark:border-slate-800"
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                        <span className="material-symbols-outlined text-primary text-[18px]">clinical_notes</span>
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-slate-800 dark:text-white">PDF Detail Pasien</p>
+                                        <p className="text-[10px] text-slate-400">Pilih pasien, ekspor laporan lengkap</p>
+                                    </div>
+                                    <span className="material-symbols-outlined text-slate-300 text-base shrink-0">chevron_right</span>
+                                </button>
+
+                                {/* 3. Export JSON — instant raw data */}
+                                <button
+                                    onClick={() => {
+                                        const data = JSON.stringify(filteredPatients, null, 2);
                                         const blob = new Blob([data], { type: 'application/json' });
                                         const url = URL.createObjectURL(blob);
                                         const a = document.createElement('a');
@@ -286,10 +313,12 @@ export default function PatientList() {
                                     }}
                                     className="flex items-center gap-3 w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 >
-                                    <span className="material-symbols-outlined text-blue-500 text-xl">data_object</span>
-                                    <div>
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+                                        <span className="material-symbols-outlined text-blue-500 text-[18px]">data_object</span>
+                                    </div>
+                                    <div className="min-w-0">
                                         <p className="text-sm font-bold text-slate-800 dark:text-white">Export JSON</p>
-                                        <p className="text-[10px] text-slate-400">{selectionMode && selectedIds.size > 0 ? `${selectedIds.size} pasien dipilih` : 'Data mentah untuk backup'}</p>
+                                        <p className="text-[10px] text-slate-400">Data mentah untuk backup</p>
                                     </div>
                                 </button>
                             </div>
@@ -415,33 +444,11 @@ export default function PatientList() {
                 </div>
             </div>
 
-            {/* Selection Toolbar */}
+            {/* Mode ekspor detail — hint banner */}
             {selectionMode && (
-                <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
-                    <input
-                        type="checkbox"
-                        checked={selectedIds.size > 0 && selectedIds.size === filteredPatients.length}
-                        ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredPatients.length; }}
-                        onChange={() => selectedIds.size === filteredPatients.length ? clearAll() : selectAll()}
-                        className="w-4 h-4 rounded accent-primary cursor-pointer"
-                    />
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        {selectedIds.size > 0 ? `${selectedIds.size} pasien dipilih` : 'Pilih pasien untuk diekspor'}
-                    </span>
-                    {selectedIds.size < filteredPatients.length && (
-                        <button onClick={selectAll} className="text-xs text-primary font-bold hover:underline">
-                            Pilih Semua ({filteredPatients.length})
-                        </button>
-                    )}
-                    {selectedIds.size > 0 && (
-                        <button onClick={clearAll} className="text-xs text-slate-500 font-bold hover:underline">
-                            Batal Pilih
-                        </button>
-                    )}
-                    <button onClick={exitSelection} className="ml-auto flex items-center gap-1 text-xs text-slate-500 hover:text-red-500 font-bold transition-colors">
-                        <span className="material-symbols-outlined text-sm">close</span>
-                        Selesai
-                    </button>
+                <div className="flex items-center gap-2.5 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl animate-[fadeIn_0.2s_ease-out]">
+                    <span className="material-symbols-outlined text-primary text-[18px] shrink-0">touch_app</span>
+                    <span className="text-sm font-semibold text-primary/80">Mode ekspor detail aktif — ketuk pasien untuk memilih</span>
                 </div>
             )}
 
@@ -608,7 +615,7 @@ export default function PatientList() {
                             <div
                                 key={p.id}
                                 onClick={() => selectionMode ? toggleSelect(p.id) : navigate(`/patient/${p.id}`)}
-                                className={`relative bg-white dark:bg-slate-900 rounded-xl border p-4 cursor-pointer transition-all ${selectionMode && selectedIds.has(p.id) ? 'border-primary/50 bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
+                                className={`relative bg-white dark:bg-slate-900 rounded-xl border p-4 cursor-pointer transition-all ${selectionMode && selectedIds.has(p.id) ? 'border-primary ring-2 ring-primary/20 bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-800 hover:border-primary/30'}`}
                             >
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
@@ -737,6 +744,237 @@ export default function PatientList() {
                         <span className="material-symbols-outlined text-primary text-xl">verified</span>
                     </div>
                     <p className="text-xs text-slate-500">Klik pasien untuk melihat analisis AI pada halaman detail.</p>
+                </div>
+            </div>
+
+            {/* Fixed bottom selection action bar */}
+            {selectionMode && (
+                <SelectionActionBar
+                    selectedCount={selectedIds.size}
+                    totalCount={filteredPatients.length}
+                    onSelectAll={selectAll}
+                    onClear={clearAll}
+                    onExport={() => {
+                        // Open reorder modal with selected patients in current display order
+                        const ordered = filteredPatients.filter(p => selectedIds.has(p.id)).map(p => p.id);
+                        setReorderList(ordered);
+                        setShowReorderModal(true);
+                    }}
+                    onExit={exitSelection}
+                />
+            )}
+
+            {/* Reorder modal */}
+            {showReorderModal && (
+                <ReorderModal
+                    patients={patients}
+                    reorderList={reorderList}
+                    setReorderList={setReorderList}
+                    onConfirm={() => {
+                        const ordered = reorderList.map(id => patients.find(p => p.id === id)).filter(Boolean);
+                        exportMultiplePatientsPDF(ordered);
+                        setShowReorderModal(false);
+                        exitSelection();
+                    }}
+                    onClose={() => setShowReorderModal(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+function ReorderModal({ patients, reorderList, setReorderList, onConfirm, onClose }) {
+    const dragIdx = useRef(null);
+    const [draggingIdx, setDraggingIdx] = useState(null);
+    const orderedPatients = reorderList.map(id => patients.find(p => p.id === id)).filter(Boolean);
+
+    const moveUp = (idx) => {
+        if (idx === 0) return;
+        const next = [...reorderList];
+        [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+        setReorderList(next);
+    };
+    const moveDown = (idx) => {
+        if (idx === reorderList.length - 1) return;
+        const next = [...reorderList];
+        [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+        setReorderList(next);
+    };
+    const handleDragStart = (idx) => {
+        dragIdx.current = idx;
+        setDraggingIdx(idx);
+    };
+    const handleDragOver = (e, idx) => {
+        e.preventDefault();
+        if (dragIdx.current === null || dragIdx.current === idx) return;
+        const next = [...reorderList];
+        const [dragged] = next.splice(dragIdx.current, 1);
+        next.splice(idx, 0, dragged);
+        dragIdx.current = idx;
+        setDraggingIdx(idx);
+        setReorderList(next);
+    };
+    const handleDragEnd = () => {
+        dragIdx.current = null;
+        setDraggingIdx(null);
+    };
+
+    return (
+            <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+            {/* Modal card — bottom sheet on mobile, centered on sm+ */}
+            <div className="relative bg-white dark:bg-slate-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[88dvh] sm:max-h-[80dvh] animate-[fadeIn_0.2s_ease-out]">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                    <div>
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">Atur Urutan Halaman PDF</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">Seret atau gunakan tombol panah untuk mengubah urutan</p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                    </button>
+                </div>
+
+                {/* Info bar */}
+                <div className="px-5 py-2 bg-primary/5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <span className="font-bold text-primary">{reorderList.length} pasien</span>
+                        {' — setiap pasien menjadi satu set halaman dalam PDF'}
+                    </p>
+                </div>
+
+                {/* Scrollable list */}
+                <div className="flex-1 overflow-y-auto py-2.5 px-3">
+                    {orderedPatients.map((p, idx) => (
+                        <div
+                            key={p.id}
+                            draggable
+                            onDragStart={() => handleDragStart(idx)}
+                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDragEnd={handleDragEnd}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 mb-1.5 rounded-xl border select-none transition-all ${
+                                draggingIdx === idx
+                                    ? 'opacity-40 bg-primary/5 border-primary/30 scale-[0.98]'
+                                    : 'bg-white dark:bg-slate-800/60 border-slate-100 dark:border-slate-700/60 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                        >
+                            {/* Page number badge */}
+                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                <span className="text-[11px] font-black text-primary">{idx + 1}</span>
+                            </div>
+
+                            {/* Drag handle — desktop only visual, drag still works everywhere */}
+                            <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 text-[18px] shrink-0 cursor-grab active:cursor-grabbing">drag_indicator</span>
+
+                            {/* Patient info */}
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{p.name || '-'}</p>
+                                <p className="text-[10px] text-slate-400 truncate mt-0.5">{p.diagnosis || 'Tidak ada diagnosis'}</p>
+                            </div>
+
+                            {/* Condition badge */}
+                            <KondisiBadge kondisi={p.condition} />
+
+                            {/* Up / Down buttons */}
+                            <div className="flex flex-col gap-0.5 shrink-0">
+                                <button
+                                    onClick={() => moveUp(idx)}
+                                    disabled={idx === 0}
+                                    className="w-6 h-5 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">expand_less</span>
+                                </button>
+                                <button
+                                    onClick={() => moveDown(idx)}
+                                    disabled={idx === reorderList.length - 1}
+                                    className="w-6 h-5 flex items-center justify-center rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">expand_more</span>
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div className="shrink-0 px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        Kembali
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-primary text-white hover:bg-blue-600 shadow-lg shadow-primary/25 active:scale-95 transition-all"
+                    >
+                        <span className="material-symbols-outlined text-base">picture_as_pdf</span>
+                        <span>Export PDF ({reorderList.length})</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SelectionActionBar({ selectedCount, totalCount, onSelectAll, onClear, onExport, onExit }) {
+    return (
+        <div className="fixed bottom-0 left-0 right-0 z-50 animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-white dark:bg-slate-900 border-t-2 border-primary/30 shadow-2xl shadow-slate-900/20">
+                <div className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 py-3 sm:py-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-4">
+
+                        {/* Count + bulk controls */}
+                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 flex-wrap">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                    <span className="material-symbols-outlined text-primary text-[14px]">check_circle</span>
+                                </div>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                    {selectedCount > 0 ? `${selectedCount} pasien dipilih` : 'Ketuk pasien untuk memilih'}
+                                </span>
+                            </div>
+                            {selectedCount < totalCount && (
+                                <button onClick={onSelectAll} className="text-xs font-bold text-primary hover:text-blue-700 hover:underline transition-colors shrink-0">
+                                    Pilih Semua ({totalCount})
+                                </button>
+                            )}
+                            {selectedCount > 0 && (
+                                <button onClick={onClear} className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:underline transition-colors shrink-0">
+                                    Batal Pilih
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                onClick={onExit}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-base">close</span>
+                                <span>Batal</span>
+                            </button>
+                            <button
+                                onClick={onExport}
+                                disabled={selectedCount === 0}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all flex-1 sm:flex-none justify-center whitespace-nowrap ${
+                                    selectedCount > 0
+                                        ? 'bg-primary text-white hover:bg-blue-600 shadow-lg shadow-primary/25 active:scale-95'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">picture_as_pdf</span>
+                                <span>Export PDF Detail{selectedCount > 0 ? ` (${selectedCount})` : ''}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
