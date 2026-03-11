@@ -300,6 +300,252 @@ function Chip({ active, onClick, children, color }) {
   );
 }
 
+// ── Info Modal helpers ──────────────────────────────────────────────────────
+const INFO_FLAGS = [
+  {
+    badge: 'OEN', color: 'emerald',
+    full: 'Obat Esensial Nasional',
+    desc: 'Obat yang memenuhi kebutuhan prioritas kesehatan penduduk. Dipilih berdasarkan prevalensi penyakit, bukti klinis, keamanan, dan efektivitas biaya.',
+  },
+  {
+    badge: 'FKRTL', color: 'blue',
+    full: 'Formularium Kefarmasian Faskes Rujukan Tingkat Lanjutan',
+    desc: 'Daftar obat yang digunakan di fasilitas kesehatan tingkat lanjutan (RS kelas A/B/C/D) dalam program JKN.',
+  },
+  {
+    badge: 'FKTP', color: 'cyan',
+    full: 'Formularium Kefarmasian Faskes Tingkat Pertama',
+    desc: 'Daftar obat yang digunakan di fasilitas kesehatan tingkat pertama (puskesmas, klinik pratama, dokter praktik mandiri) dalam program JKN.',
+  },
+  {
+    badge: 'PRB', color: 'violet',
+    full: 'Program Rujuk Balik',
+    desc: 'Obat untuk pasien penyakit kronis (DM, hipertensi, jantung, asma, PPOK, dll.) yang kondisinya sudah stabil dan dapat dilayani di FKTP.',
+  },
+  {
+    badge: 'PP', color: 'amber',
+    full: 'Program Pemerintah',
+    desc: 'Obat yang disediakan pemerintah untuk program kesehatan khusus seperti TB, HIV/AIDS, Malaria, dan imunisasi nasional.',
+  },
+  {
+    badge: 'Program', color: 'orange',
+    full: 'Termasuk Dalam Program Kemenkes',
+    desc: 'Obat yang masuk dalam program-program khusus Kementerian Kesehatan RI di luar program utama JKN.',
+  },
+  {
+    badge: 'Onko', color: 'rose',
+    full: 'Obat Kanker / Onkologi',
+    desc: 'Obat untuk terapi keganasan (kanker). Umumnya hanya tersedia di fasilitas onkologi dan memerlukan persetujuan komite medis.',
+  },
+];
+
+function InfoSection({ icon, title, iconColor, children }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`material-symbols-outlined text-[18px] ${iconColor}`}>{icon}</span>
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function GuideStep({ n, icon, title, desc }) {
+  return (
+    <div className="flex gap-3">
+      <div className="shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+        {n}
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="material-symbols-outlined text-[13px] text-slate-400">{icon}</span>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{title}</p>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function RestrictItem({ title, desc }) {
+  return (
+    <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/20 rounded-lg px-3 py-2.5">
+      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-0.5">{title}</p>
+      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
+    </div>
+  );
+}
+
+function InfoModal({ onClose }) {
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full sm:max-w-lg lg:max-w-xl bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[85dvh] overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-teal-100 dark:bg-teal-900/40 rounded-lg p-1.5 shrink-0">
+              <span className="material-symbols-outlined text-teal-600 dark:text-teal-400 text-lg">menu_book</span>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">Panduan Obat Fornas</h2>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">Petunjuk penggunaan &amp; keterangan istilah</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-5 py-5 space-y-6">
+
+          {/* Tentang */}
+          <InfoSection icon="info" title="Tentang Fitur Ini" iconColor="text-teal-500">
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
+              <strong className="text-slate-800 dark:text-slate-100">Obat Fornas</strong> menampilkan data lengkap{' '}
+              <strong>Formularium Nasional (Fornas)</strong> Kementerian Kesehatan RI—daftar resmi obat yang dapat
+              diresepkan dalam program <strong>JKN (Jaminan Kesehatan Nasional)</strong>.
+            </p>
+            <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/30 rounded-xl px-4 py-3 flex gap-2.5 items-start">
+              <span className="material-symbols-outlined text-teal-500 text-base shrink-0 mt-0.5">verified</span>
+              <p className="text-xs text-teal-700 dark:text-teal-300 leading-relaxed">
+                Data bersumber dari <strong>e-fornas.kemkes.go.id</strong>. Mencakup lebih dari 1.140 sediaan obat
+                beserta klasifikasi terapi, program formularium, dan ketentuan peresepannya.
+              </p>
+            </div>
+          </InfoSection>
+
+          {/* Cara Penggunaan */}
+          <InfoSection icon="touch_app" title="Cara Penggunaan" iconColor="text-blue-500">
+            <div className="space-y-3">
+              <GuideStep
+                n="1" icon="search" title="Pencarian Bebas"
+                desc='Ketik nama obat generik atau nama internasional, bentuk sediaan, atau kelas terapi. Contoh: “amlodipin”, “tablet”, “antihipertensi”.'
+              />
+              <GuideStep
+                n="2" icon="filter_list" title="Filter Program & Formularium"
+                desc="Klik chip OEN, FKRTL, FKTP, PRB, PP, Program, atau Onko untuk menyaring obat berdasarkan program tertentu. Klik sekali lagi untuk membatalkan filter."
+              />
+              <GuideStep
+                n="3" icon="medication" title="Filter Bentuk Sediaan"
+                desc="Gunakan baris Sediaan untuk memfilter berdasarkan bentuk fisik obat: Tablet, Kapsul, Injeksi, Sirup, Salep, dan lainnya."
+              />
+              <GuideStep
+                n="4" icon="open_in_new" title="Lihat Detail Obat"
+                desc="Klik baris obat untuk melihat detail lengkap: klasifikasi terapi 4-tingkat, program aktif, restriksi peresepan, komposisi, dan peresepan maksimal."
+              />
+            </div>
+          </InfoSection>
+
+          {/* Keterangan Singkatan */}
+          <InfoSection icon="label" title="Keterangan Singkatan" iconColor="text-violet-500">
+            <div className="space-y-3">
+              {INFO_FLAGS.map(f => (
+                <div key={f.badge} className="flex gap-3 items-start">
+                  <span className={`mt-0.5 shrink-0 inline-flex items-center justify-center rounded-full font-semibold text-[11px] px-2 py-1 min-w-14 text-center ${FLAG_COLORS[f.color]}`}>
+                    {f.badge}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">{f.full}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </InfoSection>
+
+          {/* Klasifikasi Terapi */}
+          <InfoSection icon="category" title="Klasifikasi Kelas Terapi" iconColor="text-orange-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
+              Setiap obat diklasifikasikan dalam hierarki hingga <strong className="text-slate-600 dark:text-slate-300">4 tingkat</strong> berdasarkan
+              sistem kelas terapi Kemenkes RI:
+            </p>
+            <div className="bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2">
+              {[
+                { tier: 1, label: 'Kelas Terapi Utama',       ex: 'ANTIINFEKSI' },
+                { tier: 2, label: 'Sub Kelas Terapi',          ex: 'ANTIBAKTERI' },
+                { tier: 3, label: 'Sub-Sub Kelas Terapi',      ex: 'PENISILIN' },
+                { tier: 4, label: 'Sub-Sub-Sub Kelas Terapi',  ex: 'AMINOPENISILIN' },
+              ].map(({ tier, label, ex }) => (
+                <div key={tier} className="flex items-center gap-2" style={{ paddingLeft: (tier - 1) * 16 }}>
+                  {tier > 1 && <span className="text-slate-300 dark:text-slate-600 text-sm shrink-0">└</span>}
+                  <span className="text-[11px] font-mono font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-600/50 border border-slate-200 dark:border-slate-600 px-2 py-0.5 rounded shrink-0">
+                    {ex}
+                  </span>
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">{label}</span>
+                </div>
+              ))}
+            </div>
+          </InfoSection>
+
+          {/* Restriksi */}
+          <InfoSection icon="gavel" title="Restriksi & Ketentuan Peresepan" iconColor="text-amber-500">
+            <div className="space-y-2">
+              <RestrictItem
+                title="Restriksi Obat"
+                desc="Pembatasan penggunaan berdasarkan kondisi klinis atau diagnosis tertentu yang berlaku untuk semua sediaan obat tersebut."
+              />
+              <RestrictItem
+                title="Restriksi Sediaan"
+                desc="Pembatasan khusus untuk bentuk sediaan tertentu. Contoh: sediaan injeksi hanya dapat digunakan pada pasien rawat inap."
+              />
+              <RestrictItem
+                title="Catatan Ketentuan (1–4)"
+                desc="Keterangan tambahan terkait durasi terapi, persyaratan klinis lanjutan, atau kondisi khusus yang harus dipenuhi sebelum peresepan."
+              />
+              <RestrictItem
+                title="Peresepan Maksimal"
+                desc="Batas maksimum jumlah obat yang dapat diresepkan dalam satu kali kunjungan atau per periode terapi yang ditetapkan."
+              />
+            </div>
+          </InfoSection>
+
+          {/* Sumber Data */}
+          <div className="bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex gap-3">
+            <span className="material-symbols-outlined text-slate-400 text-lg shrink-0 mt-0.5">database</span>
+            <div>
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Sumber Data</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Data diambil dari API resmi{' '}
+                <strong className="text-slate-600 dark:text-slate-300">e-fornas.kemkes.go.id</strong>{' '}
+                dan disimpan di basis data aplikasi untuk akses lebih cepat. Pembaruan data dilakukan secara
+                berkala mengikuti revisi Fornas terbaru dari Kemenkes RI.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-700 shrink-0 flex items-center justify-between gap-3">
+          <p className="text-[11px] text-slate-400">e-fornas.kemkes.go.id · Kemenkes RI</p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+          >
+            Tutup
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function FornasDrug() {
   const navigate = useNavigate();
@@ -321,6 +567,7 @@ export default function FornasDrug() {
 
   // Detail modal
   const [selectedDrug, setSelectedDrug] = useState(null);
+  const [showInfo, setShowInfo]         = useState(false);
 
   const debounceRef = useRef(null);
 
@@ -419,9 +666,18 @@ export default function FornasDrug() {
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Formularium Nasional Kemenkes RI</p>
             </div>
           </div>
-          <span className="self-start sm:self-center sm:ml-auto text-xs bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-3 py-1 rounded-full font-medium shrink-0">
-            e-Fornas Kemkes RI
-          </span>
+          <div className="self-start sm:self-center sm:ml-auto flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowInfo(true)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-teal-400 hover:text-teal-600 dark:hover:border-teal-500 dark:hover:text-teal-400 transition"
+            >
+              <span className="material-symbols-outlined text-[14px]">menu_book</span>
+              <span>Panduan</span>
+            </button>
+            <span className="text-xs bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-3 py-1 rounded-full font-medium">
+              e-Fornas Kemkes RI
+            </span>
+          </div>
         </div>
       </div>
 
@@ -592,6 +848,11 @@ export default function FornasDrug() {
       {/* ── Detail Modal ── */}
       {selectedDrug && (
         <DetailModal drug={selectedDrug} onClose={() => setSelectedDrug(null)} />
+      )}
+
+      {/* ── Info Modal ── */}
+      {showInfo && (
+        <InfoModal onClose={() => setShowInfo(false)} />
       )}
     </div>
   );
