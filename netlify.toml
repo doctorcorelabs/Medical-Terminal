@@ -15,7 +15,7 @@
   status = 200
 
 # Scheduled trigger: runs daily at 05:00 UTC = 12:00 WIB (GMT+7)
-# The same fetch-news function handles both HTTP requests and scheduled runs
+# Fetch RSS feeds and upsert to Supabase. fetch-news.mjs only reads from DB.
 [[scheduled_functions]]
-  name = "fetch-news"
+  name = "scheduled-news"
   cron = "0 5 * * *"
