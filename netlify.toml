@@ -9,6 +9,9 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."scheduled-news"]
+  timeout = 26
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

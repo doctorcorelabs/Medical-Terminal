@@ -1773,12 +1773,14 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
                 {aiMethods.map(item => (
                     <button key={item.key} onClick={item.fn} disabled={item.disabled || aiLoading[item.key]}
-                        className="flex flex-col items-start p-4 lg:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group disabled:opacity-50">
-                        <div className={`size-10 rounded-lg bg-linear-to-br ${item.color} text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shrink-0`}>
+                        className="flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:gap-0 p-4 lg:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group disabled:opacity-50">
+                        <div className={`size-10 rounded-lg bg-linear-to-br ${item.color} text-white flex items-center justify-center sm:mb-3 group-hover:scale-110 transition-transform shrink-0`}>
                             <span className="material-symbols-outlined">{item.icon}</span>
                         </div>
-                        <span className="font-bold text-sm">{item.title}</span>
-                        <span className="text-xs text-slate-500 mt-1">{item.desc}</span>
+                        <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-sm leading-snug">{item.title}</span>
+                            <span className="text-xs text-slate-500 mt-0.5 sm:mt-1 leading-snug">{item.desc}</span>
+                        </div>
                     </button>
                 ))}
             </div>
@@ -1875,12 +1877,12 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey })
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 gap-3">
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-lg">auto_awesome</span>
-                    {judul}
+            <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start sm:items-center bg-slate-50/50 dark:bg-slate-800/50 gap-3">
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2 flex-1 min-w-0">
+                    <span className="material-symbols-outlined text-primary text-lg shrink-0">auto_awesome</span>
+                    <span className="wrap-break-word">{judul}</span>
                 </h3>
-                <div className="flex gap-1 justify-end items-center flex-wrap">
+                <div className="flex gap-1 justify-end items-center flex-wrap shrink-0">
                     {!isEditing && !loading && result && (
                         <>
                             <button onClick={onUpdate} title="Update AI (Generate Ulang)" className="flex items-center gap-1 p-1.5 px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors font-semibold text-[11px] bg-white dark:bg-slate-800">

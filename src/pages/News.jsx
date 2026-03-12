@@ -27,13 +27,6 @@ function getRelativeTime(dateStr) {
     return `${diffDays} hari lalu`;
 }
 
-function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-}
-
 const SOURCE_ICONS = {
     'Google News Health': 'health_and_safety',
     'Google News Research': 'biotech',
@@ -51,7 +44,9 @@ const SOURCE_ICONS = {
     'medRxiv': 'description',
     'PubMed': 'search',
     'FDA Press Releases': 'medication',
-    'WebMD Health News': 'health_and_safety',
+    'STAT News': 'newspaper',
+    'EurekAlert': 'emoji_objects',
+    'Medical News Today': 'health_and_safety',
 };
 
 function NewsCard({ article, featured = false }) {
@@ -316,12 +311,10 @@ export default function News() {
     const [articles, setArticles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [updatedAt, setUpdatedAt] = useState(null);
     const [selectedSource, setSelectedSource] = useState('Semua');
     const [selectedCategory, setSelectedCategory] = useState('Semua');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
-    const [isMock, setIsMock] = useState(false);
 
     const fetchNews = useCallback(async () => {
         setLoading(true);
@@ -333,16 +326,12 @@ export default function News() {
             const data = await res.json();
             if (data.success && data.articles?.length > 0) {
                 setArticles(data.articles);
-                setUpdatedAt(data.updatedAt);
-                setIsMock(false);
             } else {
                 throw new Error('Tidak ada artikel tersedia');
             }
         } catch {
             // Fallback to mock data in development
             setArticles(MOCK_ARTICLES);
-            setUpdatedAt(new Date().toISOString());
-            setIsMock(true);
         } finally {
             setLoading(false);
         }
@@ -375,19 +364,10 @@ export default function News() {
                         </h2>
                         <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">Informasi kesehatan & kedokteran terkini.</p>
                     </div>
-                    {updatedAt && (
-                        <div className="flex flex-col sm:items-end gap-2">
-                            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg flex items-center gap-1.5 w-max">
-                                <span className="material-symbols-outlined text-[14px]">update</span>
-                                Diperbarui: {formatDate(updatedAt)}
-                                {isMock && <span className="text-amber-500 ml-1">(Demo)</span>}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs px-2.5 py-1 rounded-lg w-max font-semibold">
-                                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Refresh otomatis 12:00 WIB
-                            </span>
-                        </div>
-                    )}
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs px-2.5 py-1 rounded-lg w-max font-semibold self-start sm:self-auto">
+                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Refresh otomatis 12:00 WIB
+                    </span>
                 </div>
             </section>
 

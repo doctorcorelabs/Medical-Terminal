@@ -68,24 +68,25 @@ const RSS_SOURCES = [
         category: 'Preprint',
         color: '#059669',
     },
-    // PubMed
+    // PubMed — fixed URL (&limit tidak valid, ganti ke &format=rss)
     {
         name: 'PubMed',
-        url: 'https://pubmed.ncbi.nlm.nih.gov/rss/pubmed/?term=medicine%5BMeSH%5D&limit=20',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/rss/pubmed/?term=medicine%5BMeSH%5D&format=rss',
         category: 'Riset',
         color: '#2b6cb0',
     },
-    // Pemerintah & Institusi Resmi
+    // STAT News (menggantikan CDC Newsroom — media ID berubah, 0 artikel)
     {
-        name: 'CDC Newsroom',
-        url: 'https://tools.cdc.gov/api/v2/resources/media/316398.rss',
-        category: 'Kesehatan Publik',
+        name: 'STAT News',
+        url: 'https://www.statnews.com/feed/',
+        category: 'Berita Medis',
         color: '#3b82f6',
     },
+    // EurekAlert (menggantikan NIH News — HTTP 404)
     {
-        name: 'NIH News',
-        url: 'https://www.nih.gov/news-events/news-releases/rss.xml',
-        category: 'Riset',
+        name: 'EurekAlert',
+        url: 'https://www.eurekalert.org/rss/index.xml',
+        category: 'Penemuan Baru',
         color: '#10b981',
     },
     {
@@ -94,9 +95,10 @@ const RSS_SOURCES = [
         category: 'Farmasi',
         color: '#eab308',
     },
+    // Medical News Today (menggantikan WebMD Health News — RSS diblokir/fetch failed)
     {
-        name: 'WebMD Health News',
-        url: 'https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC',
+        name: 'Medical News Today',
+        url: 'https://www.medicalnewstoday.com/newsfeeds/rss.xml',
         category: 'Berita Kesehatan',
         color: '#0ea5e9',
     },
@@ -104,7 +106,7 @@ const RSS_SOURCES = [
 
 async function fetchDirect(url) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
         const res = await fetch(url, {
             signal: controller.signal,
@@ -235,26 +237,38 @@ async function runFetch(debugSource) {
     const seenIds = new Set();
     const seenTitles = new Set();
     const sourceReport = [];
+    let totalRaw = 0;
+    let totalDateFiltered = 0;
+    let totalDeduplicated = 0;
 
     for (const result of results) {
         if (result.status === 'fulfilled') {
             const { source, count, items, error } = result.value;
-            sourceReport.push({ source, fetched: count, error: error || null });
+            totalRaw += items.length;
+            let added = 0;
+            let dateFiltered = 0;
+            let duped = 0;
             for (const article of items) {
                 const articleDate = new Date(article.pubDate);
                 const titleKey = article.title.slice(0, 60).toLowerCase();
-                if (
-                    articleDate >= sevenDaysAgo &&
-                    !seenIds.has(article.id) &&
-                    !seenTitles.has(titleKey)
-                ) {
-                    seenIds.add(article.id);
-                    seenTitles.add(titleKey);
-                    allArticles.push(article);
+                if (articleDate < sevenDaysAgo) {
+                    dateFiltered++;
+                    totalDateFiltered++;
+                    continue;
                 }
+                if (seenIds.has(article.id) || seenTitles.has(titleKey)) {
+                    duped++;
+                    totalDeduplicated++;
+                    continue;
+                }
+                seenIds.add(article.id);
+                seenTitles.add(titleKey);
+                allArticles.push(article);
+                added++;
             }
+            sourceReport.push({ source, fetched: count, added, dateFiltered, duped, error: error || null });
         } else {
-            sourceReport.push({ source: 'unknown', fetched: 0, error: result.reason?.message });
+            sourceReport.push({ source: 'unknown', fetched: 0, added: 0, dateFiltered: 0, duped: 0, error: result.reason?.message });
         }
     }
 
@@ -284,6 +298,11 @@ async function runFetch(debugSource) {
     return {
         fetchedAt: new Date().toISOString(),
         totalFetched: allArticles.length,
+        debug: {
+            rawCount: totalRaw,
+            dateFiltered: totalDateFiltered,
+            deduplicated: totalDeduplicated,
+        },
         sources: sourceReport,
     };
 }
