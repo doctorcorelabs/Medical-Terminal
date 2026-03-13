@@ -577,6 +577,9 @@ export default function FornasDrug() {
   const { isOnline } = useOffline();
   const { user } = useAuth();
   const cacheUserId = user?.id ?? 'anonymous';
+  const returnTo = location.state?.returnTo;
+  const returnState = location.state?.returnState ?? null;
+  const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/tools/');
 
   // Data
   const [allData, setAllData]       = useState([]);
@@ -842,6 +845,13 @@ export default function FornasDrug() {
   const filteredCount = idbMode ? idbResults.total   : filtered.length;
 
   const handleCardClick = useCallback(drug => setSelectedDrug(drug), []);
+  const handleBack = useCallback(() => {
+    if (hasReturnTarget) {
+      navigate(returnTo, { state: returnState });
+      return;
+    }
+    navigate('/tools');
+  }, [hasReturnTarget, navigate, returnState, returnTo]);
 
   // Keep the active filter visible when it is outside the quick-access list.
   useEffect(() => {
@@ -855,11 +865,11 @@ export default function FornasDrug() {
       {/* ── Breadcrumb + Header ── */}
       <div className="mb-5">
         <button
-          onClick={() => navigate('/tools')}
+          onClick={handleBack}
           className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition mb-3"
         >
           <span className="material-symbols-outlined text-base">chevron_left</span>
-          Tools
+          {hasReturnTarget ? 'Kembali ke Tool Asal' : 'Tools'}
         </button>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3">

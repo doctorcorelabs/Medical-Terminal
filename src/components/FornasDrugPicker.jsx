@@ -1,27 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useOffline } from '../context/OfflineContext';
-
-// ── Constants (same as FornasDrug.jsx) ────────────────────────────────────────
-const FLAGS = [
-  { key: 'flag_oen',     label: 'OEN',    title: 'Obat Esensial Nasional',       color: 'emerald' },
-  { key: 'flag_fpktl',   label: 'FKRTL',  title: 'Formularium Tingkat Lanjutan', color: 'blue'    },
-  { key: 'flag_fpktp',   label: 'FKTP',   title: 'Formularium Tingkat Pertama',  color: 'cyan'    },
-  { key: 'flag_prb',     label: 'PRB',    title: 'Program Rujuk Balik',          color: 'violet'  },
-  { key: 'flag_pp',      label: 'PP',     title: 'Program Pemerintah',           color: 'amber'   },
-  { key: 'flag_program', label: 'Program',title: 'Program Kemenkes',             color: 'orange'  },
-  { key: 'flag_kanker',  label: 'Onko',   title: 'Obat Kanker / Onkologi',      color: 'rose'    },
-];
-
-const FLAG_COLORS = {
-  emerald: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40',
-  blue:    'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/40',
-  cyan:    'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/40',
-  violet:  'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800/40',
-  amber:   'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40',
-  orange:  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800/40',
-  rose:    'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/40',
-};
+import { FORNAS_FLAGS as FLAGS, FORNAS_FLAG_COLORS as FLAG_COLORS } from '../utils/fornasIntegration';
 
 const PAGE_SIZE = 50;
 const TABLE = 'fornas_drugs';
@@ -42,7 +22,7 @@ async function loadFornasDrugs() {
       while (true) {
         const { data, error } = await supabase
           .from(TABLE)
-          .select('id,sks_id,name,name_international,label,form_code,form,strength,unit,category_l1,category_l2,flag_fpktl,flag_fpktp,flag_pp,flag_prb,flag_oen,flag_program,flag_kanker')
+          .select('id,sks_id,name,name_international,label,form_code,form,strength,unit,category_l1,category_l2,restriction_drug,restriction_form,restriction_note_l1,restriction_note_l2,restriction_note_l3,restriction_note_l4,max_prescription,flag_fpktl,flag_fpktp,flag_pp,flag_prb,flag_oen,flag_program,flag_kanker')
           .order('name')
           .range(from, from + step - 1);
         if (error) throw new Error(error.message);
@@ -241,6 +221,22 @@ export default function FornasDrugPicker({ onSelect, onClose }) {
       fornas_source:   true,
       fornas_form:     drug.form ?? '',
       fornas_category: [drug.category_l1, drug.category_l2].filter(Boolean).join(' › '),
+      fornas_id:       drug.id ?? null,
+      fornas_name_international: drug.name_international ?? '',
+      restriction_drug: drug.restriction_drug ?? '',
+      restriction_form: drug.restriction_form ?? '',
+      restriction_note_l1: drug.restriction_note_l1 ?? '',
+      restriction_note_l2: drug.restriction_note_l2 ?? '',
+      restriction_note_l3: drug.restriction_note_l3 ?? '',
+      restriction_note_l4: drug.restriction_note_l4 ?? '',
+      max_prescription: drug.max_prescription ?? '',
+      flag_fpktl: Boolean(drug.flag_fpktl),
+      flag_fpktp: Boolean(drug.flag_fpktp),
+      flag_pp: Boolean(drug.flag_pp),
+      flag_prb: Boolean(drug.flag_prb),
+      flag_oen: Boolean(drug.flag_oen),
+      flag_program: Boolean(drug.flag_program),
+      flag_kanker: Boolean(drug.flag_kanker),
     });
     onClose();
   }, [onSelect, onClose]);
