@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PEDIATRIC_COMMON_DRUGS } from '../../data/pediatricDosing';
-import { calcCommonPediatricDose, calcPediatricEmergencySummary, estimateEttByAge, getBroselowZone } from '../../utils/pediatricCalculations';
+import { BROSELOW_WEIGHT_LIMITS, calcCommonPediatricDose, calcPediatricEmergencySummary, estimateEttByAge, getBroselowZone } from '../../utils/pediatricCalculations';
 
 function Stat({ label, value, sublabel }) {
   return (
@@ -20,12 +20,20 @@ export default function PediatricCalc() {
   const [ageYears, setAgeYears] = useState('');
   const [selectedDrugId, setSelectedDrugId] = useState(PEDIATRIC_COMMON_DRUGS[0].id);
 
-  const numericWeight = Number(weightKg);
+  const numericWeight = weightKg === '' ? null : Number(weightKg);
+  const numericAge = ageYears === '' ? null : Number(ageYears);
   const zone = getBroselowZone(numericWeight);
-  const ett = estimateEttByAge(Number(ageYears));
+  const ett = estimateEttByAge(numericAge);
   const emergency = calcPediatricEmergencySummary(numericWeight);
   const commonDose = calcCommonPediatricDose(selectedDrugId, numericWeight);
   const selectedDrug = useMemo(() => PEDIATRIC_COMMON_DRUGS.find((drug) => drug.id === selectedDrugId), [selectedDrugId]);
+  const broselowOutOfRangeMessage = numericWeight == null || numericWeight <= 0
+    ? null
+    : numericWeight < BROSELOW_WEIGHT_LIMITS.min
+      ? `Broselow hanya mencakup sekitar ${BROSELOW_WEIGHT_LIMITS.min}-${BROSELOW_WEIGHT_LIMITS.max} kg. Berat ini lebih cocok dinilai dengan referensi neonatal khusus.`
+      : numericWeight > BROSELOW_WEIGHT_LIMITS.max
+        ? `Broselow hanya mencakup sekitar ${BROSELOW_WEIGHT_LIMITS.min}-${BROSELOW_WEIGHT_LIMITS.max} kg. Untuk berat di atas rentang ini, gunakan acuan anak besar atau dewasa sesuai protokol.`
+        : null;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
@@ -75,6 +83,11 @@ export default function PediatricCalc() {
         <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-5">
           <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-4 sm:p-5">
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-4">Zona Broselow</h2>
+            {broselowOutOfRangeMessage && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                {broselowOutOfRangeMessage}
+              </div>
+            )}
             {zone ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -92,6 +105,11 @@ export default function PediatricCalc() {
                   </div>
                 )}
               </>
+            ) : ett ? (
+              <div className="rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Estimasi dari usia</p>
+                <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">ETT uncuffed {ett.uncuffed} mm · cuffed {ett.cuffed} mm.</p>
+              </div>
             ) : (
               <p className="text-sm text-slate-500 dark:text-slate-400">Masukkan berat badan untuk memetakan zona Broselow.</p>
             )}

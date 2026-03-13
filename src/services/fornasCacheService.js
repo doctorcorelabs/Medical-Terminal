@@ -276,7 +276,7 @@ const FLAG_INDEX_MAP = {
  * Strategy:
  *  1. flag-only  → cursor on by_flag_X index (visits only drugs with flag=true)
  *  2. form-only  → cursor on by_form index (visits only that form)
- *  3. query-only → cursor on by_name prefix index (visits names starting with query)
+ *  3. query-only → full user-scoped alphabetical scan so substring search matches online mode
  *  4. combined   → most selective index as entry point, remaining filters in JS
  *  5. no filter  → cursor on by_name index (alphabetical, all rows)
  *
@@ -305,9 +305,10 @@ export function queryFornasFromIDB({ userId, query = '', flagKey = null, form = 
       } else if (form && !q && !flagKey) {
         cursorReq = store.index('by_user_form').openCursor(IDBKeyRange.only([uid, form]));
       } else if (q && !flagKey && !form) {
-        // Prefix index: drugs whose name starts with the query string (covers the
-        // most common search pattern: user types drug name from the beginning).
-        cursorReq = store.index('by_user_name').openCursor(IDBKeyRange.bound([uid, q], [uid, q + '\uffff']));
+        // Offline search should behave like online search, which uses substring
+        // matching across multiple fields. A prefix-bounded name index misses
+        // valid hits when the full query is present later in the string.
+        cursorReq = store.index('by_user_name').openCursor(IDBKeyRange.bound([uid, ''], [uid, '\uffff']));
       } else {
         // Combined filters or no filter: full user-scoped alphabetical scan.
         cursorReq = store.index('by_user_name').openCursor(IDBKeyRange.bound([uid, ''], [uid, '\uffff']));
@@ -339,8 +340,9 @@ export function queryFornasFromIDB({ userId, query = '', flagKey = null, form = 
         const labelOk = up(drug.label).includes(q);
         const cat1Ok  = up(drug.category_l1).includes(q);
         const cat2Ok  = up(drug.category_l2).includes(q);
+        const cat3Ok  = up(drug.category_l3).includes(q);
         const formOk  = up(drug.form).includes(q);
-        if (!nameOk && !intlOk && !labelOk && !cat1Ok && !cat2Ok && !formOk) match = false;
+        if (!nameOk && !intlOk && !labelOk && !cat1Ok && !cat2Ok && !cat3Ok && !formOk) match = false;
       }
 
       if (match) {

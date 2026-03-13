@@ -2,6 +2,11 @@ import { BROSelow_ZONES, PEDIATRIC_COMMON_DRUGS } from '../data/pediatricDosing.
 import { EMERGENCY_DRUGS } from '../data/emergencyDrugs.js';
 import { calcEmergencyDoses } from './medCalculations.js';
 
+export const BROSELOW_WEIGHT_LIMITS = {
+  min: BROSelow_ZONES[0]?.minWeight ?? 0,
+  max: BROSelow_ZONES[BROSelow_ZONES.length - 1]?.maxWeight ?? 0,
+};
+
 function formatNumber(value, decimals = 1) {
   return Number(value).toLocaleString('id-ID', {
     minimumFractionDigits: 0,
@@ -11,8 +16,7 @@ function formatNumber(value, decimals = 1) {
 
 export function getBroselowZone(weightKg) {
   if (!weightKg || weightKg <= 0) return null;
-  return BROSelow_ZONES.find((zone) => weightKg >= zone.minWeight && weightKg <= zone.maxWeight)
-    ?? BROSelow_ZONES[BROSelow_ZONES.length - 1];
+  return BROSelow_ZONES.find((zone) => weightKg >= zone.minWeight && weightKg <= zone.maxWeight) ?? null;
 }
 
 export function calcPediatricEmergencySummary(weightKg) {
