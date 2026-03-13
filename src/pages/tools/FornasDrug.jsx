@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useOffline } from '../../context/OfflineContext';
@@ -26,6 +26,19 @@ const FLAG_COLORS = {
   orange:  'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
   rose:    'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400',
 };
+
+// ── Form category config ─────────────────────────────────────────────────────
+const FORM_CATEGORIES = [
+  { key: 'tablet',  label: 'Tablet & Kapsul',  icon: 'medication',        test: form => /^(tablet|kaplet|kapsul)/i.test(form) },
+  { key: 'oral',    label: 'Cairan Oral',      icon: 'water_drop',        test: form => /^(sirup|suspensi|emulsi|oral solution|larutan oral|drops$)/i.test(form) },
+  { key: 'injeksi', label: 'Injeksi & Infus',  icon: 'vaccines',          test: form => /^(injeksi|infus|cairan injeksi|serbuk injeksi|prefilled|drop(?!s)|larutan intra)/i.test(form) },
+  { key: 'inhala',  label: 'Inhalasi',         icon: 'air',               test: form => /^(aerosol|cairan inhalasi|inhalasi|metered|serbuk inhalasi|bubuk$)/i.test(form) },
+  { key: 'tetes',   label: 'Tetes & THT',      icon: 'visibility',        test: form => /^(gel mata|nasal spray|salep mata|semprot hidung|tetes)/i.test(form) },
+  { key: 'topikal', label: 'Topikal',          icon: 'colorize',          test: form => /^(bubuk, pasta|gel$|krim|larutan$|lotio|obat luar|pasta|patch|salep$|scalp|sediaan topikal|spray|tingtur|tulle)/i.test(form) },
+  { key: 'rektal',  label: 'Rektal & Vaginal', icon: 'medication_liquid', test: form => /^(enema|ovula|supositoria)/i.test(form) },
+];
+
+const FEATURED_FORMS = ['TABLET', 'KAPSUL', 'KAPLET', 'INJEKSI', 'SIRUP', 'KRIM', 'SALEP', 'TETES MATA'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function highlight(text, query) {
@@ -570,6 +583,7 @@ export default function FornasDrug() {
   // Detail modal
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [showInfo, setShowInfo]         = useState(false);
+  const [formsExpanded, setFormsExpanded] = useState(false);
 
   const debounceRef = useRef(null);
 
@@ -627,6 +641,35 @@ export default function FornasDrug() {
   // ── Derived: unique forms for filter bar ────────────────────────────────────
   const allForms = [...new Set(allData.map(d => d.form).filter(Boolean))].sort();
 
+  const categorizedForms = useMemo(() => {
+    const categories = FORM_CATEGORIES.map(category => ({
+      ...category,
+      forms: allForms.filter(form => category.test(form)),
+    })).filter(category => category.forms.length > 0);
+
+    const assignedForms = new Set(categories.flatMap(category => category.forms));
+    const uncategorizedForms = allForms.filter(form => !assignedForms.has(form));
+
+    if (uncategorizedForms.length > 0) {
+      categories.push({
+        key: 'lainnya',
+        label: 'Lainnya',
+        icon: 'more_horiz',
+        forms: uncategorizedForms,
+      });
+    }
+
+    return categories;
+  }, [allForms]);
+
+  const collapsedForms = useMemo(() => {
+    const featuredForms = FEATURED_FORMS.filter(form => allForms.includes(form));
+    if (featuredForms.length >= 8) return featuredForms.slice(0, 8);
+
+    const additionalForms = allForms.filter(form => !featuredForms.includes(form));
+    return [...featuredForms, ...additionalForms].slice(0, 8);
+  }, [allForms]);
+
   // ── Filtering ────────────────────────────────────────────────────────────────
   const filtered = allData.filter(drug => {
     if (activeFlag && !drug[activeFlag]) return false;
@@ -646,6 +689,13 @@ export default function FornasDrug() {
 
   const visible  = filtered.slice(0, displayCount);
   const hasMore  = displayCount < filtered.length;
+
+  // Keep the active filter visible when it is outside the quick-access list.
+  useEffect(() => {
+    if (activeForm && collapsedForms.length > 0 && !collapsedForms.includes(activeForm)) {
+      setFormsExpanded(true);
+    }
+  }, [activeForm, collapsedForms]);
 
   const handleCardClick = useCallback(drug => setSelectedDrug(drug), []);
 
@@ -740,17 +790,92 @@ export default function FornasDrug() {
 
       {/* ── Filter bar: form (sediaan) ── */}
       {!loading && !error && allForms.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
-          <span className="text-[11px] text-slate-400 shrink-0">Sediaan:</span>
-          {['', ...allForms.slice(0, 12)].map(form => (
-            <Chip
-              key={form}
-              active={activeForm === form}
-              onClick={() => setActiveForm(prev => prev === form ? '' : form)}
-            >
-              {form === '' ? 'Semua' : form}
-            </Chip>
-          ))}
+        <div className="mb-3">
+          {formsExpanded ? (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[13px]">filter_list</span>
+                  Filter Sediaan
+                  <span className="font-normal normal-case text-slate-400 ml-0.5">({allForms.length} jenis)</span>
+                </span>
+                <button
+                  onClick={() => setFormsExpanded(false)}
+                  className="flex items-center gap-0.5 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium transition"
+                >
+                  <span className="material-symbols-outlined text-[14px]">expand_less</span>
+                  Tutup
+                </button>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/60 px-3 pt-3 pb-4 space-y-4 max-h-[60dvh] overflow-y-auto">
+                <Chip active={activeForm === ''} onClick={() => { setActiveForm(''); setFormsExpanded(false); }}>
+                  <span className="material-symbols-outlined text-[11px]">apps</span>
+                  Semua Sediaan
+                </Chip>
+
+                {categorizedForms.map(category => (
+                  <div key={category.key}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="material-symbols-outlined text-[13px] text-slate-400">{category.icon}</span>
+                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{category.label}</span>
+                      <span className="text-[10px] text-slate-300 dark:text-slate-600">({category.forms.length})</span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {category.forms.map(form => (
+                        <Chip
+                          key={form}
+                          active={activeForm === form}
+                          onClick={() => {
+                            setActiveForm(prev => prev === form ? '' : form);
+                            setFormsExpanded(false);
+                          }}
+                        >
+                          {form}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+                <span className="text-[11px] text-slate-400 shrink-0">Sediaan:</span>
+                <Chip active={activeForm === ''} onClick={() => setActiveForm('')}>Semua</Chip>
+
+                {activeForm && !collapsedForms.includes(activeForm) && (
+                  <Chip active onClick={() => setActiveForm('')}>
+                    {activeForm}
+                    <span className="material-symbols-outlined text-[11px] ml-0.5">close</span>
+                  </Chip>
+                )}
+
+                {collapsedForms.map(form => (
+                  <Chip
+                    key={form}
+                    active={activeForm === form}
+                    onClick={() => setActiveForm(prev => prev === form ? '' : form)}
+                  >
+                    {form}
+                  </Chip>
+                ))}
+              </div>
+              {allForms.length > 8 && (
+                <button
+                  onClick={() => setFormsExpanded(true)}
+                  className="mt-1 flex items-center gap-0.5 text-[11px] text-primary hover:text-primary/80 font-medium transition"
+                >
+                  <span className="material-symbols-outlined text-[13px]">expand_more</span>
+                  {activeForm && !collapsedForms.includes(activeForm)
+                    ? `Kategori sediaan (${activeForm})`
+                    : `Lihat semua ${allForms.length} jenis sediaan`}
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
 
