@@ -1,39 +1,76 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ALL_TOOLS, CATEGORY_COLORS } from '../data/toolsCatalog';
-
-const QUICK_TOOLS_KEY = 'mt.quickTools.v1';
+import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
+import {
+  persistQuickToolIds,
+  resolveQuickToolIds,
+} from '../services/quickToolsService';
 
 export default function Tools() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isOnline } = useOffline();
   const [search, setSearch] = useState('');
   const customizableTools = useMemo(
     () => ALL_TOOLS.filter(tool => tool.available && tool.route),
     []
   );
+  const allowedToolIds = useMemo(
+    () => customizableTools.map(tool => tool.id),
+    [customizableTools]
+  );
+  const fallbackQuickTools = useMemo(
+    () => customizableTools.slice(0, 3).map(tool => tool.id),
+    [customizableTools]
+  );
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [isSavingQuickTools, setIsSavingQuickTools] = useState(false);
 
-  const [quickToolIds, setQuickToolIds] = useState(() => {
-    const fallback = customizableTools.slice(0, 3).map(tool => tool.id);
-    try {
-      const raw = localStorage.getItem(QUICK_TOOLS_KEY);
-      if (!raw) return fallback;
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return fallback;
-
-      const valid = parsed
-        .filter(id => typeof id === 'string' && customizableTools.some(tool => tool.id === id))
-        .slice(0, 3);
-
-      if (valid.length === 0) return fallback;
-      return [...new Set(valid)];
-    } catch {
-      return fallback;
-    }
-  });
+  const [quickToolIds, setQuickToolIds] = useState(fallbackQuickTools);
 
   useEffect(() => {
-    localStorage.setItem(QUICK_TOOLS_KEY, JSON.stringify(quickToolIds.slice(0, 3)));
-  }, [quickToolIds]);
+    let isActive = true;
+    setIsHydrated(false);
+
+    resolveQuickToolIds({
+      userId: user?.id,
+      allowedIds: allowedToolIds,
+      fallbackIds: fallbackQuickTools,
+      isOnline,
+    }).then((ids) => {
+      if (!isActive) return;
+      setQuickToolIds(ids);
+      setIsHydrated(true);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.id, allowedToolIds, fallbackQuickTools, isOnline]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    let isActive = true;
+    setIsSavingQuickTools(true);
+
+    persistQuickToolIds({
+      userId: user?.id,
+      ids: quickToolIds,
+      allowedIds: allowedToolIds,
+      fallbackIds: fallbackQuickTools,
+      isOnline,
+    }).finally(() => {
+      if (!isActive) return;
+      setIsSavingQuickTools(false);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [quickToolIds, user?.id, allowedToolIds, fallbackQuickTools, isOnline, isHydrated]);
 
   const quickTools = quickToolIds
     .map(id => customizableTools.find(tool => tool.id === id))
@@ -98,6 +135,11 @@ export default function Tools() {
           <div>
             <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">Shortcut Aksi Cepat Dashboard</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">Pilih hingga 3 tools untuk muncul sebagai shortcut di Dashboard.</p>
+            {isSavingQuickTools && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Menyimpan perubahan shortcut...
+              </p>
+            )}
           </div>
           <span className="text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{quickTools.length}/3 dipilih</span>
         </div>

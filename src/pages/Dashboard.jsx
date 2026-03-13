@@ -3,6 +3,13 @@ import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
 import { useSchedule } from '../context/ScheduleContext';
 import { getRelativeTime } from '../services/dataService';
+import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
+import {
+    getQuickToolsStorageKey,
+    loadLocalQuickToolIds,
+    resolveQuickToolIds,
+} from '../services/quickToolsService';
 
 const SCHED_CATS = [
     { id: 'pasien',  label: 'Pasien',  color: '#3b82f6', pill: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'    },
@@ -14,13 +21,13 @@ const SCHED_CATS = [
 ];
 function getScat(id) { return SCHED_CATS.find(c => c.id === id) || SCHED_CATS[5]; }
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ALL_TOOLS } from '../data/toolsCatalog';
-
-const QUICK_TOOLS_KEY = 'mt.quickTools.v1';
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const { isOnline } = useOffline();
     const { patients } = usePatients();
     const { pinnedStase, stases } = useStase();
     const { schedules } = useSchedule();
@@ -56,24 +63,66 @@ export default function Dashboard() {
         () => customizableTools.slice(0, 3).map(tool => tool.id),
         [customizableTools]
     );
+    const allowedToolIds = useMemo(
+        () => customizableTools.map(tool => tool.id),
+        [customizableTools]
+    );
 
-    const quickToolIds = useMemo(() => {
-        try {
-            const raw = localStorage.getItem(QUICK_TOOLS_KEY);
-            if (!raw) return defaultQuickTools;
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return defaultQuickTools;
+    const [quickToolIds, setQuickToolIds] = useState(defaultQuickTools);
 
-            const valid = parsed
-                .filter(id => typeof id === 'string' && customizableTools.some(tool => tool.id === id))
-                .slice(0, 3);
+    useEffect(() => {
+        let isActive = true;
 
-            if (valid.length === 0) return defaultQuickTools;
-            return [...new Set(valid)];
-        } catch {
-            return defaultQuickTools;
-        }
-    }, [customizableTools, defaultQuickTools]);
+        resolveQuickToolIds({
+            userId: user?.id,
+            allowedIds: allowedToolIds,
+            fallbackIds: defaultQuickTools,
+            isOnline,
+        }).then((ids) => {
+            if (!isActive) return;
+            setQuickToolIds(ids);
+        });
+
+        return () => {
+            isActive = false;
+        };
+    }, [user?.id, allowedToolIds, defaultQuickTools, isOnline]);
+
+    useEffect(() => {
+        const keyForCurrentUser = getQuickToolsStorageKey(user?.id);
+
+        const handleStorage = (event) => {
+            if (event.key !== keyForCurrentUser) return;
+
+            const refreshed = loadLocalQuickToolIds({
+                userId: user?.id,
+                allowedIds: allowedToolIds,
+                fallbackIds: defaultQuickTools,
+            });
+            setQuickToolIds(refreshed);
+        };
+
+        const handleQuickToolsUpdated = (event) => {
+            const eventUserId = event?.detail?.userId ?? null;
+            const currentUserId = user?.id ?? null;
+            if (eventUserId !== currentUserId) return;
+
+            const refreshed = loadLocalQuickToolIds({
+                userId: user?.id,
+                allowedIds: allowedToolIds,
+                fallbackIds: defaultQuickTools,
+            });
+            setQuickToolIds(refreshed);
+        };
+
+        window.addEventListener('storage', handleStorage);
+        window.addEventListener('quick-tools-updated', handleQuickToolsUpdated);
+
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('quick-tools-updated', handleQuickToolsUpdated);
+        };
+    }, [user?.id, allowedToolIds, defaultQuickTools]);
 
     const quickToolShortcuts = useMemo(() => {
         const selected = quickToolIds
