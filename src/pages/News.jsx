@@ -44,8 +44,6 @@ const SOURCE_ICONS = {
     'medRxiv': 'description',
     'PubMed': 'search',
     'FDA Press Releases': 'medication',
-    'STAT News': 'newspaper',
-    'EurekAlert': 'emoji_objects',
     'Medical News Today': 'health_and_safety',
 };
 

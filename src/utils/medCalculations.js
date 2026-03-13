@@ -199,6 +199,311 @@ export function calcAPGAR(appearance, pulse, grimace, activity, respiration) {
   return { total, items, category, color, action, display: total.toString(), unit: '/10' };
 }
 
+function roundTo(value, decimals = 2) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+function formatNumber(value, decimals = 2) {
+  if (value == null || Number.isNaN(value)) return '0';
+  return roundTo(value, decimals).toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function formatMass(valueMg) {
+  if (valueMg == null || Number.isNaN(valueMg)) return '0 mg';
+  if (valueMg < 1) {
+    return `${formatNumber(valueMg * 1000, 0)} mcg`;
+  }
+  return `${formatNumber(valueMg, valueMg < 10 ? 2 : 1)} mg`;
+}
+
+function formatRange(low, high, formatter = (value) => formatNumber(value)) {
+  if (low == null && high == null) return '-';
+  if (low != null && high != null && low !== high) return `${formatter(low)} - ${formatter(high)}`;
+  return formatter(low ?? high);
+}
+
+export function calcEmergencyDoses(weightKg, drugDefinitions = []) {
+  if (!weightKg || weightKg <= 0) return [];
+
+  return drugDefinitions.map((drug) => {
+    let doseMg = null;
+    let doseMgLow = null;
+    let doseMgHigh = null;
+    let displayUnit = drug.displayUnit ?? 'mg';
+    let displayFormatter = formatMass;
+
+    if (drug.type === 'mg_per_kg') {
+      doseMg = weightKg * drug.dosePerKg;
+      if (drug.maxDoseMg != null) doseMg = Math.min(doseMg, drug.maxDoseMg);
+    }
+
+    if (drug.type === 'mcg_per_kg') {
+      doseMg = (weightKg * drug.dosePerKg) / 1000;
+      displayUnit = 'mcg';
+      displayFormatter = (value) => `${formatNumber(value * 1000, 0)} mcg`;
+      if (drug.maxDoseMg != null) doseMg = Math.min(doseMg, drug.maxDoseMg);
+    }
+
+    if (drug.type === 'mEq_per_kg') {
+      doseMg = weightKg * drug.dosePerKg;
+      displayUnit = 'mEq';
+      displayFormatter = (value) => `${formatNumber(value, 2)} mEq`;
+      if (drug.maxDoseMg != null) doseMg = Math.min(doseMg, drug.maxDoseMg);
+    }
+
+    if (drug.type === 'mg_per_kg_range') {
+      doseMgLow = weightKg * drug.minDosePerKg;
+      doseMgHigh = weightKg * drug.maxDosePerKg;
+      if (drug.maxDoseMg != null) {
+        doseMgLow = Math.min(doseMgLow, drug.maxDoseMg);
+        doseMgHigh = Math.min(doseMgHigh, drug.maxDoseMg);
+      }
+    }
+
+    if (drug.type === 'mcg_per_kg_min_range') {
+      displayUnit = 'mcg/menit';
+      displayFormatter = (value) => `${formatNumber(value, 1)} mcg/menit`;
+      doseMgLow = (weightKg * drug.minDosePerKgMin * 1) / 1000;
+      doseMgHigh = (weightKg * drug.maxDosePerKgMin * 1) / 1000;
+    }
+
+    const singleDose = doseMg ?? null;
+    const concentrationValue = drug.concentrationMgPerMl;
+    let volumeMl = null;
+    let volumeMlLow = null;
+    let volumeMlHigh = null;
+
+    if (concentrationValue) {
+      if (singleDose != null) volumeMl = singleDose / concentrationValue;
+      if (doseMgLow != null) volumeMlLow = doseMgLow / concentrationValue;
+      if (doseMgHigh != null) volumeMlHigh = doseMgHigh / concentrationValue;
+    }
+
+    return {
+      ...drug,
+      calculatedDoseMg: singleDose,
+      calculatedDoseLowMg: doseMgLow,
+      calculatedDoseHighMg: doseMgHigh,
+      doseDisplay: singleDose != null
+        ? displayFormatter(singleDose)
+        : formatRange(doseMgLow, doseMgHigh, displayFormatter),
+      maxDisplay: drug.maxDoseMg != null
+        ? (displayUnit === 'mEq' ? `${formatNumber(drug.maxDoseMg, 2)} mEq` : formatMass(drug.maxDoseMg))
+        : 'Sesuai berat badan',
+      volumeDisplay: concentrationValue
+        ? (volumeMl != null
+          ? `${formatNumber(volumeMl, volumeMl < 5 ? 2 : 1)} mL`
+          : formatRange(volumeMlLow, volumeMlHigh, (value) => `${formatNumber(value, value < 5 ? 2 : 1)} mL`))
+        : 'Perlu pengenceran sesuai protokol',
+    };
+  });
+}
+
+export function calcInfusionRate(volumeMl, durationHours, durationMinutes = 0) {
+  if (!volumeMl || volumeMl <= 0) return null;
+  const totalHours = Number(durationHours || 0) + (Number(durationMinutes || 0) / 60);
+  if (!totalHours || totalHours <= 0) return null;
+
+  const mlPerHour = volumeMl / totalHours;
+  return {
+    value: mlPerHour,
+    display: formatNumber(mlPerHour, mlPerHour < 10 ? 2 : 1),
+    unit: 'mL/jam',
+    category: 'Kecepatan Infus',
+    color: 'green',
+    totalHours,
+  };
+}
+
+export function calcDropRate(volumeMl, totalMinutes, dropFactor) {
+  if (!volumeMl || !totalMinutes || !dropFactor || totalMinutes <= 0) return null;
+  const gttPerMin = (volumeMl * dropFactor) / totalMinutes;
+  return {
+    value: gttPerMin,
+    display: formatNumber(gttPerMin, gttPerMin < 10 ? 2 : 1),
+    roundedDisplay: Math.round(gttPerMin).toString(),
+    unit: 'gtt/menit',
+    category: 'Tetesan Makro/Mikro',
+    color: 'blue',
+  };
+}
+
+export function calcDrugInfusion({ dose, doseUnit, weightKg, concentrationMgPerMl }) {
+  if (!dose || !doseUnit || !concentrationMgPerMl || concentrationMgPerMl <= 0) return null;
+  const bodyWeight = Number(weightKg || 0);
+  let mgPerHour = null;
+  let descriptor = '';
+
+  if (doseUnit === 'mcg/kg/min') {
+    if (!bodyWeight || bodyWeight <= 0) return null;
+    mgPerHour = (dose * bodyWeight * 60) / 1000;
+    descriptor = `${formatNumber(dose, 2)} mcg/kg/menit`;
+  }
+
+  if (doseUnit === 'mg/kg/jam') {
+    if (!bodyWeight || bodyWeight <= 0) return null;
+    mgPerHour = dose * bodyWeight;
+    descriptor = `${formatNumber(dose, 2)} mg/kg/jam`;
+  }
+
+  if (doseUnit === 'mg/jam') {
+    mgPerHour = dose;
+    descriptor = `${formatNumber(dose, 2)} mg/jam`;
+  }
+
+  if (mgPerHour == null) return null;
+
+  const mlPerHour = mgPerHour / concentrationMgPerMl;
+  return {
+    value: mlPerHour,
+    display: formatNumber(mlPerHour, mlPerHour < 10 ? 2 : 1),
+    unit: 'mL/jam',
+    category: 'Laju Pompa Infus',
+    color: 'emerald',
+    descriptor,
+    mgPerHour,
+    mgPerHourDisplay: `${formatNumber(mgPerHour, mgPerHour < 10 ? 2 : 1)} mg/jam`,
+  };
+}
+
+export function calcHalfLife(vdLPerKg, clLPerHrKg) {
+  if (!vdLPerKg || !clLPerHrKg || vdLPerKg <= 0 || clLPerHrKg <= 0) return null;
+  const halfLife = (0.693 * vdLPerKg) / clLPerHrKg;
+  return {
+    value: halfLife,
+    display: formatNumber(halfLife, 2),
+    unit: 'jam',
+    category: 'Waktu Paruh',
+    color: 'blue',
+  };
+}
+
+export function calcLoadingDose(vdLPerKg, targetMgPerL, weightKg, bioavailability = 1) {
+  if (!vdLPerKg || !targetMgPerL || !weightKg || !bioavailability || bioavailability <= 0) return null;
+  const doseMg = (vdLPerKg * targetMgPerL * weightKg) / bioavailability;
+  return {
+    value: doseMg,
+    display: formatNumber(doseMg, doseMg < 100 ? 1 : 0),
+    unit: 'mg',
+    category: 'Loading Dose',
+    color: 'orange',
+  };
+}
+
+export function calcMaintenanceDose(clLPerHrKg, targetMgPerL, intervalHours, weightKg, bioavailability = 1) {
+  if (!clLPerHrKg || !targetMgPerL || !intervalHours || !weightKg || !bioavailability || bioavailability <= 0) return null;
+  const doseMg = (clLPerHrKg * targetMgPerL * intervalHours * weightKg) / bioavailability;
+  return {
+    value: doseMg,
+    display: formatNumber(doseMg, doseMg < 100 ? 1 : 0),
+    unit: 'mg per dosis',
+    category: 'Maintenance Dose',
+    color: 'green',
+  };
+}
+
+export function calcSteadyStateConcentration(doseMg, bioavailability, clLPerHrKg, weightKg, intervalHours) {
+  if (!doseMg || !bioavailability || !clLPerHrKg || !weightKg || !intervalHours) return null;
+  const css = (bioavailability * doseMg) / (clLPerHrKg * weightKg * intervalHours);
+  return {
+    value: css,
+    display: formatNumber(css, css < 10 ? 2 : 1),
+    unit: 'mg/L',
+    category: 'Konsentrasi Rata-rata Steady State',
+    color: 'purple',
+  };
+}
+
+export function calcTimeToSteadyState(vdLPerKg, clLPerHrKg) {
+  const halfLife = calcHalfLife(vdLPerKg, clLPerHrKg);
+  if (!halfLife) return null;
+  const minHours = halfLife.value * 4;
+  const maxHours = halfLife.value * 5;
+  return {
+    value: maxHours,
+    display: `${formatNumber(minHours, 1)} - ${formatNumber(maxHours, 1)}`,
+    unit: 'jam',
+    category: 'Perkiraan Steady State',
+    color: 'yellow',
+    halfLifeHours: halfLife.value,
+  };
+}
+
+export function calcMifflinStJeor(weightKg, heightCm, ageYears, gender) {
+  if (!weightKg || !heightCm || !ageYears || !gender) return null;
+  const value = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears) + (gender === 'male' ? 5 : -161);
+  return {
+    value,
+    display: formatNumber(value, 0),
+    unit: 'kkal/hari',
+    category: 'Mifflin-St Jeor (BMR)',
+    color: 'green',
+  };
+}
+
+export function calcHarrisBenedict(weightKg, heightCm, ageYears, gender) {
+  if (!weightKg || !heightCm || !ageYears || !gender) return null;
+  const value = gender === 'male'
+    ? 66.47 + (13.75 * weightKg) + (5.003 * heightCm) - (6.755 * ageYears)
+    : 655.1 + (9.563 * weightKg) + (1.85 * heightCm) - (4.676 * ageYears);
+  return {
+    value,
+    display: formatNumber(value, 0),
+    unit: 'kkal/hari',
+    category: 'Harris-Benedict (BMR)',
+    color: 'blue',
+  };
+}
+
+export function calcDailyCalories(bmrKcal, activityFactor = 1.2, stressFactor = 1) {
+  if (!bmrKcal || !activityFactor || !stressFactor) return null;
+  const calories = bmrKcal * activityFactor * stressFactor;
+  let category = 'Kebutuhan Kalori Harian';
+  let color = 'green';
+  if (calories > 2500) color = 'orange';
+  if (calories < 1400) color = 'blue';
+  return {
+    value: calories,
+    display: formatNumber(calories, 0),
+    unit: 'kkal/hari',
+    category,
+    color,
+  };
+}
+
+export function calcProteinNeeds(weightKg, factor) {
+  if (!weightKg || !factor) return null;
+  const grams = weightKg * factor;
+  let category = 'Kebutuhan Protein';
+  let color = 'green';
+  if (factor >= 1.5) color = 'orange';
+  if (factor <= 0.8) color = 'blue';
+  return {
+    value: grams,
+    display: formatNumber(grams, 0),
+    unit: 'g/hari',
+    category,
+    color,
+    factor,
+  };
+}
+
+export function calcChemoDose(bsaM2, protocolMgPerM2) {
+  if (!bsaM2 || !protocolMgPerM2) return null;
+  const dose = bsaM2 * protocolMgPerM2;
+  return {
+    value: dose,
+    display: formatNumber(dose, dose < 100 ? 1 : 0),
+    unit: 'mg',
+    category: 'Total Dosis Berdasarkan BSA',
+    color: 'purple',
+  };
+}
+
 // ─── Helper: Color to Tailwind class ─────────────────────────────────────────
 export function colorToClass(color, type = 'bg') {
   const map = {
@@ -207,6 +512,8 @@ export function colorToClass(color, type = 'bg') {
     orange: { bg: 'bg-orange-100 dark:bg-orange-900/30',   text: 'text-orange-700 dark:text-orange-400',   border: 'border-orange-400' },
     red:    { bg: 'bg-red-100 dark:bg-red-900/30',         text: 'text-red-700 dark:text-red-400',         border: 'border-red-400' },
     blue:   { bg: 'bg-blue-100 dark:bg-blue-900/30',       text: 'text-blue-700 dark:text-blue-400',       border: 'border-blue-400' },
+    purple: { bg: 'bg-purple-100 dark:bg-purple-900/30',   text: 'text-purple-700 dark:text-purple-400',   border: 'border-purple-400' },
+    emerald:{ bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-400' },
   };
   return map[color]?.[type] ?? '';
 }

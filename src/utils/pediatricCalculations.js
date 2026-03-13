@@ -1,0 +1,48 @@
+import { BROSelow_ZONES, PEDIATRIC_COMMON_DRUGS } from '../data/pediatricDosing.js';
+import { EMERGENCY_DRUGS } from '../data/emergencyDrugs.js';
+import { calcEmergencyDoses } from './medCalculations.js';
+
+function formatNumber(value, decimals = 1) {
+  return Number(value).toLocaleString('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  });
+}
+
+export function getBroselowZone(weightKg) {
+  if (!weightKg || weightKg <= 0) return null;
+  return BROSelow_ZONES.find((zone) => weightKg >= zone.minWeight && weightKg <= zone.maxWeight)
+    ?? BROSelow_ZONES[BROSelow_ZONES.length - 1];
+}
+
+export function calcPediatricEmergencySummary(weightKg) {
+  if (!weightKg || weightKg <= 0) return [];
+  return calcEmergencyDoses(weightKg, EMERGENCY_DRUGS);
+}
+
+export function calcCommonPediatricDose(drugId, weightKg) {
+  const drug = PEDIATRIC_COMMON_DRUGS.find((item) => item.id === drugId);
+  if (!drug || !weightKg || weightKg <= 0) return null;
+
+  const numericDose = weightKg * drug.dosePerKg;
+  const doseDisplay = drug.unit === 'mEq'
+    ? `${formatNumber(numericDose, 2)} mEq`
+    : `${formatNumber(numericDose, numericDose < 10 ? 2 : 1)} ${drug.unit}`;
+
+  return {
+    ...drug,
+    calculatedDose: numericDose,
+    doseDisplay,
+    fluidBolus: `${formatNumber(weightKg * 20, 0)} mL bolus 20 mL/kg`,
+  };
+}
+
+export function estimateEttByAge(ageYears) {
+  if (ageYears == null || ageYears < 0) return null;
+  const uncuffed = (ageYears / 4) + 4;
+  const cuffed = uncuffed - 0.5;
+  return {
+    uncuffed: formatNumber(uncuffed, 1),
+    cuffed: formatNumber(cuffed, 1),
+  };
+}

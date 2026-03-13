@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
+import {
+  cacheAllFornasFromSupabase,
+  clearFornasCache,
+  getCachedFornasAll,
+  getFornasCacheMeta,
+  isFornasCached,
+  queryFornasFromIDB,
+  refreshFornasCacheForUser,
+} from '../../services/fornasCacheService';
+import { useAuth } from '../../context/AuthContext';
 import { useOffline } from '../../context/OfflineContext';
 
 const PAGE_SIZE = 50;
@@ -563,7 +573,10 @@ function InfoModal({ onClose }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function FornasDrug() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isOnline } = useOffline();
+  const { user } = useAuth();
+  const cacheUserId = user?.id ?? 'anonymous';
 
   // Data
   const [allData, setAllData]       = useState([]);
@@ -584,46 +597,175 @@ export default function FornasDrug() {
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [showInfo, setShowInfo]         = useState(false);
   const [formsExpanded, setFormsExpanded] = useState(false);
+  const [cacheMeta, setCacheMeta] = useState(null);
+  const [isPreparingCache, setIsPreparingCache] = useState(false);
+  const [cacheProgress, setCacheProgress] = useState({ downloaded: 0, cached: 0, finished: false });
+  const [isAutoRefreshingCache, setIsAutoRefreshingCache] = useState(false);
+
+  // IDB query mode — active when offline AND a full cache exists.
+  // In this mode allData is kept empty; results come from on-demand IDB cursors.
+  const [idbMode, setIdbMode] = useState(false);
+  const [idbResults, setIdbResults] = useState({ rows: [], hasMore: false, total: 0 });
+  const [cachedForms, setCachedForms] = useState([]);
 
   const debounceRef = useRef(null);
+  const refreshInFlightRef = useRef(false);
 
-  // ── Load all data once (table is ~1140 rows, small enough) ──────────────────
-  const fetchAll = useCallback(async () => {
+  const fetchFromSupabase = useCallback(async () => {
+    let all = [];
+    let from = 0;
+    const step = 1000;
+    while (true) {
+      const { data, error: err } = await supabase
+        .from(TABLE)
+        .select('id,source_id,sks_id,name,name_international,label,form_code,form,strength,unit_code,unit,category_l1,category_l2,category_l3,category_l4,restriction_drug,restriction_form,restriction_note_l1,restriction_note_l2,restriction_note_l3,restriction_note_l4,max_prescription,komposisi,flag_fpktl,flag_fpktp,flag_pp,flag_prb,flag_oen,flag_program,flag_kanker')
+        .order('name')
+        .range(from, from + step - 1);
+      if (err) throw new Error(err.message);
+      all = all.concat(data ?? []);
+      if (!data || data.length < step) break;
+      from += step;
+    }
+    return all;
+  }, []);
+
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    // Fetch in pages of 1000 to handle Supabase's default 1000-row limit
-    async function doFetch() {
-      let all = [];
-      let from = 0;
-      const step = 1000;
-      while (true) {
-        const { data, error: err } = await supabase
-          .from(TABLE)
-          .select('id,source_id,sks_id,name,name_international,label,form_code,form,strength,unit_code,unit,category_l1,category_l2,category_l3,category_l4,restriction_drug,restriction_form,restriction_note_l1,restriction_note_l2,restriction_note_l3,restriction_note_l4,max_prescription,komposisi,flag_fpktl,flag_fpktp,flag_pp,flag_prb,flag_oen,flag_program,flag_kanker')
-          .order('name')
-          .range(from, from + step - 1);
-        if (err) throw new Error(err.message);
-        all = all.concat(data ?? []);
-        if (!data || data.length < step) break;
-        from += step;
+    try {
+      const [meta, hasCache] = await Promise.all([
+        getFornasCacheMeta(cacheUserId),
+        isFornasCached(cacheUserId),
+      ]);
+      setCacheMeta(meta);
+
+      // ── OFFLINE + CACHE: switch to IDB query mode ─────────────────────────
+      // Avoid loading all ~1140 rows into React state; instead query IDB on-demand
+      // with index-aware cursors so only the visible page lives in memory.
+      if (hasCache && !isOnline) {
+        setAllData([]);
+        setTotalCount(meta?.count ?? 0);
+        setCachedForms(meta?.forms ?? []);
+        setIdbMode(true);
+        setLoading(false);
+        return;
       }
-      return all;
+
+      // ── ONLINE + CACHE: serve from IDB immediately, refresh from Supabase ──
+      if (hasCache) {
+        const cachedRows = await getCachedFornasAll(cacheUserId);
+        if (cachedRows.length > 0) {
+          setAllData(cachedRows);
+          setTotalCount(cachedRows.length);
+          setIdbMode(false);
+          setLoading(false);
+
+          // Background refresh keeps the per-user offline cache fresh without
+          // blocking first paint. Only users who already have cache are refreshed.
+          if (isOnline) {
+            if (!refreshInFlightRef.current) {
+              refreshInFlightRef.current = true;
+              setIsAutoRefreshingCache(true);
+              refreshFornasCacheForUser(cacheUserId)
+                .then(({ rows: freshRows, meta: freshMeta }) => {
+                  if (freshRows.length > 0) {
+                    setAllData(freshRows);
+                    setTotalCount(freshRows.length);
+                    setCacheMeta({ key: `fornasCacheMeta:${cacheUserId}`, userId: cacheUserId, ...freshMeta });
+                    setCachedForms(freshMeta.forms ?? []);
+                  }
+                })
+                .catch(() => {})
+                .finally(() => {
+                  setIsAutoRefreshingCache(false);
+                  refreshInFlightRef.current = false;
+                });
+            }
+          }
+          return;
+        }
+      }
+
+      if (!isOnline) {
+        throw new Error('Offline tanpa cache Fornas. Silakan unduh cache saat online terlebih dahulu.');
+      }
+
+      const rows = await fetchFromSupabase();
+      setAllData(rows);
+      setTotalCount(rows.length);
+      setIdbMode(false);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
     }
+  }, [cacheUserId, fetchFromSupabase, isOnline]);
 
-    doFetch()
-      .then(data => {
-        setAllData(data);
-        setTotalCount(data.length);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
+  useEffect(() => { loadAllData(); }, [loadAllData]);
+
+  const handlePrepareOfflineCache = useCallback(async () => {
+    if (!isOnline) return;
+    setIsPreparingCache(true);
+    setError(null);
+    setCacheProgress({ downloaded: 0, cached: 0, finished: false });
+
+    try {
+      const { rows, meta } = await cacheAllFornasFromSupabase(cacheUserId, (progress) => {
+        setCacheProgress((prev) => ({ ...prev, ...progress }));
       });
-  }, []);
+      setAllData(rows);
+      setTotalCount(rows.length);
+      setCacheMeta({ key: `fornasCacheMeta:${cacheUserId}`, userId: cacheUserId, ...meta });
+      setCachedForms(meta.forms ?? []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsPreparingCache(false);
+    }
+  }, [cacheUserId, isOnline]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const handleClearOfflineCache = useCallback(async () => {
+    await clearFornasCache(cacheUserId);
+    setCacheMeta(null);
+    if (idbMode) {
+      // User cleared cache while offline — reset to empty state
+      setIdbMode(false);
+      setIdbResults({ rows: [], hasMore: false, total: 0 });
+      setCachedForms([]);
+      setAllData([]);
+      setTotalCount(0);
+      setError('Cache telah dihapus. Sambungkan internet untuk memuat data Fornas.');
+    }
+  }, [cacheUserId, idbMode]);
+
+  useEffect(() => {
+    const initialQuery = location.state?.initialQuery;
+    if (typeof initialQuery === 'string' && initialQuery.trim()) {
+      setQuery(initialQuery.trim());
+    }
+  }, [location.state]);
+
+  // ── IDB on-demand query (offline mode only) ──────────────────────────────
+  // Runs whenever the active filters or display limit change.  The cursor
+  // scans ALL matching rows to produce an exact total while only storing
+  // the first `displayCount` rows in React state (memory-efficient).
+  useEffect(() => {
+    if (!idbMode) return;
+    let cancelled = false;
+
+    queryFornasFromIDB({
+      userId: cacheUserId,
+      query: debouncedQuery,
+      flagKey: activeFlag,
+      form: activeForm,
+      limit: displayCount,
+    }).then((result) => {
+      if (!cancelled) setIdbResults(result);
+    }).catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [idbMode, cacheUserId, debouncedQuery, activeFlag, activeForm, displayCount]);
 
   // ── Debounce search ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -639,7 +781,11 @@ export default function FornasDrug() {
   useEffect(() => { setDisplayCount(PAGE_SIZE); }, [activeFlag, activeForm]);
 
   // ── Derived: unique forms for filter bar ────────────────────────────────────
-  const allForms = [...new Set(allData.map(d => d.form).filter(Boolean))].sort();
+  // In IDB mode: forms come from the cache metadata (stored at cache-build time).
+  // In online mode: derived from in-memory allData as before.
+  const allForms = idbMode
+    ? cachedForms
+    : [...new Set(allData.map(d => d.form).filter(Boolean))].sort();
 
   const categorizedForms = useMemo(() => {
     const categories = FORM_CATEGORIES.map(category => ({
@@ -671,7 +817,10 @@ export default function FornasDrug() {
   }, [allForms]);
 
   // ── Filtering ────────────────────────────────────────────────────────────────
-  const filtered = allData.filter(drug => {
+  // Online mode: fast in-memory JS filter over allData.
+  // IDB mode: not used for display (idbResults is used instead); kept as [] so
+  //           all downstream references to filtered.length stay valid.
+  const filtered = idbMode ? [] : allData.filter(drug => {
     if (activeFlag && !drug[activeFlag]) return false;
     if (activeForm && drug.form !== activeForm) return false;
     if (!debouncedQuery.trim()) return true;
@@ -687,8 +836,12 @@ export default function FornasDrug() {
     );
   });
 
-  const visible  = filtered.slice(0, displayCount);
-  const hasMore  = displayCount < filtered.length;
+  // Unified interface consumed by the render layer.
+  const visible       = idbMode ? idbResults.rows : filtered.slice(0, displayCount);
+  const hasMore       = idbMode ? idbResults.hasMore : displayCount < filtered.length;
+  const filteredCount = idbMode ? idbResults.total   : filtered.length;
+
+  const handleCardClick = useCallback(drug => setSelectedDrug(drug), []);
 
   // Keep the active filter visible when it is outside the quick-access list.
   useEffect(() => {
@@ -696,8 +849,6 @@ export default function FornasDrug() {
       setFormsExpanded(true);
     }
   }, [activeForm, collapsedForms]);
-
-  const handleCardClick = useCallback(drug => setSelectedDrug(drug), []);
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -735,13 +886,72 @@ export default function FornasDrug() {
         </div>
       </div>
 
+      {/* ── Cache controls ── */}
+      <div className="mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Fornas Offline Cache</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {cacheMeta?.count
+                ? `Cached ${Number(cacheMeta.count).toLocaleString()} data · ${cacheMeta.syncSource === 'auto' ? 'update otomatis' : 'update manual'} ${new Date(cacheMeta.updatedAt).toLocaleString('id-ID')}`
+                : 'Belum ada cache penuh. Unduh sekali saat online untuk akses offline penuh.'}
+            </p>
+            {(isAutoRefreshingCache || cacheMeta?.syncSource === 'auto') && (
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-teal-600 dark:text-teal-400">
+                <span className="material-symbols-outlined text-[13px]">
+                  {isAutoRefreshingCache ? 'sync' : 'cloud_done'}
+                </span>
+                {isAutoRefreshingCache
+                  ? 'Sinkron otomatis online sedang berjalan'
+                  : `Diperbarui otomatis saat online · ${new Date(cacheMeta.updatedAt).toLocaleString('id-ID')}`}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrepareOfflineCache}
+              disabled={!isOnline || isPreparingCache}
+              className="px-3 py-2 rounded-lg bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 text-xs font-medium hover:bg-teal-200 dark:hover:bg-teal-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {isPreparingCache ? 'Mengunduh...' : 'Unduh untuk offline'}
+            </button>
+            {cacheMeta?.count ? (
+              <button
+                onClick={handleClearOfflineCache}
+                className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+              >
+                Hapus cache
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {isPreparingCache && (
+          <div className="mt-3">
+            <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-teal-500 transition-all"
+                style={{
+                  width: `${cacheProgress.downloaded > 0
+                    ? Math.min(100, Math.round((cacheProgress.cached || 0) / cacheProgress.downloaded * 100))
+                    : 10}%`,
+                }}
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Download {cacheProgress.downloaded.toLocaleString()} · Tersimpan {cacheProgress.cached.toLocaleString()}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* ── Offline banner ── */}
       {!isOnline && (
         <div className="flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
           <span className="material-symbols-outlined text-base shrink-0">wifi_off</span>
           <p className="text-xs font-medium">
-            {allData.length > 0
-              ? 'Menampilkan data dari cache. Beberapa informasi mungkin tidak terbaru.'
+            {(idbMode || allData.length > 0)
+              ? 'Mode offline aktif: data berasal dari cache Fornas lokal.'
               : 'Tidak ada koneksi. Data Fornas belum tersedia di cache.'}
           </p>
         </div>
@@ -889,7 +1099,7 @@ export default function FornasDrug() {
           {(debouncedQuery || activeFlag || activeForm) && (
             <span className="flex items-center gap-1 text-primary font-medium">
               <span className="material-symbols-outlined text-sm">filter_list</span>
-              {filtered.length.toLocaleString()} hasil
+              {filteredCount.toLocaleString()} hasil
             </span>
           )}
           {(activeFlag || activeForm) && (
@@ -933,7 +1143,7 @@ export default function FornasDrug() {
             </>
           )}
           <button
-            onClick={fetchAll}
+            onClick={loadAllData}
             className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-110 transition shadow-lg shadow-primary/20"
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
@@ -945,7 +1155,7 @@ export default function FornasDrug() {
       {/* ── Results ── */}
       {!loading && !error && (
         <>
-          {filtered.length === 0 ? (
+          {visible.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500">
               <span className="material-symbols-outlined text-5xl mb-3">medication_liquid</span>
               <p className="text-sm font-medium">
@@ -977,7 +1187,7 @@ export default function FornasDrug() {
               {hasMore && (
                 <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
                   <span className="text-xs text-slate-400">
-                    Menampilkan {visible.length} dari {filtered.length.toLocaleString()}
+                    Menampilkan {visible.length} dari {filteredCount.toLocaleString()}
                   </span>
                   <button
                     onClick={() => setDisplayCount(c => c + PAGE_SIZE)}

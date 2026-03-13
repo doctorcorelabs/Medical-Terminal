@@ -1,17 +1,21 @@
 /**
  * idbQueue.js — IndexedDB-backed sync queue & conflict store
  *
- * DB: medterminal-db  v1
+ * DB: medterminal-db  v4
  * Stores:
- *   syncQueue  — pending write operations to flush to Supabase
- *   conflicts  — data conflicts detected during sync (multi-device)
+ *   syncQueue    — pending write operations to flush to Supabase
+ *   conflicts    — data conflicts detected during sync (multi-device)
+ *   fornasCache  — legacy global Fornas cache (kept for backward compatibility)
+ *   fornasMeta   — legacy global Fornas cache metadata
+ *   fornasCacheUser — per-user Fornas rows for offline search/filtering
+ *   fornasMetaUser  — per-user Fornas cache metadata (count, updatedAt, forms[])
  *
  * Both stores are accessible from the page AND from the service worker,
  * because IndexedDB is available in both contexts.
  */
 
 const DB_NAME = 'medterminal-db';
-const DB_VERSION = 1;
+const DB_VERSION = 4;
 
 // ── Open / upgrade ──────────────────────────────────────────────
 // Single canonical openDB — creates ALL stores in one place.
@@ -40,6 +44,63 @@ export function openDB() {
             // swConfig: Supabase URL/key stored here so the service worker can read it
             if (!db.objectStoreNames.contains('swConfig')) {
                 db.createObjectStore('swConfig', { keyPath: 'key' });
+            }
+
+            // fornasCache: full Fornas rows for offline search/filtering
+            if (!db.objectStoreNames.contains('fornasCache')) {
+                const fc = db.createObjectStore('fornasCache', { keyPath: 'id' });
+                fc.createIndex('by_name', 'name');
+                fc.createIndex('by_category_l1', 'category_l1');
+                // v3: index-aware query indexes
+                fc.createIndex('by_form', 'form');
+                fc.createIndex('by_flag_oen',     'flag_oen');
+                fc.createIndex('by_flag_fpktl',   'flag_fpktl');
+                fc.createIndex('by_flag_fpktp',   'flag_fpktp');
+                fc.createIndex('by_flag_prb',     'flag_prb');
+                fc.createIndex('by_flag_pp',      'flag_pp');
+                fc.createIndex('by_flag_program', 'flag_program');
+                fc.createIndex('by_flag_kanker',  'flag_kanker');
+            }
+
+            // fornasMeta: cache metadata (count, updatedAt, forms[])
+            if (!db.objectStoreNames.contains('fornasMeta')) {
+                db.createObjectStore('fornasMeta', { keyPath: 'key' });
+            }
+
+            // v2 → v3: add performance indexes to existing fornasCache
+            if (e.oldVersion < 3 && e.oldVersion >= 2 && db.objectStoreNames.contains('fornasCache')) {
+                const fc3 = e.target.transaction.objectStore('fornasCache');
+                if (!fc3.indexNames.contains('by_form'))         fc3.createIndex('by_form', 'form');
+                if (!fc3.indexNames.contains('by_flag_oen'))     fc3.createIndex('by_flag_oen',     'flag_oen');
+                if (!fc3.indexNames.contains('by_flag_fpktl'))   fc3.createIndex('by_flag_fpktl',   'flag_fpktl');
+                if (!fc3.indexNames.contains('by_flag_fpktp'))   fc3.createIndex('by_flag_fpktp',   'flag_fpktp');
+                if (!fc3.indexNames.contains('by_flag_prb'))     fc3.createIndex('by_flag_prb',     'flag_prb');
+                if (!fc3.indexNames.contains('by_flag_pp'))      fc3.createIndex('by_flag_pp',      'flag_pp');
+                if (!fc3.indexNames.contains('by_flag_program')) fc3.createIndex('by_flag_program', 'flag_program');
+                if (!fc3.indexNames.contains('by_flag_kanker'))  fc3.createIndex('by_flag_kanker',  'flag_kanker');
+            }
+
+            // fornasCacheUser: per-account Fornas cache rows
+            // keyPath: cacheKey = `${userId}:${id}`
+            if (!db.objectStoreNames.contains('fornasCacheUser')) {
+                const fcu = db.createObjectStore('fornasCacheUser', { keyPath: 'cacheKey' });
+                fcu.createIndex('by_userId', 'userId');
+                fcu.createIndex('by_user_name', ['userId', 'name']);
+                fcu.createIndex('by_user_form', ['userId', 'form']);
+                fcu.createIndex('by_user_flag_oen', ['userId', 'flag_oen']);
+                fcu.createIndex('by_user_flag_fpktl', ['userId', 'flag_fpktl']);
+                fcu.createIndex('by_user_flag_fpktp', ['userId', 'flag_fpktp']);
+                fcu.createIndex('by_user_flag_prb', ['userId', 'flag_prb']);
+                fcu.createIndex('by_user_flag_pp', ['userId', 'flag_pp']);
+                fcu.createIndex('by_user_flag_program', ['userId', 'flag_program']);
+                fcu.createIndex('by_user_flag_kanker', ['userId', 'flag_kanker']);
+            }
+
+            // fornasMetaUser: metadata per user
+            // key: fornasCacheMeta:<userId>
+            if (!db.objectStoreNames.contains('fornasMetaUser')) {
+                const fmu = db.createObjectStore('fornasMetaUser', { keyPath: 'key' });
+                fmu.createIndex('by_userId', 'userId');
             }
         };
 

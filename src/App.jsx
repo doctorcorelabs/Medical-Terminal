@@ -26,6 +26,13 @@ const ICD10Tool       = lazy(() => import('./pages/tools/ICD10Tool'));
 const MedCalculator   = lazy(() => import('./pages/tools/MedCalculator'));
 const DrugInteraction = lazy(() => import('./pages/tools/DrugInteraction'));
 const FornasDrug      = lazy(() => import('./pages/tools/FornasDrug'));
+const EmergencyDose   = lazy(() => import('./pages/tools/EmergencyDose'));
+const InfusionCalc    = lazy(() => import('./pages/tools/InfusionCalc'));
+const PharmacokineticCalc = lazy(() => import('./pages/tools/PharmacokineticCalc'));
+const RenalDosing     = lazy(() => import('./pages/tools/RenalDosing'));
+const AntibioticSteward = lazy(() => import('./pages/tools/AntibioticSteward'));
+const NutritionCalc   = lazy(() => import('./pages/tools/NutritionCalc'));
+const PediatricCalc   = lazy(() => import('./pages/tools/PediatricCalc'));
 const ConflictCenter  = lazy(() => import('./pages/ConflictCenter'));
 import { ScheduleProvider } from './context/ScheduleContext';
 
@@ -87,6 +94,13 @@ function AppContent() {
                   <Route path="/tools/calculator" element={<MedCalculator />} />
                   <Route path="/tools/drug-interaction" element={<DrugInteraction />} />
                   <Route path="/tools/fornas" element={<FornasDrug />} />
+                  <Route path="/tools/emergency-dose" element={<EmergencyDose />} />
+                  <Route path="/tools/infusion" element={<InfusionCalc />} />
+                  <Route path="/tools/pharmacokinetics" element={<PharmacokineticCalc />} />
+                  <Route path="/tools/renal-hepatic-dose" element={<RenalDosing />} />
+                  <Route path="/tools/antibiotic-steward" element={<AntibioticSteward />} />
+                  <Route path="/tools/nutrition-bsa" element={<NutritionCalc />} />
+                  <Route path="/tools/pediatric" element={<PediatricCalc />} />
                   <Route path="/conflicts" element={<ConflictCenter />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
