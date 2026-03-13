@@ -1,7 +1,7 @@
 /**
  * idbQueue.js — IndexedDB-backed sync queue & conflict store
  *
- * DB: medterminal-db  v4
+ * DB: medterminal-db  v5
  * Stores:
  *   syncQueue    — pending write operations to flush to Supabase
  *   conflicts    — data conflicts detected during sync (multi-device)
@@ -9,13 +9,15 @@
  *   fornasMeta   — legacy global Fornas cache metadata
  *   fornasCacheUser — per-user Fornas rows for offline search/filtering
  *   fornasMetaUser  — per-user Fornas cache metadata (count, updatedAt, forms[])
+ *   icd10Cache      — ICD-10 rows for offline search/filtering
+ *   icd10Meta       — ICD-10 cache metadata (count, updatedAt, syncSource)
  *
  * Both stores are accessible from the page AND from the service worker,
  * because IndexedDB is available in both contexts.
  */
 
 const DB_NAME = 'medterminal-db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 // ── Open / upgrade ──────────────────────────────────────────────
 // Single canonical openDB — creates ALL stores in one place.
@@ -101,6 +103,19 @@ export function openDB() {
             if (!db.objectStoreNames.contains('fornasMetaUser')) {
                 const fmu = db.createObjectStore('fornasMetaUser', { keyPath: 'key' });
                 fmu.createIndex('by_userId', 'userId');
+            }
+
+            // icd10Cache: ICD-10 rows (global, not per-user)
+            // keyPath: code
+            if (!db.objectStoreNames.contains('icd10Cache')) {
+                const ic = db.createObjectStore('icd10Cache', { keyPath: 'code' });
+                ic.createIndex('by_code', 'code');
+            }
+
+            // icd10Meta: cache metadata
+            // key: icd10CacheMeta
+            if (!db.objectStoreNames.contains('icd10Meta')) {
+                db.createObjectStore('icd10Meta', { keyPath: 'key' });
             }
         };
 

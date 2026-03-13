@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loadICD10, searchICD10 } from '../../utils/icd10Data';
+import { loadICD10, searchICD10, clearICD10MemoryCache } from '../../utils/icd10Data';
+import {
+  cacheAllICD10FromSource,
+  clearICD10Cache,
+  getCachedICD10All,
+  getICD10CacheMeta,
+  isICD10Cached,
+  refreshICD10Cache,
+} from '../../services/icd10CacheService';
+import { useOffline } from '../../context/OfflineContext';
 
 const PAGE_SIZE = 50;
 
@@ -17,22 +26,101 @@ function useCopyToClipboard() {
 
 export default function ICD10Tool() {
   const navigate = useNavigate();
+  const { isOnline } = useOffline();
   const [allData, setAllData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  const [cacheMeta, setCacheMeta] = useState(null);
+  const [isPreparingCache, setIsPreparingCache] = useState(false);
+  const [isAutoRefreshingCache, setIsAutoRefreshingCache] = useState(false);
   const debounceRef = useRef(null);
+  const refreshInFlightRef = useRef(false);
   const { copiedCode, copy } = useCopyToClipboard();
 
-  // Load data once
-  useEffect(() => {
+  const loadAllData = useCallback(async () => {
     setLoading(true);
-    loadICD10()
-      .then(data => { setAllData(data); setLoading(false); })
-      .catch(err => { setError(err.message); setLoading(false); });
-  }, []);
+    setError(null);
+
+    try {
+      const [meta, hasCache] = await Promise.all([
+        getICD10CacheMeta(),
+        isICD10Cached(),
+      ]);
+      setCacheMeta(meta);
+
+      if (hasCache) {
+        const cachedRows = await getCachedICD10All();
+        if (cachedRows.length > 0) {
+          setAllData(cachedRows);
+          setLoading(false);
+
+          if (isOnline && !refreshInFlightRef.current) {
+            refreshInFlightRef.current = true;
+            setIsAutoRefreshingCache(true);
+            refreshICD10Cache()
+              .then(({ rows, meta: freshMeta }) => {
+                if (rows.length > 0) {
+                  setAllData(rows);
+                  setCacheMeta({ key: 'icd10CacheMeta', ...freshMeta });
+                }
+              })
+              .catch(() => {})
+              .finally(() => {
+                setIsAutoRefreshingCache(false);
+                refreshInFlightRef.current = false;
+              });
+          }
+          return;
+        }
+      }
+
+      if (!isOnline) {
+        throw new Error('Offline tanpa cache ICD-10. Silakan unduh cache saat online terlebih dahulu.');
+      }
+
+      const data = await loadICD10();
+      setAllData(data);
+      const freshMeta = await getICD10CacheMeta();
+      setCacheMeta(freshMeta);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  }, [isOnline]);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  const handlePrepareOfflineCache = useCallback(async () => {
+    if (!isOnline) return;
+    setIsPreparingCache(true);
+    setError(null);
+
+    try {
+      const { rows, meta } = await cacheAllICD10FromSource();
+      setAllData(rows);
+      setCacheMeta({ key: 'icd10CacheMeta', ...meta });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsPreparingCache(false);
+    }
+  }, [isOnline]);
+
+  const handleClearOfflineCache = useCallback(async () => {
+    await clearICD10Cache();
+    clearICD10MemoryCache();
+    setCacheMeta(null);
+    if (!isOnline) {
+      setAllData([]);
+      setError('Cache ICD-10 telah dihapus. Sambungkan internet untuk memuat data kembali.');
+    }
+  }, [isOnline]);
 
   // Debounce search 300ms
   useEffect(() => {
@@ -74,6 +162,58 @@ export default function ICD10Tool() {
           </span>
         </div>
       </div>
+
+      {/* Cache controls */}
+      <div className="mb-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">ICD-10 Offline Cache</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {cacheMeta?.count
+                ? `Cached ${Number(cacheMeta.count).toLocaleString()} kode · ${cacheMeta.syncSource === 'auto' ? 'update otomatis' : 'update manual'} ${new Date(cacheMeta.updatedAt).toLocaleString('id-ID')}`
+                : 'Belum ada cache penuh. Unduh sekali saat online untuk akses offline penuh.'}
+            </p>
+            {(isAutoRefreshingCache || cacheMeta?.syncSource === 'auto') && (
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-blue-600 dark:text-blue-400">
+                <span className="material-symbols-outlined text-[13px]">
+                  {isAutoRefreshingCache ? 'sync' : 'cloud_done'}
+                </span>
+                {isAutoRefreshingCache
+                  ? 'Sinkron otomatis online sedang berjalan'
+                  : `Diperbarui otomatis saat online · ${new Date(cacheMeta.updatedAt).toLocaleString('id-ID')}`}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrepareOfflineCache}
+              disabled={!isOnline || isPreparingCache}
+              className="px-3 py-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {isPreparingCache ? 'Mengunduh...' : 'Unduh untuk offline'}
+            </button>
+            {cacheMeta?.count ? (
+              <button
+                onClick={handleClearOfflineCache}
+                className="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+              >
+                Hapus cache
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {!isOnline && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
+          <span className="material-symbols-outlined text-base shrink-0">wifi_off</span>
+          <p className="text-xs font-medium">
+            {allData.length > 0
+              ? 'Mode offline aktif: data berasal dari cache ICD-10 lokal.'
+              : 'Tidak ada koneksi. Data ICD-10 belum tersedia di cache.'}
+          </p>
+        </div>
+      )}
 
       {/* ── Search bar ── */}
       <div className="relative mb-4">

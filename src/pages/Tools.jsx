@@ -1,173 +1,55 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ALL_TOOLS, CATEGORY_COLORS } from '../data/toolsCatalog';
 
-const ALL_TOOLS = [
-  {
-    id: 'icd10',
-    name: 'ICD-10 e-Klaim',
-    description: 'Pencarian kode penyakit ICD-10 untuk klaim BPJS dan dokumentasi diagnosis pasien.',
-    icon: 'qr_code_2',
-    category: 'Diagnosis',
-    categoryColor: 'blue',
-    route: '/tools/icd10',
-    available: true,
-  },
-  {
-    id: 'calculator',
-    name: 'Kalkulator Medis',
-    description: 'BMI, eGFR, BSA, IBW, MEWS, CURB-65, Kalsium & Natrium Terkoreksi, skor APGAR.',
-    icon: 'calculate',
-    category: 'Kalkulasi',
-    categoryColor: 'emerald',
-    route: '/tools/calculator',
-    available: true,
-  },
-  {
-    id: 'clinical-guide',
-    name: 'Panduan Klinis',
-    description: 'Referensi panduan tatalaksana klinis berbasis evidence-based medicine.',
-    icon: 'menu_book',
-    category: 'Referensi',
-    categoryColor: 'purple',
-    route: null,
-    available: false,
-  },
-  {
-    id: 'drug-ref',
-    name: 'Referensi Obat',
-    description: 'Database dosis, interaksi, dan kontraindikasi obat-obatan klinis.',
-    icon: 'medication',
-    category: 'Farmakologi',
-    categoryColor: 'pink',
-    route: null,
-    available: false,
-  },
-  {
-    id: 'diagnostic-score',
-    name: 'Skor Diagnostik',
-    description: 'Skor dan kriteria diagnostik terstandarisasi untuk berbagai kondisi klinik.',
-    icon: 'fact_check',
-    category: 'Skrining',
-    categoryColor: 'orange',
-    route: null,
-    available: false,
-  },
-  {
-    id: 'dose-calc',
-    name: 'Kalkulator Dosis',
-    description: 'Kalkulasi dosis obat berdasarkan berat badan, fungsi ginjal, dan parameter klinis.',
-    icon: 'vaccines',
-    category: 'Farmakologi',
-    categoryColor: 'pink',
-    route: null,
-    available: false,
-  },
-  {
-    id: 'drug-interaction',
-    name: 'Interaction Checker',
-    description: 'Cek interaksi antar obat menggunakan data label FDA via OpenFDA dan RxNorm NIH.',
-    icon: 'medication',
-    category: 'Farmakologi',
-    categoryColor: 'rose',
-    route: '/tools/drug-interaction',
-    available: true,
-  },
-  {
-    id: 'fornas',
-    name: 'Obat Fornas',
-    description: 'Daftar obat Formularium Nasional Kemenkes RI — sediaan, kelas terapi, restriksi, OEN, FKRTL, dan program.',
-    icon: 'local_pharmacy',
-    category: 'Farmakologi',
-    categoryColor: 'teal',
-    route: '/tools/fornas',
-    available: true,
-  },
-  {
-    id: 'emergency-dose',
-    name: 'Simulasi Dosis Darurat',
-    description: 'Hitung cepat dosis emergensi berbasis berat badan untuk epinefrin, atropin, amiodaron, adenosin, dan obat kritis lain.',
-    icon: 'emergency',
-    category: 'Emergensi',
-    categoryColor: 'red',
-    route: '/tools/emergency-dose',
-    available: true,
-  },
-  {
-    id: 'infusion-calc',
-    name: 'Infus & Konversi Kecepatan',
-    description: 'Konversi mL/jam, tetes/menit, serta hitung laju infus obat berbasis konsentrasi dan berat badan.',
-    icon: 'fluid',
-    category: 'Kalkulasi',
-    categoryColor: 'emerald',
-    route: '/tools/infusion',
-    available: true,
-  },
-  {
-    id: 'pharmacokinetics',
-    name: 'Farmakokinetik Klinis',
-    description: 'Half-life, loading dose, maintenance dose, steady state, dan time to steady state untuk regimen terukur.',
-    icon: 'monitoring',
-    category: 'Farmakologi',
-    categoryColor: 'rose',
-    route: '/tools/pharmacokinetics',
-    available: true,
-  },
-  {
-    id: 'renal-hepatic-dose',
-    name: 'Penyesuaian Dosis Ginjal/Hepatik',
-    description: 'Rekomendasi dosis otomatis berdasarkan eGFR dan Child-Pugh untuk obat umum.',
-    icon: 'pill',
-    category: 'Farmakologi',
-    categoryColor: 'teal',
-    route: '/tools/renal-hepatic-dose',
-    available: true,
-  },
-  {
-    id: 'antibiotic-steward',
-    name: 'Antibiotic Stewardship Helper',
-    description: 'Panduan terapi empiris berdasarkan spektrum, target organ, severity, dan risiko resistensi.',
-    icon: 'biotech',
-    category: 'Farmakologi',
-    categoryColor: 'orange',
-    route: '/tools/antibiotic-steward',
-    available: true,
-  },
-  {
-    id: 'pediatric-calc',
-    name: 'Kalkulator Pediatrik',
-    description: 'Dosis anak, referensi Broselow, resusitasi pediatrik, dan obat umum berbasis berat badan.',
-    icon: 'child_care',
-    category: 'Pediatri',
-    categoryColor: 'blue',
-    route: '/tools/pediatric',
-    available: true,
-  },
-  {
-    id: 'nutrition-bsa',
-    name: 'Kalkulator Gizi & BSA',
-    description: 'Kebutuhan kalori, protein, BSA, dan konversi dosis regimen berbasis mg/m².',
-    icon: 'nutrition',
-    category: 'Nutrisi',
-    categoryColor: 'purple',
-    route: '/tools/nutrition-bsa',
-    available: true,
-  },
-];
-
-const CATEGORY_COLORS = {
-  blue:    { badge: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
-  emerald: { badge: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
-  purple:  { badge: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' },
-  pink:    { badge: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400' },
-  orange:  { badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
-  rose:    { badge: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400' },
-  teal:    { badge: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' },
-  red:     { badge: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
-};
+const QUICK_TOOLS_KEY = 'mt.quickTools.v1';
 
 export default function Tools() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const customizableTools = useMemo(
+    () => ALL_TOOLS.filter(tool => tool.available && tool.route),
+    []
+  );
+
+  const [quickToolIds, setQuickToolIds] = useState(() => {
+    const fallback = customizableTools.slice(0, 3).map(tool => tool.id);
+    try {
+      const raw = localStorage.getItem(QUICK_TOOLS_KEY);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return fallback;
+
+      const valid = parsed
+        .filter(id => typeof id === 'string' && customizableTools.some(tool => tool.id === id))
+        .slice(0, 3);
+
+      if (valid.length === 0) return fallback;
+      return [...new Set(valid)];
+    } catch {
+      return fallback;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(QUICK_TOOLS_KEY, JSON.stringify(quickToolIds.slice(0, 3)));
+  }, [quickToolIds]);
+
+  const quickTools = quickToolIds
+    .map(id => customizableTools.find(tool => tool.id === id))
+    .filter(Boolean);
+
+  const toggleQuickTool = (toolId) => {
+    setQuickToolIds((prev) => {
+      if (prev.includes(toolId)) {
+        return prev.filter(id => id !== toolId);
+      }
+      if (prev.length >= 3) {
+        return prev;
+      }
+      return [...prev, toolId];
+    });
+  };
 
   const filtered = ALL_TOOLS.filter(t =>
     !search.trim() ||
@@ -211,6 +93,33 @@ export default function Tools() {
         )}
       </div>
 
+      <section className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">Shortcut Aksi Cepat Dashboard</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Pilih hingga 3 tools untuk muncul sebagai shortcut di Dashboard.</p>
+          </div>
+          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary">{quickTools.length}/3 dipilih</span>
+        </div>
+
+        {quickTools.length === 0 ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400">Belum ada shortcut dipilih. Ketuk pin pada kartu tools di bawah.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {quickTools.map(tool => (
+              <button
+                key={tool.id}
+                onClick={() => navigate(tool.route)}
+                className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-left hover:border-primary/40 hover:bg-primary/5 transition"
+              >
+                <span className="material-symbols-outlined text-primary text-lg">{tool.icon}</span>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{tool.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* ── Available Tools ── */}
       {available.length > 0 && (
         <section className="mb-10">
@@ -221,7 +130,14 @@ export default function Tools() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {available.map(tool => (
-              <ToolCard key={tool.id} tool={tool} onClick={() => navigate(tool.route)} />
+              <ToolCard
+                key={tool.id}
+                tool={tool}
+                onClick={() => navigate(tool.route)}
+                isQuickShortcut={quickToolIds.includes(tool.id)}
+                isQuickShortcutLimitReached={!quickToolIds.includes(tool.id) && quickToolIds.length >= 3}
+                onToggleQuickShortcut={() => toggleQuickTool(tool.id)}
+              />
             ))}
           </div>
         </section>
@@ -254,7 +170,7 @@ export default function Tools() {
   );
 }
 
-function ToolCard({ tool, onClick, dimmed }) {
+function ToolCard({ tool, onClick, dimmed, isQuickShortcut, isQuickShortcutLimitReached, onToggleQuickShortcut }) {
   const catColor = CATEGORY_COLORS[tool.categoryColor] ?? CATEGORY_COLORS.blue;
 
   return (
@@ -272,6 +188,25 @@ function ToolCard({ tool, onClick, dimmed }) {
           <span className="material-symbols-outlined text-[13px] text-slate-400">lock</span>
           <span className="text-[11px] text-slate-400 font-medium">Segera</span>
         </div>
+      )}
+
+      {!dimmed && onToggleQuickShortcut && (
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleQuickShortcut();
+          }}
+          disabled={isQuickShortcutLimitReached}
+          className={`absolute top-3 right-3 rounded-full px-2 py-1 text-[11px] font-semibold border transition
+            ${isQuickShortcut
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : isQuickShortcutLimitReached
+                ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600 cursor-not-allowed'
+                : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600 hover:text-primary hover:border-primary/30'}
+          `}
+        >
+          {isQuickShortcut ? 'Dipin' : 'Pin'}
+        </button>
       )}
 
       {/* Icon */}
