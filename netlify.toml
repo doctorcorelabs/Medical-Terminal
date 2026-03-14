@@ -21,6 +21,18 @@
 [functions."cleanup-activity-events"]
   timeout = 26
 
+[functions."enqueue-alert-notifications"]
+  timeout = 26
+
+[functions."enqueue-schedule-reminders"]
+  timeout = 26
+
+[functions."send-telegram-notifications"]
+  timeout = 26
+
+[functions."retry-notification-dispatch"]
+  timeout = 26
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -39,3 +51,19 @@
 [[scheduled_functions]]
   name = "cleanup-activity-events"
   cron = "15 3 * * *"
+
+[[scheduled_functions]]
+  name = "enqueue-alert-notifications"
+  cron = "*/2 * * * *"
+
+[[scheduled_functions]]
+  name = "enqueue-schedule-reminders"
+  cron = "*/1 * * * *"
+
+[[scheduled_functions]]
+  name = "send-telegram-notifications"
+  cron = "*/1 * * * *"
+
+[[scheduled_functions]]
+  name = "retry-notification-dispatch"
+  cron = "*/2 * * * *"

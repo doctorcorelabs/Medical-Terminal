@@ -22,8 +22,29 @@ This project uses Netlify scheduled functions for background maintenance jobs.
 - `scheduled-news`: fetches RSS and deletes old news records.
 - `evaluate-alerts`: evaluates alert rules on a recurring interval.
 - `cleanup-activity-events`: deletes `user_activity_events` records older than 14 days.
+- `enqueue-alert-notifications`: creates queue items for new/resolved alert events.
+- `enqueue-schedule-reminders`: creates queue items for due schedule reminders.
+- `send-telegram-notifications`: dispatches pending queue items to Telegram Bot API.
+- `retry-notification-dispatch`: recovers stale locks and requeues retryable failures.
 
 Required environment variables for scheduled jobs:
 
 - `SUPABASE_URL` (or `VITE_SUPABASE_URL`)
 - `SUPABASE_SERVICE_ROLE_KEY` (or `SERVICE_ROLE_KEY` / `VITE_SUPABASE_SERVICE_ROLE_KEY`)
+
+Additional environment variables for Telegram notification queue:
+
+- `TELEGRAM_BOT_TOKEN` (required)
+- `TELEGRAM_MAX_BATCH_SIZE` (default: `100`)
+- `TELEGRAM_SEND_TIMEOUT_MS` (default: `7000`)
+- `NOTIFICATION_MAX_ATTEMPTS` (default: `3`)
+- `NOTIFICATION_BACKOFF_BASE_MS` (default: `5000`)
+- `NOTIFICATION_STALE_LOCK_MINUTES` (default: `10`)
+- `NOTIFICATION_ALERT_LOOKBACK_MINUTES` (default: `10`)
+- `SCHEDULE_REMINDER_MINUTES` (default: `30`)
+- `SCHEDULE_REMINDER_LOOKAHEAD_MINUTES` (default: `2`)
+- `SCHEDULE_REMINDER_GRACE_MINUTES` (default: `1`)
+
+Database setup:
+
+- Run `supabase_telegram_notifications_setup.sql` in Supabase SQL Editor before enabling these jobs.
