@@ -12,18 +12,6 @@ import {
   YAxis,
 } from 'recharts';
 
-const EVENT_LABELS = {
-  auth_signed_in: 'Login',
-  auth_signed_out: 'Logout',
-  tools_page_view: 'Buka Halaman Tools',
-  tool_action_started: 'Mulai Aksi Tool',
-  feature_opened: 'Buka Fitur',
-};
-
-function eventLabel(eventType) {
-  return EVENT_LABELS[eventType] || eventType;
-}
-
 function formatShortDate(value) {
   return new Date(value).toLocaleDateString('id-ID', {
     day: 'numeric',

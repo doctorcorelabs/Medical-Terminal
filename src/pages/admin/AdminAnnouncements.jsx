@@ -84,7 +84,7 @@ export default function AdminAnnouncements() {
       if (error) throw error;
       setItems(prev => prev.map(i => i.id === id ? { ...i, active } : i));
       addToast(active ? 'Pengumuman diaktifkan.' : 'Pengumuman dinonaktifkan.', 'success');
-    } catch (err) {
+    } catch (_err) {
       addToast('Gagal mengubah status pengumuman.', 'error');
     }
   };

@@ -59,7 +59,7 @@ export default function AdminAlerts() {
       if (error) throw error;
       setRows(prev => prev.map(r => r.id === id ? { ...r, status, handled_by: user?.id, handled_at: new Date().toISOString() } : r));
       addToast('Status alert diperbarui.', 'success');
-    } catch (err) {
+    } catch (_err) {
       addToast('Gagal mengubah status alert.', 'error');
     }
   };

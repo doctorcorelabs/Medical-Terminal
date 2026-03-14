@@ -18,25 +18,50 @@ export function parseStoredSchedules(data) {
     return purgeExpiredSchedules(parsed);
 }
 
+function normalizedScheduleId(item) {
+    if (!item || typeof item !== 'object' || typeof item.id !== 'string') return '';
+    return item.id.trim();
+}
+
+function getScheduleTimestamp(item) {
+    const source = item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at;
+    const parsed = source ? Date.parse(source) : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function mergeSchedules(localSchedules = [], serverSchedules = []) {
-    const localIds = new Set();
-    const merged = [];
+    const mergedById = new Map();
+    const mergedWithoutId = [];
 
     localSchedules.forEach((item) => {
         if (!item || typeof item !== 'object') return;
-        merged.push(item);
-        if (typeof item.id === 'string' && item.id.trim()) localIds.add(item.id.trim());
+        const id = normalizedScheduleId(item);
+        if (!id) {
+            mergedWithoutId.push(item);
+            return;
+        }
+        mergedById.set(id, item);
     });
 
     serverSchedules.forEach((item) => {
         if (!item || typeof item !== 'object') return;
-        const itemId = typeof item.id === 'string' ? item.id.trim() : '';
-        if (itemId && localIds.has(itemId)) return;
-        merged.push(item);
-        if (itemId) localIds.add(itemId);
+        const id = normalizedScheduleId(item);
+        if (!id) {
+            mergedWithoutId.push(item);
+            return;
+        }
+        const localItem = mergedById.get(id);
+        if (!localItem) {
+            mergedById.set(id, item);
+            return;
+        }
+
+        const localTs = getScheduleTimestamp(localItem);
+        const serverTs = getScheduleTimestamp(item);
+        if (serverTs > localTs) mergedById.set(id, item);
     });
 
-    return merged;
+    return [...mergedById.values(), ...mergedWithoutId];
 }
 
 function normalizeScheduleForCompare(item) {

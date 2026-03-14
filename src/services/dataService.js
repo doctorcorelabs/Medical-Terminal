@@ -645,6 +645,7 @@ export function clearSchedulesCache() {
 
 export async function syncSchedulesToSupabase(userId) {
     if (!userId) return;
+    setScheduleStorageScope(userId);
     const schedules = getStoredSchedules();
     // Enqueue BEFORE attempting sync
     await enqueue({ type: 'schedules', op: 'upsert', userId, payload: { schedules_data: schedules } }).catch(() => {});
@@ -705,10 +706,12 @@ export function getAllSchedules() {
 
 export function addSchedule(schedule) {
     const schedules = getStoredSchedules();
+    const nowIso = new Date().toISOString();
     const newSchedule = {
         ...schedule,
         id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
     };
     schedules.push(newSchedule);
     saveSchedules(schedules);
@@ -719,7 +722,7 @@ export function updateSchedule(id, updates) {
     const schedules = getStoredSchedules();
     const index = schedules.findIndex(s => s.id === id);
     if (index === -1) return null;
-    schedules[index] = { ...schedules[index], ...updates };
+    schedules[index] = { ...schedules[index], ...updates, updatedAt: new Date().toISOString() };
     saveSchedules(schedules);
     return schedules[index];
 }
@@ -743,6 +746,7 @@ export function upsertSchedulesBulk(importedSchedules = []) {
             ...item,
             id,
             createdAt: item.createdAt || existing?.createdAt || new Date().toISOString(),
+            updatedAt: item.updatedAt || item.updated_at || existing?.updatedAt || existing?.updated_at || new Date().toISOString(),
         });
     });
 

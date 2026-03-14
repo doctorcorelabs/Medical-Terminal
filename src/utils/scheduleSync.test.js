@@ -51,6 +51,19 @@ test('mergeSchedules appends server-only items and keeps local version for same 
     ]);
 });
 
+test('mergeSchedules keeps the most recently updated event for the same id', () => {
+    const local = [
+        { id: 'same', title: 'Local older', date: '2026-03-14', updatedAt: '2026-03-14T08:00:00.000Z' },
+    ];
+    const server = [
+        { id: 'same', title: 'Server newer', date: '2026-03-14', updatedAt: '2026-03-14T09:00:00.000Z' },
+    ];
+
+    assert.deepEqual(mergeSchedules(local, server), [
+        { id: 'same', title: 'Server newer', date: '2026-03-14', updatedAt: '2026-03-14T09:00:00.000Z' },
+    ]);
+});
+
 test('schedulesDiffer compares schedule content independent of order', () => {
     const left = [
         { id: 'a', title: 'A', date: '2026-03-14', startTime: '08:00' },

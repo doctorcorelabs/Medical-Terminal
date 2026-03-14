@@ -244,7 +244,6 @@ export const handler = async (event) => {
     const results = [];
     for (const rule of rules || []) {
       // Sequential to reduce concurrent DB pressure for scheduled function
-      // eslint-disable-next-line no-await-in-loop
       const result = await evaluateRule(supabase, rule);
       results.push(result);
     }
