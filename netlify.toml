@@ -36,6 +36,9 @@
 [functions."notification-cycle"]
   timeout = 26
 
+[functions."create-admin-broadcast"]
+  timeout = 26
+
 [functions."telegram-webhook"]
   timeout = 26
 

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { requireOperationalAccess } from './_operation-auth.mjs';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -16,7 +17,7 @@ function json(statusCode, body) {
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, x-internal-key',
     },
     body: JSON.stringify(body),
   };
@@ -121,6 +122,15 @@ async function writeLog(supabase, row, status, options = {}) {
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(200, { ok: true });
 
+  const access = await requireOperationalAccess(event, {
+    allowInternal: true,
+    allowSchedule: true,
+    allowAdminBearer: false,
+  });
+  if (!access.ok) {
+    return json(access.statusCode || 401, { ok: false, error: access.error || 'Unauthorized' });
+  }
+
   if (!supabaseUrl || !serviceRoleKey) {
     return json(500, { ok: false, error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' });
   }
@@ -197,19 +207,25 @@ export const handler = async (event) => {
       const channel = channelMap.get(row.user_id);
       const payload = row.payload || {};
       const sourceType = row.source_type;
+      const forceSend = sourceType === 'alert' && payload.force_send === true;
 
-      const isOptedOut = !channel
+      const hasChannelIssue = !channel
         || !channel.is_enabled
         || !channel.is_verified
         || !channel.telegram_chat_id
-        || (sourceType === 'alert' && !channel.alert_enabled)
         || (sourceType === 'schedule' && !channel.schedule_enabled);
 
+      const alertOptOut = sourceType === 'alert' && !channel?.alert_enabled && !forceSend;
+      const isOptedOut = hasChannelIssue || alertOptOut;
+
       if (isOptedOut) {
+        const reason = hasChannelIssue
+          ? 'Channel disabled, not verified, or no telegram chat id'
+          : 'Alert preference disabled by user';
         await writeLog(supabase, row, 'skipped_opt_out', { errorMessage: 'Channel disabled, not verified, or preference disabled' });
         await supabase
           .from('notification_dispatch_queue')
-          .update({ status: 'skipped_opt_out', updated_at: new Date().toISOString(), lock_owner: null, locked_at: null })
+          .update({ status: 'skipped_opt_out', last_error: reason, updated_at: new Date().toISOString(), lock_owner: null, locked_at: null })
           .eq('id', row.id);
         summary.skippedOptOut += 1;
         continue;

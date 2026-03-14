@@ -192,3 +192,31 @@ WHERE NOT EXISTS (SELECT 1 FROM public.admin_announcements);
 -- Operational note:
 -- Retensi user_activity_events > 14 hari dihapus permanen oleh job harian
 -- yang dikonfigurasi di netlify.toml (scheduled_functions.cleanup-activity-events).
+
+-- 9) Broadcast metadata extensions (safe for existing deployments)
+ALTER TABLE public.alert_events
+  ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);
+
+ALTER TABLE public.alert_events
+  ADD COLUMN IF NOT EXISTS is_admin_broadcast BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.alert_events
+  ADD COLUMN IF NOT EXISTS audience_scope TEXT NOT NULL DEFAULT 'all';
+
+ALTER TABLE public.alert_events
+  ADD COLUMN IF NOT EXISTS correlation_id TEXT;
+
+ALTER TABLE public.admin_announcements
+  ADD COLUMN IF NOT EXISTS correlation_id TEXT;
+
+ALTER TABLE public.admin_announcements
+  ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'manual';
+
+CREATE INDEX IF NOT EXISTS idx_alert_events_admin_broadcast_time
+  ON public.alert_events(is_admin_broadcast, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_alert_events_correlation
+  ON public.alert_events(correlation_id);
+
+CREATE INDEX IF NOT EXISTS idx_admin_announcements_correlation
+  ON public.admin_announcements(correlation_id);

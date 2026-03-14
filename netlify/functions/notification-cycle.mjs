@@ -1,6 +1,7 @@
 import { handler as enqueueAlertsHandler } from './enqueue-alert-notifications.mjs';
 import { handler as enqueueSchedulesHandler } from './enqueue-schedule-reminders.mjs';
 import { handler as sendTelegramHandler } from './send-telegram-notifications.mjs';
+import { requireOperationalAccess } from './_operation-auth.mjs';
 
 function json(statusCode, body) {
   return {
@@ -8,7 +9,7 @@ function json(statusCode, body) {
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, x-internal-key',
     },
     body: JSON.stringify(body),
   };
@@ -25,10 +26,19 @@ function parseBody(res) {
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(200, { ok: true });
 
+  const access = await requireOperationalAccess(event, {
+    allowInternal: true,
+    allowSchedule: true,
+    allowAdminBearer: false,
+  });
+  if (!access.ok) {
+    return json(access.statusCode || 401, { ok: false, error: access.error || 'Unauthorized' });
+  }
+
   try {
-    const enqueueSchedulesRes = await enqueueSchedulesHandler({ httpMethod: 'GET' });
-    const enqueueAlertsRes = await enqueueAlertsHandler({ httpMethod: 'GET' });
-    const sendRes = await sendTelegramHandler({ httpMethod: 'GET' });
+    const enqueueSchedulesRes = await enqueueSchedulesHandler({ httpMethod: 'GET', internalCall: true });
+    const enqueueAlertsRes = await enqueueAlertsHandler({ httpMethod: 'GET', internalCall: true });
+    const sendRes = await sendTelegramHandler({ httpMethod: 'GET', internalCall: true });
 
     const schedulesBody = parseBody(enqueueSchedulesRes);
     const alertsBody = parseBody(enqueueAlertsRes);

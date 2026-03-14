@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { requireOperationalAccess } from './_operation-auth.mjs';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -11,7 +12,7 @@ function json(statusCode, body) {
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, x-internal-key',
     },
     body: JSON.stringify(body),
   };
@@ -20,8 +21,10 @@ function json(statusCode, body) {
 function buildAlertMessage(alert) {
   const levelEmoji = alert.level === 'critical' ? '🚨' : alert.level === 'warning' ? '⚠️' : 'ℹ️';
   const statusText = alert.status === 'resolved' ? 'RESOLVED' : 'OPEN';
+  const isAdminBroadcast = alert.source === 'admin-broadcast' || alert.payload?.is_admin_broadcast === true;
+  const header = isAdminBroadcast ? `${levelEmoji} <b>Pengumuman Admin ${statusText}</b>` : `${levelEmoji} <b>System Alert ${statusText}</b>`;
   return [
-    `${levelEmoji} <b>System Alert ${statusText}</b>`,
+    header,
     `<b>${escapeHtml(alert.title || 'Alert')}</b>`,
     escapeHtml(alert.message || ''),
     alert.rule_key ? `<i>Rule:</i> ${escapeHtml(alert.rule_key)}` : null,
@@ -39,6 +42,15 @@ function escapeHtml(value = '') {
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(200, { ok: true });
 
+  const access = await requireOperationalAccess(event, {
+    allowInternal: true,
+    allowSchedule: true,
+    allowAdminBearer: false,
+  });
+  if (!access.ok) {
+    return json(access.statusCode || 401, { ok: false, error: access.error || 'Unauthorized' });
+  }
+
   if (!supabaseUrl || !serviceRoleKey) {
     return json(500, { ok: false, error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' });
   }
@@ -52,7 +64,7 @@ export const handler = async (event) => {
 
     const { data: alerts, error: alertsError } = await supabase
       .from('alert_events')
-      .select('id, level, title, message, status, rule_key, created_at, updated_at')
+      .select('id, level, title, message, status, source, rule_key, payload, created_at, updated_at')
       .in('status', ['open', 'resolved'])
       .gte('updated_at', sinceIso)
       .order('updated_at', { ascending: true })
@@ -83,6 +95,11 @@ export const handler = async (event) => {
     const rows = [];
     for (const alert of alerts) {
       const text = buildAlertMessage(alert);
+      const forceSend = Boolean(
+        alert.source === 'admin-broadcast'
+        && alert.level === 'critical'
+        && alert.payload?.critical_override === true,
+      );
       for (const channel of channels) {
         rows.push({
           source_type: 'alert',
@@ -97,6 +114,10 @@ export const handler = async (event) => {
             level: alert.level,
             status: alert.status,
             title: alert.title,
+            source: alert.source || null,
+            is_admin_broadcast: alert.source === 'admin-broadcast' || alert.payload?.is_admin_broadcast === true,
+            correlation_id: alert.payload?.correlation_id || null,
+            force_send: forceSend,
           },
           status: 'pending',
           next_attempt_at: new Date().toISOString(),
