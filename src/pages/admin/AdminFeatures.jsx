@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -19,6 +20,8 @@ const TOOL_FLAGS = ALL_TOOLS
 const ALL_FLAGS = [...TOOL_FLAGS, ...EXTRA_FLAGS];
 
 export default function AdminFeatures() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const { addToast } = useToast();
     const { refreshFlags } = useFeatureFlags();
@@ -27,6 +30,9 @@ export default function AdminFeatures() {
     const [editing, setEditing] = useState({}); // { [key]: { enabled, maintenance_message } } — local edits
     const [saving, setSaving] = useState({}); // { [key]: boolean }
     const [loading, setLoading] = useState(true);
+    const returnTo = location.state?.returnTo;
+    const returnState = location.state?.returnState ?? null;
+    const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
 
     useEffect(() => {
         async function load() {
@@ -95,9 +101,24 @@ export default function AdminFeatures() {
         return orig.enabled !== curr.enabled || orig.maintenance_message !== curr.maintenance_message;
     };
 
+    const handleBack = () => {
+        if (hasReturnTarget) {
+            navigate(returnTo, { state: returnState });
+            return;
+        }
+        navigate('/admin');
+    };
+
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-20 lg:pb-8 max-w-4xl animate-[fadeIn_0.3s_ease-out]">
             {/* Header */}
+            <button
+                onClick={handleBack}
+                className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
+            >
+                <span className="material-symbols-outlined text-base">chevron_left</span>
+                {hasReturnTarget ? 'Kembali ke Dashboard Admin' : 'Dashboard Admin'}
+            </button>
             <div>
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Kontrol Fitur</h1>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">

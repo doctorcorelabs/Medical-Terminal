@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -6,6 +7,8 @@ import { useToast } from '../../context/ToastContext';
 const statusOptions = ['open', 'ack', 'resolved', 'snoozed'];
 
 export default function AdminAlerts() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { addToast } = useToast();
   const [rows, setRows] = useState([]);
@@ -14,6 +17,9 @@ export default function AdminAlerts() {
   const [simulating, setSimulating] = useState(false);
   const [simulationKey, setSimulationKey] = useState(() => localStorage.getItem('medterminal_alert_sim_key') || '');
   const [keyTestResult, setKeyTestResult] = useState(null);
+  const returnTo = location.state?.returnTo;
+  const returnState = location.state?.returnState ?? null;
+  const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
 
   const fetchRows = async () => {
     setLoading(true);
@@ -130,8 +136,23 @@ export default function AdminAlerts() {
     }
   };
 
+  const handleBack = () => {
+    if (hasReturnTarget) {
+      navigate(returnTo, { state: returnState });
+      return;
+    }
+    navigate('/admin');
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-20 lg:pb-8 max-w-6xl animate-[fadeIn_0.3s_ease-out]">
+      <button
+        onClick={handleBack}
+        className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
+      >
+        <span className="material-symbols-outlined text-base">chevron_left</span>
+        {hasReturnTarget ? 'Kembali ke Dashboard Admin' : 'Dashboard Admin'}
+      </button>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Alert Center</h1>

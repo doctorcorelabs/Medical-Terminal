@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 
 export default function AdminDashboard() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [stats, setStats] = useState({ totalUsers: 0, activeToday: 0, usageToday: 0, disabledFeatures: 0 });
     const [health, setHealth] = useState({ errorRate15m: 0, avgLatency15m: 0, openAlerts: 0 });
     const [loading, setLoading] = useState(true);
@@ -123,7 +124,12 @@ export default function AdminDashboard() {
                         return (
                             <button
                                 key={card.to}
-                                onClick={() => navigate(card.to)}
+                                onClick={() => navigate(card.to, {
+                                    state: {
+                                        returnTo: location.pathname,
+                                        returnState: location.state ?? null,
+                                    },
+                                })}
                                 className="group text-left bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 md:p-6 shadow-sm hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md transition-all h-full min-h-50 flex flex-col"
                             >
                                 <div className={`size-11 md:size-12 rounded-xl ${c.bg} ${c.text} flex items-center justify-center mb-4`}>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -31,6 +32,8 @@ function formatShortDate(value) {
 }
 
 export default function AdminUserTimeline() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { addToast } = useToast();
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState('');
@@ -38,6 +41,9 @@ export default function AdminUserTimeline() {
   const [days, setDays] = useState('14');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const returnTo = location.state?.returnTo;
+  const returnState = location.state?.returnState ?? null;
+  const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
 
   useEffect(() => {
     async function loadUsers() {
@@ -81,6 +87,14 @@ export default function AdminUserTimeline() {
 
   const selectedUser = useMemo(() => users.find(u => u.user_id === userId), [users, userId]);
 
+  const handleBack = () => {
+    if (hasReturnTarget) {
+      navigate(returnTo, { state: returnState });
+      return;
+    }
+    navigate('/admin');
+  };
+
   const dailyChartData = useMemo(() => {
     const dayCount = parseInt(days, 10);
     const mapByDate = {};
@@ -106,6 +120,13 @@ export default function AdminUserTimeline() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-20 lg:pb-8 max-w-6xl animate-[fadeIn_0.3s_ease-out]">
+      <button
+        onClick={handleBack}
+        className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
+      >
+        <span className="material-symbols-outlined text-base">chevron_left</span>
+        {hasReturnTarget ? 'Kembali ke Dashboard Admin' : 'Dashboard Admin'}
+      </button>
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Timeline Aktivitas User</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">Grafik aktivitas harian dan figure timeline event untuk audit operasional.</p>

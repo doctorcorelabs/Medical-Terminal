@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { ALL_TOOLS } from '../../data/toolsCatalog';
@@ -22,6 +23,8 @@ function featureName(key) {
 const COLORS = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
 export default function AdminAnalytics() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const { addToast } = useToast();
     const [range, setRange] = useState('7'); // days
     const [data, setData] = useState({ topTools: [], dailyChart: [], totalUsage: 0, activeUsers: 0 });
@@ -34,6 +37,9 @@ export default function AdminAnalytics() {
         feature_opened: 0,
     });
     const [loading, setLoading] = useState(true);
+    const returnTo = location.state?.returnTo;
+    const returnState = location.state?.returnState ?? null;
+    const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
 
     useEffect(() => {
         async function fetchData() {
@@ -180,9 +186,24 @@ export default function AdminAnalytics() {
         { value: '30', label: '30 Hari Terakhir' },
     ];
 
+    const handleBack = () => {
+        if (hasReturnTarget) {
+            navigate(returnTo, { state: returnState });
+            return;
+        }
+        navigate('/admin');
+    };
+
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-8 pb-20 lg:pb-8 max-w-5xl animate-[fadeIn_0.3s_ease-out]">
             {/* Header */}
+            <button
+                onClick={handleBack}
+                className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
+            >
+                <span className="material-symbols-outlined text-base">chevron_left</span>
+                {hasReturnTarget ? 'Kembali ke Dashboard Admin' : 'Dashboard Admin'}
+            </button>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Analitik Penggunaan</h1>

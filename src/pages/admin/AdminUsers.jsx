@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -6,6 +7,8 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { downloadCsv } from '../../services/exportService';
 
 export default function AdminUsers() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const { user: currentUser } = useAuth();
     const { addToast } = useToast();
     const [profiles, setProfiles] = useState([]);
@@ -13,6 +16,9 @@ export default function AdminUsers() {
     const [search, setSearch] = useState('');
     const [pending, setPending] = useState(null); // { profile, newRole }
     const [saving, setSaving] = useState(false);
+    const returnTo = location.state?.returnTo;
+    const returnState = location.state?.returnState ?? null;
+    const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
 
     const fetchProfiles = async () => {
         setLoading(true);
@@ -98,9 +104,24 @@ export default function AdminUsers() {
         });
     };
 
+    const handleBack = () => {
+        if (hasReturnTarget) {
+            navigate(returnTo, { state: returnState });
+            return;
+        }
+        navigate('/admin');
+    };
+
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-20 lg:pb-8 max-w-5xl animate-[fadeIn_0.3s_ease-out]">
             {/* Header */}
+            <button
+                onClick={handleBack}
+                className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
+            >
+                <span className="material-symbols-outlined text-base">chevron_left</span>
+                {hasReturnTarget ? 'Kembali ke Dashboard Admin' : 'Dashboard Admin'}
+            </button>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Manajemen Pengguna</h1>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -14,12 +15,17 @@ const EMPTY_FORM = {
 };
 
 export default function AdminAnnouncements() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { addToast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const returnTo = location.state?.returnTo;
+  const returnState = location.state?.returnState ?? null;
+  const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
 
   const fetchData = async () => {
     setLoading(true);
@@ -83,8 +89,23 @@ export default function AdminAnnouncements() {
     }
   };
 
+  const handleBack = () => {
+    if (hasReturnTarget) {
+      navigate(returnTo, { state: returnState });
+      return;
+    }
+    navigate('/admin');
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-20 lg:pb-8 max-w-5xl animate-[fadeIn_0.3s_ease-out]">
+      <button
+        onClick={handleBack}
+        className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
+      >
+        <span className="material-symbols-outlined text-base">chevron_left</span>
+        {hasReturnTarget ? 'Kembali ke Dashboard Admin' : 'Dashboard Admin'}
+      </button>
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Pengumuman Global</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Banner informasi yang ditampilkan ke seluruh pengguna.</p>
