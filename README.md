@@ -26,6 +26,13 @@ This project uses Netlify scheduled functions for background maintenance jobs.
 - `enqueue-schedule-reminders`: creates queue items for due schedule reminders.
 - `send-telegram-notifications`: dispatches pending queue items to Telegram Bot API.
 - `retry-notification-dispatch`: recovers stale locks and requeues retryable failures.
+- `notification-cycle`: orchestrates enqueue + dispatch in one run for full automation.
+
+Automation notes:
+
+- `notification-cycle` runs every minute via scheduled function.
+- Schedule CRUD in the app also triggers `notification-cycle` best-effort to reduce waiting.
+- You do not need to manually open function URLs in normal operation.
 
 Required environment variables for scheduled jobs:
 

@@ -33,6 +33,9 @@
 [functions."retry-notification-dispatch"]
   timeout = 26
 
+[functions."notification-cycle"]
+  timeout = 26
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -67,3 +70,7 @@
 [[scheduled_functions]]
   name = "retry-notification-dispatch"
   cron = "*/2 * * * *"
+
+[[scheduled_functions]]
+  name = "notification-cycle"
+  cron = "*/1 * * * *"

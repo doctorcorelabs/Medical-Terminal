@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import * as dataService from '../services/dataService';
+import { triggerNotificationCycle } from '../services/notificationService';
 
 const ScheduleContext = createContext();
 
@@ -28,27 +29,42 @@ export function ScheduleProvider({ children }) {
     const addSchedule = useCallback((schedule) => {
         const created = dataService.addSchedule(schedule);
         refreshSchedules();
-        if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
+        if (user) {
+            dataService.syncSchedulesToSupabase(user.id)
+                .then(() => triggerNotificationCycle({ reason: 'schedule_add' }))
+                .catch(() => {});
+        }
         return created;
     }, [refreshSchedules, user]);
 
     const updateSchedule = useCallback((id, updates) => {
         const updated = dataService.updateSchedule(id, updates);
         refreshSchedules();
-        if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
+        if (user) {
+            dataService.syncSchedulesToSupabase(user.id)
+                .then(() => triggerNotificationCycle({ reason: 'schedule_update' }))
+                .catch(() => {});
+        }
         return updated;
     }, [refreshSchedules, user]);
 
     const deleteSchedule = useCallback((id) => {
         dataService.deleteSchedule(id);
         refreshSchedules();
-        if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
+        if (user) {
+            dataService.syncSchedulesToSupabase(user.id)
+                .then(() => triggerNotificationCycle({ reason: 'schedule_delete' }))
+                .catch(() => {});
+        }
     }, [refreshSchedules, user]);
 
     const importSchedulesBulk = useCallback(async (items) => {
         const merged = dataService.upsertSchedulesBulk(items);
         refreshSchedules();
-        if (user) await dataService.syncSchedulesToSupabase(user.id);
+        if (user) {
+            await dataService.syncSchedulesToSupabase(user.id);
+            triggerNotificationCycle({ reason: 'schedule_import' });
+        }
         return merged;
     }, [refreshSchedules, user]);
 
