@@ -6,6 +6,10 @@ import { PatientProvider } from './context/PatientContext';
 import { StaseProvider } from './context/StaseContext';
 import { useAuth } from './context/AuthContext';
 import { OfflineProvider } from './context/OfflineContext';
+import { FeatureFlagProvider } from './context/FeatureFlagContext';
+import { AdminAlertProvider } from './context/AdminAlertContext';
+import AdminRoute from './components/AdminRoute';
+import FeatureGate from './components/FeatureGate';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 // Eager — rendered immediately on first load or before auth check
@@ -32,6 +36,13 @@ const PharmacokineticCalc = lazy(() => import('./pages/tools/PharmacokineticCalc
 const NutritionCalc   = lazy(() => import('./pages/tools/NutritionCalc'));
 const PediatricCalc   = lazy(() => import('./pages/tools/PediatricCalc'));
 const ConflictCenter  = lazy(() => import('./pages/ConflictCenter'));
+const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminUsers      = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminFeatures   = lazy(() => import('./pages/admin/AdminFeatures'));
+const AdminAnalytics  = lazy(() => import('./pages/admin/AdminAnalytics'));
+const AdminAnnouncements = lazy(() => import('./pages/admin/AdminAnnouncements'));
+const AdminAlerts = lazy(() => import('./pages/admin/AdminAlerts'));
+const AdminUserTimeline = lazy(() => import('./pages/admin/AdminUserTimeline'));
 import { ScheduleProvider } from './context/ScheduleContext';
 
 function PageLoader() {
@@ -83,21 +94,28 @@ function AppContent() {
                   <Route path="/patients" element={<PatientList />} />
                   <Route path="/add-patient" element={<AddPatient />} />
                   <Route path="/patient/:id" element={<PatientDetail />} />
-                  <Route path="/news" element={<News />} />
-                  <Route path="/reports" element={<Reports />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/schedule" element={<Schedule />} />
                   <Route path="/tools" element={<Tools />} />
-                  <Route path="/tools/icd10" element={<ICD10Tool />} />
-                  <Route path="/tools/calculator" element={<MedCalculator />} />
-                  <Route path="/tools/drug-interaction" element={<DrugInteraction />} />
-                  <Route path="/tools/fornas" element={<FornasDrug />} />
-                  <Route path="/tools/emergency-dose" element={<EmergencyDose />} />
-                  <Route path="/tools/infusion" element={<InfusionCalc />} />
-                  <Route path="/tools/pharmacokinetics" element={<PharmacokineticCalc />} />
-                  <Route path="/tools/nutrition-bsa" element={<NutritionCalc />} />
-                  <Route path="/tools/pediatric" element={<PediatricCalc />} />
+                  <Route path="/tools/icd10" element={<FeatureGate featureKey="icd10"><ICD10Tool /></FeatureGate>} />
+                  <Route path="/tools/calculator" element={<FeatureGate featureKey="calculator"><MedCalculator /></FeatureGate>} />
+                  <Route path="/tools/drug-interaction" element={<FeatureGate featureKey="drug-interaction"><DrugInteraction /></FeatureGate>} />
+                  <Route path="/tools/fornas" element={<FeatureGate featureKey="fornas"><FornasDrug /></FeatureGate>} />
+                  <Route path="/tools/emergency-dose" element={<FeatureGate featureKey="emergency-dose"><EmergencyDose /></FeatureGate>} />
+                  <Route path="/tools/infusion" element={<FeatureGate featureKey="infusion-calc"><InfusionCalc /></FeatureGate>} />
+                  <Route path="/tools/pharmacokinetics" element={<FeatureGate featureKey="pharmacokinetics"><PharmacokineticCalc /></FeatureGate>} />
+                  <Route path="/tools/nutrition-bsa" element={<FeatureGate featureKey="nutrition-bsa"><NutritionCalc /></FeatureGate>} />
+                  <Route path="/tools/pediatric" element={<FeatureGate featureKey="pediatric-calc"><PediatricCalc /></FeatureGate>} />
+                  <Route path="/news" element={<FeatureGate featureKey="news"><News /></FeatureGate>} />
+                  <Route path="/reports" element={<FeatureGate featureKey="reports"><Reports /></FeatureGate>} />
                   <Route path="/conflicts" element={<ConflictCenter />} />
+                  <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                  <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+                  <Route path="/admin/features" element={<AdminRoute><AdminFeatures /></AdminRoute>} />
+                  <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                  <Route path="/admin/announcements" element={<AdminRoute><AdminAnnouncements /></AdminRoute>} />
+                  <Route path="/admin/alerts" element={<AdminRoute><AdminAlerts /></AdminRoute>} />
+                  <Route path="/admin/timeline" element={<AdminRoute><AdminUserTimeline /></AdminRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>
@@ -116,10 +134,15 @@ export default function App() {
       <ThemeProvider>
         <ToastProvider>
           <OfflineProvider>
-            <AppContent />
+            <FeatureFlagProvider>
+              <AdminAlertProvider>
+                <AppContent />
+              </AdminAlertProvider>
+            </FeatureFlagProvider>
           </OfflineProvider>
         </ToastProvider>
       </ThemeProvider>
     </Router>
   );
 }
+

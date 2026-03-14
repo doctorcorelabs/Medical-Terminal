@@ -12,6 +12,15 @@
 [functions."scheduled-news"]
   timeout = 26
 
+[functions."evaluate-alerts"]
+  timeout = 26
+
+[functions."inject-test-metrics"]
+  timeout = 26
+
+[functions."cleanup-activity-events"]
+  timeout = 26
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -22,3 +31,11 @@
 [[scheduled_functions]]
   name = "scheduled-news"
   cron = "0 5 * * *"
+
+[[scheduled_functions]]
+  name = "evaluate-alerts"
+  cron = "*/5 * * * *"
+
+[[scheduled_functions]]
+  name = "cleanup-activity-events"
+  cron = "15 3 * * *"

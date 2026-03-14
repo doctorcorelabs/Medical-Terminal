@@ -17,7 +17,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { user, signOut } = useAuth();
+    const { user, signOut, isAdmin } = useAuth();
     const { pinnedStase } = useStase();
     const { conflictCount } = useOffline();
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -80,6 +80,27 @@ export default function Sidebar({ isOpen, onClose }) {
                             )}
                         </NavLink>
                     ))}
+
+                    {/* Admin Panel link — only shown to admins */}
+                    {isAdmin && (
+                        <>
+                            <div className={`my-2 border-t border-slate-200 dark:border-slate-700 ${isCollapsed ? 'mx-2' : 'mx-0'}`} />
+                            <NavLink
+                                to="/admin"
+                                onClick={onClose}
+                                title={isCollapsed ? 'Panel Admin' : ''}
+                                className={({ isActive }) =>
+                                    `relative flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${isCollapsed ? 'justify-center' : 'gap-3'} ${isActive
+                                        ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold'
+                                        : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                                    }`
+                                }
+                            >
+                                <span className="material-symbols-outlined text-[22px] shrink-0">admin_panel_settings</span>
+                                {!isCollapsed && <span className="text-sm whitespace-nowrap overflow-hidden flex-1">Panel Admin</span>}
+                            </NavLink>
+                        </>
+                    )}
                 </nav>
 
                 {/* User info */}
@@ -110,7 +131,12 @@ export default function Sidebar({ isOpen, onClose }) {
                         </div>
                         {!isCollapsed && (
                             <div className="overflow-hidden min-w-0 flex-1">
-                                <p className="text-sm font-bold truncate" title={displayName}>{displayName}</p>
+                                <div className="flex items-center gap-1.5">
+                                    <p className="text-sm font-bold truncate" title={displayName}>{displayName}</p>
+                                    {isAdmin && (
+                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">Admin</span>
+                                    )}
+                                </div>
                                 <p className="text-xs text-slate-500 truncate whitespace-nowrap">{pinnedStase ? <span className="font-semibold" style={{ color: pinnedStase.color }}>{pinnedStase.name}</span> : 'Belum ada stase aktif'}</p>
                             </div>
                         )}

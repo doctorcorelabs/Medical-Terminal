@@ -6,7 +6,7 @@ import { deleteAllPatientsData, syncToSupabase, getAllStases, syncStasesToSupaba
 import StaseMappingModal from '../components/StaseMappingModal';
 
 export default function Settings() {
-    const { user, updateProfile, isUsernameAvailable } = useAuth();
+    const { user, updateProfile, isUsernameAvailable, isAdmin } = useAuth();
     const [username, setUsername] = useState(() => user?.user_metadata?.username || '');
     const [savedUser, setSavedUser] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -139,6 +139,21 @@ export default function Settings() {
                     <h3 className="font-bold text-sm uppercase tracking-wider">Akun</h3>
                 </div>
                 <div className="p-5 lg:p-6 space-y-4">
+                    {/* Role badge */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Peran Akun</span>
+                        {isAdmin ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 text-xs font-bold">
+                                <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+                                Administrator
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold">
+                                <span className="material-symbols-outlined text-[14px]">person</span>
+                                User
+                            </span>
+                        )}
+                    </div>
                     <div>
                         <label className="block text-sm font-semibold mb-2">Username</label>
                         <p className="text-xs text-slate-500 mb-2">Nama pengguna yang akan ditampilkan di sidebar. Jika kosong, email akan digunakan.</p>

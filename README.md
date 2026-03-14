@@ -14,3 +14,16 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Scheduled Functions
+
+This project uses Netlify scheduled functions for background maintenance jobs.
+
+- `scheduled-news`: fetches RSS and deletes old news records.
+- `evaluate-alerts`: evaluates alert rules on a recurring interval.
+- `cleanup-activity-events`: deletes `user_activity_events` records older than 14 days.
+
+Required environment variables for scheduled jobs:
+
+- `SUPABASE_URL` (or `VITE_SUPABASE_URL`)
+- `SUPABASE_SERVICE_ROLE_KEY` (or `SERVICE_ROLE_KEY` / `VITE_SUPABASE_SERVICE_ROLE_KEY`)

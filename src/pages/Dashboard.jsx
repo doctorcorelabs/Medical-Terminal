@@ -23,11 +23,13 @@ function getScat(id) { return SCHED_CATS.find(c => c.id === id) || SCHED_CATS[5]
 
 import { useEffect, useMemo, useState } from 'react';
 import { ALL_TOOLS } from '../data/toolsCatalog';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
 
 export default function Dashboard() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { isOnline } = useOffline();
+    const { isEnabled } = useFeatureFlags();
     const { patients } = usePatients();
     const { pinnedStase, stases } = useStase();
     const { schedules } = useSchedule();
@@ -56,8 +58,8 @@ export default function Dashboard() {
     // This does NOT modify the underlying `status` field or persisted data — it's a display rule only.
     const dischargedCount = patients.filter(p => p.condition === 'improving').length;
     const customizableTools = useMemo(
-        () => ALL_TOOLS.filter(tool => tool.available && tool.route),
-        []
+        () => ALL_TOOLS.filter(tool => tool.available && tool.route && isEnabled(tool.id)),
+        [isEnabled]
     );
     const defaultQuickTools = useMemo(
         () => customizableTools.slice(0, 3).map(tool => tool.id),

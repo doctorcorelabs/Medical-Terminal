@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ALL_TOOLS, CATEGORY_COLORS } from '../data/toolsCatalog';
 import { useAuth } from '../context/AuthContext';
 import { useOffline } from '../context/OfflineContext';
+import { useFeatureFlags } from '../context/FeatureFlagContext';
+import { logUserActivity } from '../services/activityService';
 import {
   persistQuickToolIds,
   resolveQuickToolIds,
@@ -12,10 +14,11 @@ export default function Tools() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isOnline } = useOffline();
+  const { isEnabled } = useFeatureFlags();
   const [search, setSearch] = useState('');
   const customizableTools = useMemo(
-    () => ALL_TOOLS.filter(tool => tool.available && tool.route),
-    []
+    () => ALL_TOOLS.filter(tool => tool.available && tool.route && isEnabled(tool.id)),
+    [isEnabled]
   );
   const allowedToolIds = useMemo(
     () => customizableTools.map(tool => tool.id),
@@ -33,6 +36,10 @@ export default function Tools() {
   useEffect(() => {
     let isActive = true;
     setIsHydrated(false);
+
+    if (user?.id) {
+      logUserActivity({ userId: user.id, eventType: 'tools_page_view' });
+    }
 
     resolveQuickToolIds({
       userId: user?.id,
@@ -175,7 +182,13 @@ export default function Tools() {
               <ToolCard
                 key={tool.id}
                 tool={tool}
-                onClick={() => navigate(tool.route)}
+                onClick={() => {
+                  if (user?.id) {
+                    logUserActivity({ userId: user.id, eventType: 'tool_action_started', featureKey: tool.id });
+                  }
+                  navigate(tool.route);
+                }}
+                isMaintenance={!isEnabled(tool.id)}
                 isQuickShortcut={quickToolIds.includes(tool.id)}
                 isQuickShortcutLimitReached={!quickToolIds.includes(tool.id) && quickToolIds.length >= 3}
                 onToggleQuickShortcut={() => toggleQuickTool(tool.id)}
@@ -212,7 +225,7 @@ export default function Tools() {
   );
 }
 
-function ToolCard({ tool, onClick, dimmed, isQuickShortcut, isQuickShortcutLimitReached, onToggleQuickShortcut }) {
+function ToolCard({ tool, onClick, dimmed, isMaintenance, isQuickShortcut, isQuickShortcutLimitReached, onToggleQuickShortcut }) {
   const catColor = CATEGORY_COLORS[tool.categoryColor] ?? CATEGORY_COLORS.blue;
 
   return (
@@ -224,6 +237,14 @@ function ToolCard({ tool, onClick, dimmed, isQuickShortcut, isQuickShortcutLimit
           : 'border-slate-200 dark:border-slate-700 cursor-pointer hover:shadow-lg hover:border-primary/30 dark:hover:border-primary/30 hover:-translate-y-0.5'
         }`}
     >
+      {/* Maintenance overlay badge */}
+      {isMaintenance && !dimmed && (
+        <div className="absolute top-3 right-3 flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 rounded-full px-2 py-0.5">
+          <span className="material-symbols-outlined text-[13px] text-amber-500">construction</span>
+          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Perbaikan</span>
+        </div>
+      )}
+
       {/* Coming soon overlay badge */}
       {dimmed && (
         <div className="absolute top-3 right-3 flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-full px-2 py-0.5">
