@@ -110,7 +110,7 @@ export const handler = async (event) => {
       const chunk = rows.slice(i, i + chunkSize);
       const { data: insertedRows, error: insertError } = await supabase
         .from('notification_dispatch_queue')
-        .insert(chunk, { onConflict: 'idempotency_key', ignoreDuplicates: true })
+        .upsert(chunk, { onConflict: 'idempotency_key', ignoreDuplicates: true })
         .select('id');
       if (insertError) throw insertError;
       inserted += (insertedRows || []).length;
