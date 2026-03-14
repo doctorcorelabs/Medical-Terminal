@@ -875,6 +875,7 @@ export default function Schedule() {
     const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
     const [isPollingTelegram, setIsPollingTelegram] = useState(false);
     const [showTelegramGuide, setShowTelegramGuide] = useState(false);
+    const [manualTelegramConnectUrl, setManualTelegramConnectUrl] = useState('');
     const telegramPollRef = useRef(null);
 
     const stopTelegramPolling = useCallback(() => {
@@ -964,14 +965,25 @@ export default function Schedule() {
             return;
         }
 
+        setManualTelegramConnectUrl('');
+        const popupWindow = window.open('', '_blank');
+
         setIsTelegramBusy(true);
         try {
             const ensured = await ensureTelegramChannel(user.id);
             setTelegramChannel(ensured);
-            window.open(connectUrl, '_blank', 'noopener,noreferrer');
-            addToast('Telegram sudah dibuka. Tekan Start di bot, lalu kembali ke halaman ini.', 'info');
+
+            if (popupWindow && !popupWindow.closed) {
+                popupWindow.location.replace(connectUrl);
+                addToast('Telegram sudah dibuka. Tekan Start di bot, lalu kembali ke halaman ini.', 'info');
+            } else {
+                setManualTelegramConnectUrl(connectUrl);
+                addToast('Browser menahan popup. Gunakan tombol Buka Manual di bawah.', 'info');
+            }
+
             startTelegramStatusPolling();
         } catch {
+            if (popupWindow && !popupWindow.closed) popupWindow.close();
             addToast('Gagal memulai koneksi Telegram. Silakan coba lagi.', 'error');
         } finally {
             setIsTelegramBusy(false);
@@ -1323,6 +1335,17 @@ export default function Schedule() {
                         >
                             {isTelegramBusy ? 'Memproses...' : (isTelegramConnected ? 'Hubungkan Ulang' : 'Buka Telegram')}
                         </button>
+
+                        {manualTelegramConnectUrl && (
+                            <a
+                                href={manualTelegramConnectUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="h-10 px-3 rounded-xl text-sm font-semibold border border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 transition-colors inline-flex items-center"
+                            >
+                                Buka Manual
+                            </a>
+                        )}
 
                         <button
                             onClick={loadTelegramChannel}
