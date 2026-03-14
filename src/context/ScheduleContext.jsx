@@ -11,13 +11,14 @@ export function ScheduleProvider({ children }) {
 
     // Load from Supabase on login, clear stale cache on user change
     useEffect(() => {
-        if (user) {
-            dataService.clearSchedulesCache();
+        if (user?.id) {
+            dataService.setScheduleStorageScope(user.id);
             dataService.fetchSchedulesFromSupabase(user.id).then(data => {
                 setSchedules(data);
             });
         } else {
             dataService.clearSchedulesCache();
+            dataService.setScheduleStorageScope(null);
             setSchedules([]);
         }
     }, [user]);

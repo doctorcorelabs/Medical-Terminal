@@ -2,6 +2,13 @@
 import { supabase } from './supabaseClient';
 import { pendingSync } from './offlineQueue';
 import { enqueue, clearQueueByType } from './idbQueue';
+import {
+    getScheduleStorageKey,
+    mergeSchedules,
+    parseStoredSchedules,
+    purgeExpiredSchedules,
+    schedulesDiffer,
+} from '../utils/scheduleSync';
 const STORAGE_KEY = 'medterminal_patients';
 const STASE_KEY = 'medterminal_stases';
 const PINNED_KEY = 'medterminal_pinned_stase';
@@ -594,34 +601,46 @@ export function removeVitalSign(patientId, vsId) {
 // ============================================================
 // SCHEDULE – localStorage helpers + Supabase sync
 // ============================================================
-const SCHEDULE_KEY = 'medterminal_schedules';
+let activeScheduleUserId = null;
 
-function getStoredSchedules() {
+function readSchedulesFromKey(key) {
     try {
-        const data = localStorage.getItem(SCHEDULE_KEY);
+        const data = localStorage.getItem(key);
         if (!data) return [];
-        const parsed = JSON.parse(data);
-        const purged = purgeExpiredSchedules(parsed);
-        if (purged.length !== parsed.length) saveSchedules(purged);
+        const purged = parseStoredSchedules(data);
+        if (JSON.stringify(purged) !== data) {
+            localStorage.setItem(key, JSON.stringify(purged));
+        }
         return purged;
     } catch {
         return [];
     }
 }
 
+function migrateLegacySchedules(userId) {
+    if (!userId) return;
+    const scopedKey = getScheduleStorageKey(userId);
+    if (localStorage.getItem(scopedKey)) return;
+    const legacySchedules = readSchedulesFromKey(getScheduleStorageKey());
+    if (legacySchedules.length === 0) return;
+    localStorage.setItem(scopedKey, JSON.stringify(legacySchedules));
+}
+
+export function setScheduleStorageScope(userId) {
+    activeScheduleUserId = userId || null;
+    migrateLegacySchedules(activeScheduleUserId);
+}
+
+function getStoredSchedules() {
+    return readSchedulesFromKey(getScheduleStorageKey(activeScheduleUserId));
+}
+
 function saveSchedules(schedules) {
-    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedules));
+    localStorage.setItem(getScheduleStorageKey(activeScheduleUserId), JSON.stringify(schedules));
 }
 
 export function clearSchedulesCache() {
-    localStorage.removeItem(SCHEDULE_KEY);
-}
-
-function purgeExpiredSchedules(schedules) {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
-    return schedules.filter(s => s.date >= cutoffStr);
+    localStorage.removeItem(getScheduleStorageKey(activeScheduleUserId));
 }
 
 export async function syncSchedulesToSupabase(userId) {
@@ -647,10 +666,12 @@ export async function syncSchedulesToSupabase(userId) {
 
 export async function fetchSchedulesFromSupabase(userId) {
     if (!userId) return getStoredSchedules();
+    setScheduleStorageScope(userId);
     // Flush offline schedule changes first
     if (pendingSync.hasSchedules()) {
-        await syncSchedulesToSupabase(userId);
+        await syncSchedulesToSupabase(userId).catch(() => {});
     }
+    const localSchedules = getStoredSchedules();
     try {
         const { data } = await supabase
             .from('user_schedules')
@@ -658,16 +679,24 @@ export async function fetchSchedulesFromSupabase(userId) {
             .eq('user_id', userId)
             .maybeSingle();
 
-        if (data?.schedules_data) {
-            const purged = purgeExpiredSchedules(data.schedules_data);
-            saveSchedules(purged);
-            if (purged.length !== data.schedules_data.length) syncSchedulesToSupabase(userId);
-            return purged;
+        const serverSchedules = Array.isArray(data?.schedules_data)
+            ? purgeExpiredSchedules(data.schedules_data)
+            : [];
+        const mergedSchedules = mergeSchedules(localSchedules, serverSchedules);
+
+        saveSchedules(mergedSchedules);
+        if (
+            (Array.isArray(data?.schedules_data) && serverSchedules.length !== data.schedules_data.length)
+            || schedulesDiffer(serverSchedules, mergedSchedules)
+        ) {
+            syncSchedulesToSupabase(userId).catch(() => {});
         }
+
+        return mergedSchedules;
     } catch (err) {
         console.error('Failed to fetch schedules from Supabase:', err);
     }
-    return getStoredSchedules();
+    return localSchedules;
 }
 
 export function getAllSchedules() {
