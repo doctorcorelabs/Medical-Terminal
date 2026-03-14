@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+
+const TURNSTILE_TELEMETRY_KEY = 'medterminal_turnstile_events';
 
 export default function Login() {
     const { signIn, signUp, resetPassword, updatePassword, isRecoveryMode, setIsRecoveryMode, isUsernameAvailable, signInWithGoogle } = useAuth();
@@ -13,14 +15,65 @@ export default function Login() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [captchaToken, setCaptchaToken] = useState();
-    const [captchaKey, setCaptchaKey] = useState(() => Date.now());
+    const [captchaKey, setCaptchaKey] = useState(0);
+    const [isCaptchaReady, setIsCaptchaReady] = useState(false);
+    const [captchaLoadError, setCaptchaLoadError] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
+    const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+    const requiresCaptcha = mode === 'login' || mode === 'signup' || mode === 'forgot';
+
+    const logCaptchaTelemetry = useCallback((eventName, detail = {}) => {
+        const payload = {
+            eventName,
+            mode,
+            timestamp: new Date().toISOString(),
+            online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+            siteKeyPresent: Boolean(turnstileSiteKey),
+            ...detail,
+        };
+
+        try {
+            const raw = localStorage.getItem(TURNSTILE_TELEMETRY_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            const items = Array.isArray(parsed) ? parsed : [];
+            const next = [...items.slice(-49), payload];
+            localStorage.setItem(TURNSTILE_TELEMETRY_KEY, JSON.stringify(next));
+        } catch (_err) {
+            // non-fatal telemetry failure
+        }
+
+        if (/error|timeout|unsupported|expired/.test(eventName)) {
+            console.warn('[Turnstile]', payload);
+        } else {
+            console.info('[Turnstile]', payload);
+        }
+    }, [mode, turnstileSiteKey]);
+
+    const remountCaptcha = useCallback((reason) => {
+        setCaptchaToken(undefined);
+        setIsCaptchaReady(false);
+        setCaptchaLoadError('');
+        setCaptchaKey((prev) => prev + 1);
+        if (reason) logCaptchaTelemetry('widget_remount', { reason });
+    }, [logCaptchaTelemetry]);
 
     useEffect(() => {
         if (isRecoveryMode) setMode('recovery');
     }, [isRecoveryMode]);
+
+    useEffect(() => {
+        if (!requiresCaptcha || !turnstileSiteKey || isCaptchaReady) return;
+
+        const timer = window.setTimeout(() => {
+            setCaptchaLoadError((prev) => prev || 'Captcha belum termuat. Silakan muat ulang captcha.');
+            logCaptchaTelemetry('widget_load_timeout');
+        }, 10000);
+
+        return () => window.clearTimeout(timer);
+    }, [requiresCaptcha, turnstileSiteKey, isCaptchaReady, captchaKey, logCaptchaTelemetry]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,6 +82,9 @@ export default function Login() {
         setMessage('');
 
         try {
+            if (requiresCaptcha && !turnstileSiteKey) {
+                throw new Error('Konfigurasi CAPTCHA belum aktif. Hubungi admin aplikasi.');
+            }
             if (mode === 'login') {
                 if (!captchaToken) throw new Error('Silakan selesaikan CAPTCHA sebelum masuk.');
                 const { error } = await signIn(email, password, captchaToken);
@@ -79,8 +135,7 @@ export default function Login() {
         setPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        setCaptchaToken(undefined);
-        setCaptchaKey(Date.now());
+        remountCaptcha('switch_mode');
     };
 
     const modeConfig = {
@@ -169,15 +224,69 @@ export default function Login() {
                             )}
                         </div>
 
-                        {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
-                            <div className="pt-2 w-full flex justify-center">
-                                <Turnstile
-                                    key={captchaKey}
-                                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                                    onSuccess={(token) => setCaptchaToken(token)}
-                                    onExpire={() => { setCaptchaToken(undefined); setCaptchaKey(Date.now()); }}
-                                    onError={() => { setCaptchaToken(undefined); setCaptchaKey(Date.now()); }}
-                                />
+                        {requiresCaptcha && (
+                            <div className="pt-2 w-full flex flex-col items-center gap-2">
+                                {turnstileSiteKey ? (
+                                    <Turnstile
+                                        key={captchaKey}
+                                        siteKey={turnstileSiteKey}
+                                        onLoadScript={() => logCaptchaTelemetry('script_loaded')}
+                                        onWidgetLoad={(widgetId) => {
+                                            setIsCaptchaReady(true);
+                                            setCaptchaLoadError('');
+                                            logCaptchaTelemetry('widget_loaded', { widgetId });
+                                        }}
+                                        onSuccess={(token) => {
+                                            setCaptchaToken(token);
+                                            setCaptchaLoadError('');
+                                            logCaptchaTelemetry('challenge_success', { tokenLength: token?.length || 0 });
+                                        }}
+                                        onExpire={() => {
+                                            setCaptchaToken(undefined);
+                                            logCaptchaTelemetry('token_expired');
+                                            remountCaptcha('token_expired');
+                                        }}
+                                        onError={(errorCode) => {
+                                            setCaptchaToken(undefined);
+                                            setCaptchaLoadError('Captcha gagal diverifikasi. Silakan muat ulang captcha.');
+                                            logCaptchaTelemetry('challenge_error', { errorCode });
+                                        }}
+                                        onTimeout={() => {
+                                            setCaptchaToken(undefined);
+                                            setCaptchaLoadError('Waktu verifikasi captcha habis. Silakan coba lagi.');
+                                            logCaptchaTelemetry('challenge_timeout');
+                                            remountCaptcha('challenge_timeout');
+                                        }}
+                                        onUnsupported={() => {
+                                            setCaptchaToken(undefined);
+                                            setCaptchaLoadError('Browser tidak didukung oleh captcha Turnstile.');
+                                            logCaptchaTelemetry('unsupported_browser');
+                                        }}
+                                        scriptOptions={{
+                                            onError: () => {
+                                                setCaptchaLoadError('Script captcha gagal dimuat. Periksa koneksi atau pemblokir konten.');
+                                                logCaptchaTelemetry('script_error');
+                                            },
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="w-full p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold text-center">
+                                        CAPTCHA tidak aktif karena site key belum dikonfigurasi.
+                                    </div>
+                                )}
+
+                                {captchaLoadError && (
+                                    <div className="w-full max-w-90 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold text-center space-y-2">
+                                        <p>{captchaLoadError}</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => remountCaptcha('manual_retry')}
+                                            className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 transition-colors font-bold"
+                                        >
+                                            Muat Ulang CAPTCHA
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
 
