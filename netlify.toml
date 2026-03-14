@@ -39,6 +39,9 @@
 [functions."create-admin-broadcast"]
   timeout = 26
 
+[functions."reset-broadcast-history"]
+  timeout = 26
+
 [functions."telegram-webhook"]
   timeout = 26
 

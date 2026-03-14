@@ -33,7 +33,9 @@ export default function AdminAlerts() {
   const [activeTab, setActiveTab] = useState('monitoring');
   const [broadcastForm, setBroadcastForm] = useState(BROADCAST_INITIAL_FORM);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [resettingBroadcastHistory, setResettingBroadcastHistory] = useState(false);
   const [broadcastRows, setBroadcastRows] = useState([]);
   const [broadcastLoading, setBroadcastLoading] = useState(false);
   const [deliveryByCorrelation, setDeliveryByCorrelation] = useState({});
@@ -333,6 +335,36 @@ export default function AdminAlerts() {
     }
   };
 
+  const resetBroadcastHistory = async () => {
+    setResettingBroadcastHistory(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Sesi login tidak ditemukan. Silakan login ulang.');
+
+      const res = await fetch('/.netlify/functions/reset-broadcast-history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal reset riwayat broadcast');
+
+      setBroadcastRows([]);
+      setDeliveryByCorrelation({});
+      setConfirmResetOpen(false);
+      addToast(`Riwayat broadcast berhasil direset. Total alert terhapus: ${data.deleted_alerts || 0}.`, 'success');
+      fetchRows();
+      fetchBroadcastRows();
+    } catch (err) {
+      addToast(err.message || 'Gagal reset riwayat broadcast', 'error');
+    } finally {
+      setResettingBroadcastHistory(false);
+    }
+  };
+
   const levelStyle = (level) => {
     if (level === 'critical') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
     if (level === 'warning') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
@@ -575,7 +607,16 @@ export default function AdminAlerts() {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h2 className="text-sm font-bold">Riwayat Broadcast</h2>
-              <button onClick={fetchBroadcastRows} className="text-xs font-semibold text-primary">Refresh</button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setConfirmResetOpen(true)}
+                  disabled={resettingBroadcastHistory || broadcastRows.length === 0}
+                  className="text-xs font-semibold text-red-600 disabled:text-slate-400"
+                >
+                  Reset Riwayat
+                </button>
+                <button onClick={fetchBroadcastRows} className="text-xs font-semibold text-primary">Refresh</button>
+              </div>
             </div>
 
             {broadcastLoading ? (
@@ -652,6 +693,20 @@ export default function AdminAlerts() {
           if (!sendingBroadcast) setConfirmSendOpen(false);
         }}
         onConfirm={sendBroadcast}
+      />
+
+      <ConfirmDialog
+        open={confirmResetOpen}
+        danger
+        title="Reset Riwayat Broadcast"
+        message="Semua log pada Riwayat Broadcast akan dihapus permanen, termasuk data delivery queue/log terkait. Aksi ini tidak bisa dibatalkan."
+        confirmLabel={resettingBroadcastHistory ? 'Mereset...' : 'Ya, Reset Riwayat'}
+        cancelLabel="Batal"
+        requireTypedConfirmation="RESET"
+        onCancel={() => {
+          if (!resettingBroadcastHistory) setConfirmResetOpen(false);
+        }}
+        onConfirm={resetBroadcastHistory}
       />
     </div>
   );
