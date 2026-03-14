@@ -36,6 +36,12 @@
 [functions."notification-cycle"]
   timeout = 26
 
+[functions."telegram-webhook"]
+  timeout = 26
+
+[functions."send-telegram-test"]
+  timeout = 26
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

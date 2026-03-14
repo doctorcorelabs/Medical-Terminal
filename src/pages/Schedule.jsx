@@ -1,9 +1,18 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSchedule } from '../context/ScheduleContext';
 import { usePatients } from '../context/PatientContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { parseImportedScheduleJson, getScheduleTemplateJson } from '../utils/scheduleImport';
+import { sendTelegramTestNotification, triggerNotificationCycle } from '../services/notificationService';
+import {
+    buildTelegramConnectUrl,
+    ensureTelegramChannel,
+    getTelegramBotUsername,
+    getTelegramChannel,
+    updateTelegramChannel,
+} from '../services/telegramChannelService';
 
 // ─────────────────────────────────────────────
 // Constants
@@ -845,6 +854,7 @@ function ImportScheduleModal({
 export default function Schedule() {
     const { schedules, addSchedule, updateSchedule, deleteSchedule, importSchedulesBulk, resetAllSchedules } = useSchedule();
     const { patients } = usePatients();
+    const { user } = useAuth();
     const { addToast } = useToast();
 
     const [view,         setView]         = useState(() => localStorage.getItem('medterminal_schedule_view') || 'bulanan');
@@ -859,6 +869,171 @@ export default function Schedule() {
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showResetFinalConfirm, setShowResetFinalConfirm] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
+    const [telegramChannel, setTelegramChannel] = useState(null);
+    const [isTelegramLoading, setIsTelegramLoading] = useState(false);
+    const [isTelegramBusy, setIsTelegramBusy] = useState(false);
+    const [isSendingTelegramTest, setIsSendingTelegramTest] = useState(false);
+    const [isPollingTelegram, setIsPollingTelegram] = useState(false);
+    const [showTelegramGuide, setShowTelegramGuide] = useState(false);
+    const telegramPollRef = useRef(null);
+
+    const stopTelegramPolling = useCallback(() => {
+        if (telegramPollRef.current) {
+            clearInterval(telegramPollRef.current);
+            telegramPollRef.current = null;
+        }
+        setIsPollingTelegram(false);
+    }, []);
+
+    const loadTelegramChannel = useCallback(async () => {
+        if (!user?.id) {
+            setTelegramChannel(null);
+            return;
+        }
+        setIsTelegramLoading(true);
+        try {
+            const channel = await getTelegramChannel(user.id);
+            setTelegramChannel(channel || null);
+        } catch {
+            addToast('Status Telegram belum bisa dimuat. Coba lagi sebentar.', 'error');
+        } finally {
+            setIsTelegramLoading(false);
+        }
+    }, [addToast, user?.id]);
+
+    useEffect(() => {
+        loadTelegramChannel();
+    }, [loadTelegramChannel]);
+
+    useEffect(() => {
+        return () => stopTelegramPolling();
+    }, [stopTelegramPolling]);
+
+    const isTelegramConnected = !!(telegramChannel?.is_verified && telegramChannel?.telegram_chat_id && telegramChannel?.is_enabled);
+    const telegramStatusText = isTelegramConnected
+        ? 'Terhubung'
+        : (isPollingTelegram ? 'Sedang menghubungkan...' : 'Belum terhubung');
+
+    const telegramStatusBadge = isTelegramConnected
+        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+        : (isPollingTelegram
+            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300');
+
+    function startTelegramStatusPolling() {
+        if (!user?.id) return;
+        stopTelegramPolling();
+        setIsPollingTelegram(true);
+
+        const startedAt = Date.now();
+        telegramPollRef.current = setInterval(async () => {
+            try {
+                const latest = await getTelegramChannel(user.id);
+                setTelegramChannel(latest || null);
+
+                const verified = !!(latest?.is_verified && latest?.telegram_chat_id && latest?.is_enabled);
+                const expired = Date.now() - startedAt > 60 * 1000;
+
+                if (verified) {
+                    stopTelegramPolling();
+                    addToast('Berhasil. Telegram sudah terhubung dan siap kirim reminder.', 'success');
+                    return;
+                }
+
+                if (expired) {
+                    stopTelegramPolling();
+                    addToast('Belum terhubung. Buka Telegram lalu tekan Start, lalu kembali ke sini.', 'info');
+                }
+            } catch {
+                stopTelegramPolling();
+            }
+        }, 5000);
+    }
+
+    async function handleTelegramConnect() {
+        if (!user?.id) {
+            addToast('Silakan login untuk menghubungkan Telegram.', 'info');
+            return;
+        }
+
+        const botUsername = getTelegramBotUsername();
+        const connectUrl = buildTelegramConnectUrl(user.id);
+
+        if (!botUsername || !connectUrl) {
+            addToast('Bot Telegram belum dikonfigurasi oleh admin aplikasi.', 'error');
+            return;
+        }
+
+        setIsTelegramBusy(true);
+        try {
+            const ensured = await ensureTelegramChannel(user.id);
+            setTelegramChannel(ensured);
+            window.open(connectUrl, '_blank', 'noopener,noreferrer');
+            addToast('Telegram sudah dibuka. Tekan Start di bot, lalu kembali ke halaman ini.', 'info');
+            startTelegramStatusPolling();
+        } catch {
+            addToast('Gagal memulai koneksi Telegram. Silakan coba lagi.', 'error');
+        } finally {
+            setIsTelegramBusy(false);
+        }
+    }
+
+    async function handleToggleScheduleReminder() {
+        if (!user?.id || !telegramChannel) return;
+        setIsTelegramBusy(true);
+        const nextValue = !telegramChannel.schedule_enabled;
+        try {
+            const updated = await updateTelegramChannel(user.id, {
+                schedule_enabled: nextValue,
+                is_enabled: true,
+            });
+            setTelegramChannel(updated);
+            if (nextValue) {
+                triggerNotificationCycle({ reason: 'telegram_schedule_reminder_enabled' });
+            }
+            addToast(nextValue ? 'Reminder jadwal diaktifkan.' : 'Reminder jadwal dimatikan.', 'success');
+        } catch {
+            addToast('Pengaturan reminder belum tersimpan. Coba lagi.', 'error');
+        } finally {
+            setIsTelegramBusy(false);
+        }
+    }
+
+    async function handleDisconnectTelegram() {
+        if (!user?.id || !telegramChannel) return;
+        setIsTelegramBusy(true);
+        try {
+            const updated = await updateTelegramChannel(user.id, {
+                is_enabled: false,
+                schedule_enabled: false,
+                alert_enabled: false,
+            });
+            setTelegramChannel(updated);
+            stopTelegramPolling();
+            addToast('Telegram diputuskan. Notifikasi tidak akan dikirim.', 'success');
+        } catch {
+            addToast('Gagal memutuskan Telegram. Coba lagi.', 'error');
+        } finally {
+            setIsTelegramBusy(false);
+        }
+    }
+
+    async function handleSendTelegramTest() {
+        if (!isTelegramConnected) {
+            addToast('Hubungkan Telegram dulu sebelum kirim notifikasi tes.', 'info');
+            return;
+        }
+
+        setIsSendingTelegramTest(true);
+        try {
+            await sendTelegramTestNotification();
+            addToast('Notifikasi tes dikirim. Cek Telegram Anda sekarang.', 'success');
+        } catch (err) {
+            addToast(err?.message || 'Gagal mengirim notifikasi tes.', 'error');
+        } finally {
+            setIsSendingTelegramTest(false);
+        }
+    }
 
     // ── Navigation label ──────────────────────
     const navLabel = useMemo(() => {
@@ -1092,6 +1267,120 @@ export default function Schedule() {
                     <span className="material-symbols-outlined text-[18px]">delete_forever</span>
                     Reset Semua Jadwal
                 </button>
+            </div>
+
+            <div className="mb-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-300 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[18px]">send</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Integrasi Telegram</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Hubungkan sekali, reminder jadwal jalan otomatis</p>
+                        </div>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold w-fit ${telegramStatusBadge}`}>
+                        <span className="material-symbols-outlined text-[13px]">fiber_manual_record</span>
+                        {telegramStatusText}
+                    </span>
+                </div>
+
+                <div className="px-4 py-4 space-y-3">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3">
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Panduan Singkat</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            {[
+                                '1. Tekan tombol Buka Telegram',
+                                '2. Di Telegram, tekan Start',
+                                '3. Kembali ke sini, status otomatis Terhubung',
+                            ].map((item) => (
+                                <div key={item} className="text-xs text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2">
+                                    {item}
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowTelegramGuide(v => !v)}
+                            className="mt-2 text-xs font-semibold text-primary hover:underline"
+                        >
+                            {showTelegramGuide ? 'Sembunyikan bantuan' : 'Butuh bantuan?'}
+                        </button>
+                        {showTelegramGuide && (
+                            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                                <p>Kalau belum berubah, biasanya tombol Start di Telegram belum ditekan.</p>
+                                <p>Setelah menekan Start, kembali ke halaman ini lalu klik Coba Lagi.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={handleTelegramConnect}
+                            disabled={isTelegramBusy}
+                            className={`h-10 px-4 rounded-xl text-sm font-semibold text-white transition-colors ${isTelegramBusy ? 'bg-slate-400 cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
+                        >
+                            {isTelegramBusy ? 'Memproses...' : (isTelegramConnected ? 'Hubungkan Ulang' : 'Buka Telegram')}
+                        </button>
+
+                        <button
+                            onClick={loadTelegramChannel}
+                            disabled={isTelegramBusy || isTelegramLoading}
+                            className="h-10 px-3 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-60"
+                        >
+                            {isTelegramLoading ? 'Memuat...' : 'Coba Lagi'}
+                        </button>
+
+                        {telegramChannel && (
+                            <button
+                                onClick={handleDisconnectTelegram}
+                                disabled={isTelegramBusy}
+                                className="h-10 px-3 rounded-xl text-sm font-semibold border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors disabled:opacity-60"
+                            >
+                                Putuskan Telegram
+                            </button>
+                        )}
+
+                        {telegramChannel && (
+                            <button
+                                onClick={handleSendTelegramTest}
+                                disabled={isSendingTelegramTest || !isTelegramConnected}
+                                className="h-10 px-3 rounded-xl text-sm font-semibold border border-sky-200 dark:border-sky-800/60 bg-sky-50 dark:bg-sky-900/10 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/20 transition-colors disabled:opacity-60"
+                            >
+                                {isSendingTelegramTest ? 'Mengirim Tes...' : 'Kirim Notifikasi Tes'}
+                            </button>
+                        )}
+                    </div>
+
+                    {telegramChannel && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5 bg-white dark:bg-slate-900">
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">Reminder Jadwal</p>
+                                <button
+                                    type="button"
+                                    onClick={handleToggleScheduleReminder}
+                                    disabled={isTelegramBusy || !isTelegramConnected}
+                                    className={`mt-1 h-9 px-3 rounded-lg text-xs font-semibold border-2 transition-colors ${telegramChannel.schedule_enabled ? 'border-primary/40 bg-primary/10 text-primary' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'} disabled:opacity-60`}
+                                >
+                                    {telegramChannel.schedule_enabled ? 'Aktif (30 menit sebelum jadwal)' : 'Nonaktif'}
+                                </button>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5 bg-white dark:bg-slate-900">
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">Status Verifikasi</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                    {telegramChannel.is_verified ? 'Terverifikasi' : 'Belum terverifikasi'}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                    {telegramChannel.telegram_chat_id
+                                        ? `Chat ID terdeteksi (${String(telegramChannel.telegram_chat_id).slice(-4)})`
+                                        : 'Chat ID belum terdeteksi'}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* ── Stats row ── */}

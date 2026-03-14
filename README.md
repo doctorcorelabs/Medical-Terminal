@@ -42,6 +42,8 @@ Required environment variables for scheduled jobs:
 Additional environment variables for Telegram notification queue:
 
 - `TELEGRAM_BOT_TOKEN` (required)
+- `VITE_TELEGRAM_BOT_USERNAME` (required for one-click connect button in Schedule page, example: `my_medterminal_bot`)
+- `TELEGRAM_WEBHOOK_SECRET` (recommended, validates Telegram webhook requests)
 - `TELEGRAM_MAX_BATCH_SIZE` (default: `100`)
 - `TELEGRAM_SEND_TIMEOUT_MS` (default: `7000`)
 - `NOTIFICATION_MAX_ATTEMPTS` (default: `3`)
@@ -55,3 +57,12 @@ Additional environment variables for Telegram notification queue:
 Database setup:
 
 - Run `supabase_telegram_notifications_setup.sql` in Supabase SQL Editor before enabling these jobs.
+
+Telegram one-click verification setup:
+
+1. Deploy the site so function endpoint is available.
+2. Set Telegram bot webhook to:
+	- `https://<your-site-domain>/.netlify/functions/telegram-webhook`
+3. If you use `TELEGRAM_WEBHOOK_SECRET`, register the same value when calling Telegram `setWebhook`.
+4. Ensure frontend env has `VITE_TELEGRAM_BOT_USERNAME`.
+5. User flow: open Schedule page → click `Buka Telegram` → press `Start` in bot → status auto changes to connected.
