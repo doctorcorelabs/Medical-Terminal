@@ -700,6 +700,36 @@ export function deleteSchedule(id) {
     saveSchedules(schedules.filter(s => s.id !== id));
     return true;
 }
+
+export function upsertSchedulesBulk(importedSchedules = []) {
+    const schedules = getStoredSchedules();
+    const byId = new Map(schedules.map(item => [item.id, item]));
+
+    importedSchedules.forEach(item => {
+        if (!item || typeof item !== 'object') return;
+        const id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : crypto.randomUUID();
+        const existing = byId.get(id);
+        byId.set(id, {
+            ...existing,
+            ...item,
+            id,
+            createdAt: item.createdAt || existing?.createdAt || new Date().toISOString(),
+        });
+    });
+
+    const merged = Array.from(byId.values());
+    saveSchedules(merged);
+    return merged;
+}
+
+export async function deleteAllSchedulesData(userId) {
+    saveSchedules([]);
+    if (!userId) {
+        pendingSync.clearSchedules();
+        return;
+    }
+    await syncSchedulesToSupabase(userId);
+}
 // -------------------------------------------------------
 
 // ============================================================

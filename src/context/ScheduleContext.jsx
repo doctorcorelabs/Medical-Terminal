@@ -45,12 +45,26 @@ export function ScheduleProvider({ children }) {
         if (user) dataService.syncSchedulesToSupabase(user.id).catch(() => {});
     }, [refreshSchedules, user]);
 
+    const importSchedulesBulk = useCallback(async (items) => {
+        const merged = dataService.upsertSchedulesBulk(items);
+        refreshSchedules();
+        if (user) await dataService.syncSchedulesToSupabase(user.id);
+        return merged;
+    }, [refreshSchedules, user]);
+
+    const resetAllSchedules = useCallback(async () => {
+        await dataService.deleteAllSchedulesData(user?.id);
+        refreshSchedules();
+    }, [refreshSchedules, user]);
+
     return (
         <ScheduleContext.Provider value={{
             schedules,
             addSchedule,
             updateSchedule,
             deleteSchedule,
+            importSchedulesBulk,
+            resetAllSchedules,
             refreshSchedules,
         }}>
             {children}
