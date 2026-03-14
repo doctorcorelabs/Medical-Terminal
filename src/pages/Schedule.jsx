@@ -877,6 +877,7 @@ export default function Schedule() {
     const [showTelegramGuide, setShowTelegramGuide] = useState(false);
     const [manualTelegramConnectUrl, setManualTelegramConnectUrl] = useState('');
     const telegramPollRef = useRef(null);
+    const TELEGRAM_PENDING_KEY = 'medterminal_telegram_connect_pending';
 
     const stopTelegramPolling = useCallback(() => {
         if (telegramPollRef.current) {
@@ -905,6 +906,14 @@ export default function Schedule() {
     useEffect(() => {
         loadTelegramChannel();
     }, [loadTelegramChannel]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        if (sessionStorage.getItem(TELEGRAM_PENDING_KEY) === '1') {
+            startTelegramStatusPolling();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
 
     useEffect(() => {
         return () => stopTelegramPolling();
@@ -937,12 +946,14 @@ export default function Schedule() {
 
                 if (verified) {
                     stopTelegramPolling();
+                    sessionStorage.removeItem(TELEGRAM_PENDING_KEY);
                     addToast('Berhasil. Telegram sudah terhubung dan siap kirim reminder.', 'success');
                     return;
                 }
 
                 if (expired) {
                     stopTelegramPolling();
+                    sessionStorage.removeItem(TELEGRAM_PENDING_KEY);
                     addToast('Belum terhubung. Buka Telegram lalu tekan Start, lalu kembali ke sini.', 'info');
                 }
             } catch {
@@ -966,15 +977,24 @@ export default function Schedule() {
         }
 
         setManualTelegramConnectUrl('');
-        const popupWindow = window.open('', '_blank');
+        sessionStorage.setItem(TELEGRAM_PENDING_KEY, '1');
+
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+        const popupWindow = !isMobile ? window.open(connectUrl, '_blank', 'noopener,noreferrer') : null;
+
+        if (isMobile) {
+            // On mobile, open Telegram in current tab to avoid Safari about:blank tab issue.
+            window.location.assign(connectUrl);
+        }
 
         setIsTelegramBusy(true);
         try {
             const ensured = await ensureTelegramChannel(user.id);
             setTelegramChannel(ensured);
 
-            if (popupWindow && !popupWindow.closed) {
-                popupWindow.location.replace(connectUrl);
+            if (isMobile) {
+                addToast('Telegram sedang dibuka. Setelah tekan Start, kembali ke halaman Jadwal.', 'info');
+            } else if (popupWindow && !popupWindow.closed) {
                 addToast('Telegram sudah dibuka. Tekan Start di bot, lalu kembali ke halaman ini.', 'info');
             } else {
                 setManualTelegramConnectUrl(connectUrl);
@@ -983,7 +1003,8 @@ export default function Schedule() {
 
             startTelegramStatusPolling();
         } catch {
-            if (popupWindow && !popupWindow.closed) popupWindow.close();
+            sessionStorage.removeItem(TELEGRAM_PENDING_KEY);
+            if (!isMobile && popupWindow && !popupWindow.closed) popupWindow.close();
             addToast('Gagal memulai koneksi Telegram. Silakan coba lagi.', 'error');
         } finally {
             setIsTelegramBusy(false);
