@@ -7,8 +7,9 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-internal-key',
 };
+
 
 export default {
     async fetch(request, env) {
@@ -23,6 +24,31 @@ export default {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
         }
+
+        // Security Check
+        const authHeader = request.headers.get('Authorization');
+        const internalKey = request.headers.get('x-internal-key');
+        const expectedKey = env.INTERNAL_OPS_KEY || env.OPS_INTERNAL_KEY;
+
+        if (!expectedKey) {
+            return new Response(JSON.stringify({ error: 'Worker configuration error: Missing internal key secret' }), {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+        }
+
+        const isAuthorized = (authHeader === `Bearer ${expectedKey}`) || (internalKey === expectedKey);
+
+        if (!isAuthorized) {
+            return new Response(JSON.stringify({ 
+                error: 'Missing Bearer token or internal key',
+                request_id: `mt-${Date.now()}-${Math.random().toString(36).substring(7)}`
+            }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+        }
+
 
         try {
             const body = await request.json();

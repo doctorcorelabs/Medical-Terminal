@@ -1,12 +1,17 @@
 // URL of the deployed Cloudflare Worker
 const AI_WORKER_URL = import.meta.env.VITE_AI_WORKER_URL;
+const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
+
 
 async function callAI(messages, options = {}) {
     // If not using worker, you could fallback, but for security we enforce worker:
     const url = AI_WORKER_URL;
     const headers = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_INTERNAL_KEY}`,
+        'x-internal-key': AI_INTERNAL_KEY,
     };
+
 
     // Inject anti-LaTeX format globally
     const processedMessages = messages.map(m => {

@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import './CopilotChat.css';
 
 const COPILOT_WORKER_URL = import.meta.env.VITE_COPILOT_WORKER_URL;
+const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
+
 
 const CopilotChat = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -21,8 +23,10 @@ const CopilotChat = () => {
     };
 
     useEffect(() => {
-        scrollToBottom();
-    }, [messages, isLoading]);
+        if (isOpen) {
+            scrollToBottom();
+        }
+    }, [messages, isLoading, isOpen]);
 
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
@@ -37,13 +41,16 @@ const CopilotChat = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AI_INTERNAL_KEY}`,
+                    'x-internal-key': AI_INTERNAL_KEY,
                 },
+
                 body: JSON.stringify({
                     messages: [...messages, userMessage].map(m => ({
                         role: m.role === 'ai' ? 'assistant' : 'user',
                         content: m.content
                     })),
-                    model: 'gpt-4o',
+                    model: 'gpt-5-mini',
                 }),
             });
 
@@ -57,75 +64,101 @@ const CopilotChat = () => {
             setMessages(prev => [...prev, { role: 'ai', content: aiContent }]);
         } catch (error) {
             console.error('Copilot Error:', error);
-            setMessages(prev => [...prev, { role: 'ai', content: `Error: ${error.message}. Pastikan Cloudflare Worker Anda sudah berjalan dan GITHUB_TOKEN sudah diset.` }]);
+            setMessages(prev => [...prev, { role: 'ai', content: `Error: ${error.message}. Pastikan Cloudflare Worker Anda sudah berjalan.` }]);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="copilot-chat-container">
-            {/* Toggle Button */}
+        <div className={`copilot-container ${isOpen ? 'is-open' : ''}`}>
+            {/* Floating Toggle Button */}
             <button 
-                className="copilot-floating-button"
+                className="copilot-trigger"
                 onClick={() => setIsOpen(!isOpen)}
                 aria-label="Toggle Copilot Chat"
             >
-                <span className="material-symbols-outlined">
-                    {isOpen ? 'close' : 'chat_spark'}
-                </span>
+                <div className="trigger-icon-wrapper">
+                    <span className="material-symbols-outlined">
+                        {isOpen ? 'close' : 'terminal'}
+                    </span>
+                </div>
+                {!isOpen && <div className="trigger-glow"></div>}
             </button>
 
             {/* Chat Window */}
-            {isOpen && (
-                <div className="copilot-chat-window">
-                    <div className="copilot-chat-header">
-                        <h3>
-                            <div className="copilot-status-dot"></div>
-                            Copilot Clinical AI
-                        </h3>
-                        <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>expand_more</span>
-                        </button>
+            <div className={`copilot-window ${isOpen ? 'active' : ''}`}>
+                <div className="window-header">
+                    <div className="terminal-dots">
+                        <span className="dot red"></span>
+                        <span className="dot yellow"></span>
+                        <span className="dot green"></span>
                     </div>
+                    <div className="header-title">
+                        <span className="material-symbols-outlined header-icon">terminal</span>
+                        <span>Medx Copilot</span>
+                    </div>
+                    <button className="minimize-btn" onClick={() => setIsOpen(false)}>
+                        <span className="material-symbols-outlined">expand_more</span>
+                    </button>
+                </div>
 
-                    <div className="copilot-chat-messages">
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={`message message-${msg.role}`}>
+                <div className="messages-area custom-scrollbar">
+                    {messages.map((msg, idx) => (
+                        <div key={idx} className={`message-row ${msg.role}`}>
+                            {msg.role === 'ai' && (
+                                <div className="ai-avatar">
+                                    <span className="material-symbols-outlined">terminal</span>
+                                </div>
+                            )}
+                            <div className="message-bubble">
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                     {msg.content}
                                 </ReactMarkdown>
                             </div>
-                        ))}
-                        {isLoading && (
-                            <div className="message message-ai">
-                                <div className="typing-indicator">
-                                    <div className="typing-dot"></div>
-                                    <div className="typing-dot"></div>
-                                    <div className="typing-dot"></div>
+                        </div>
+                    ))}
+                    {isLoading && (
+                        <div className="message-row ai">
+                            <div className="ai-avatar">
+                                <span className="material-symbols-outlined">terminal</span>
+                            </div>
+                            <div className="message-bubble loading">
+                                <div className="typing-dots">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
                                 </div>
                             </div>
-                        )}
-                        <div ref={messagesEndRef} />
-                    </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
 
-                    <div className="copilot-chat-input">
+                <div className="input-container">
+                    <div className="input-wrapper">
+                        <span className="terminal-prompt">$</span>
                         <input 
                             type="text" 
-                            className="copilot-input"
-                            placeholder="Tanya sesuatu..."
+                            className="chat-input"
+                            placeholder="Type a clinical query..."
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         />
-                        <button className="copilot-send-btn" onClick={handleSend} disabled={isLoading}>
+                        <button 
+                            className="send-button" 
+                            onClick={handleSend} 
+                            disabled={isLoading || !input.trim()}
+                        >
                             <span className="material-symbols-outlined">send</span>
                         </button>
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     );
 };
 
 export default CopilotChat;
+
