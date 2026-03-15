@@ -800,6 +800,7 @@ export async function fetchSchedulesFromSupabase(userId) {
     if (!userId) return getStoredSchedules();
     setScheduleStorageScope(userId);
     const localSchedules = getStoredSchedules();
+
     try {
         const { data } = await supabase
             .from('user_schedules')
@@ -810,16 +811,11 @@ export async function fetchSchedulesFromSupabase(userId) {
         const serverSchedules = Array.isArray(data?.schedules_data)
             ? purgeExpiredSchedules(data.schedules_data)
             : [];
-            
-        // If server is empty and local is not empty, but we have no pending syncs,
-        // it means other devices might have cleared the data.
-        // But the common case here is merging additive schedules.
+
         const mergedSchedules = mergeSchedules(localSchedules, serverSchedules, data?.updated_at);
 
         saveSchedules(mergedSchedules);
         
-        // If server was null (deleted), but we have local data, we should sync it up
-        // unless we just did a reset (handled by pendingSync check above).
         if (
             !data && localSchedules.length > 0
         ) {
