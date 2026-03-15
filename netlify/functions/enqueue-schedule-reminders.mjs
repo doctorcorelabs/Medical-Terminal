@@ -116,8 +116,10 @@ export const handler = async (event) => {
         if (!eventUtc) continue;
 
         const reminderAt = new Date(eventUtc.getTime() - REMINDER_MINUTES * 60 * 1000);
-        if (reminderAt < windowStart || reminderAt > windowEnd) continue;
-
+        
+        // ADD TO ACTIVE KEYS BEFORE WINDOW CHECK
+        // This ensures the notification isn't deleted as "stale" just because it's 
+        // outside the current processing window.
         const idempotencyKey = buildScheduleIdempotencyKey(
           channel.user_id,
           eventItem.id,
@@ -126,6 +128,8 @@ export const handler = async (event) => {
           REMINDER_MINUTES,
         );
         activeIdempotencyKeys.add(idempotencyKey);
+
+        if (reminderAt < windowStart || reminderAt > windowEnd) continue;
 
         rows.push({
           source_type: 'schedule',
