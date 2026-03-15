@@ -120,13 +120,14 @@ async function processQueue() {
 async function fetchServerRow(supabaseUrl, supabaseKey, table, userId) {
     try {
         const res = await fetch(
-            `${supabaseUrl}/rest/v1/${table}?user_id=eq.${userId}&select=*`,
+            `${supabaseUrl}/rest/v1/${table}?user_id=eq.${userId}&select=*&t=${Date.now()}`,
             {
                 headers: {
                     'apikey': supabaseKey,
                     'Authorization': `Bearer ${supabaseKey}`,
                     'Accept': 'application/json',
                 },
+                cache: 'no-store'
             }
         );
         if (!res.ok) return null;
@@ -140,7 +141,7 @@ async function fetchServerRow(supabaseUrl, supabaseKey, table, userId) {
 // ── Per-patient conflict detection ───────────────────────────────
 /**
  * Compare each patient by `id`.
- * - Local-only  → keep (added offline)
+ * - Local-only  → keep IF it's newer than server row, else DROP (deleted elsewhere)
  * - Server newer + real field diff → record conflict in IDB, use server version
  * - Local newer or equal → keep local
  * - Server-only → keep (added from another device)
@@ -148,6 +149,8 @@ async function fetchServerRow(supabaseUrl, supabaseKey, table, userId) {
 async function mergePatients(localPayload, serverRow, userId) {
     const localPatients  = localPayload.patients_data  || [];
     const serverPatients = serverRow?.patients_data    || [];
+    const serverUpdatedAt = serverRow?.updated_at ? Date.parse(serverRow.updated_at) : 0;
+    
     const serverMap = new Map(serverPatients.map(p => [p.id, p]));
     const localMap  = new Map(localPatients.map(p => [p.id, p]));
 
@@ -156,13 +159,19 @@ async function mergePatients(localPayload, serverRow, userId) {
 
     for (const local of localPatients) {
         const server = serverMap.get(local.id);
+        const localTs = Date.parse(local.updatedAt || local.updated_at || '1970-01-01T00:00:00.000Z');
+
         if (!server) {
+            // Deletion Check: If server row exists and is newer than our local item, 
+            // but our item is missing from server row → it was deleted elsewhere.
+            if (serverUpdatedAt > 0 && localTs < serverUpdatedAt) {
+                continue; // DROP (Deleted)
+            }
             merged.push(local);
             continue;
         }
 
-        const serverTs = server.updatedAt  || server.updated_at  || '1970-01-01T00:00:00.000Z';
-        const localTs  = local.updatedAt   || local.updated_at   || '1970-01-01T00:00:00.000Z';
+        const serverTs = Date.parse(server.updatedAt || server.updated_at || '1970-01-01T00:00:00.000Z');
 
         if (serverTs > localTs) {
             const changedFields = checkFields.filter(
@@ -194,19 +203,38 @@ async function mergePatients(localPayload, serverRow, userId) {
     return { ...localPayload, patients_data: merged };
 }
 
-// ── Simple array merge for stases / schedules ─────────────────────
 /**
  * Union by `id` — server-only items are appended so data from other
- * devices is not lost.  Local version wins for shared ids.
+ * devices is not lost. Respects server-wide updated_at for deletions.
  */
 function mergeSimple(dataKey, localPayload, serverRow) {
     const local    = localPayload[dataKey] || [];
     const server   = serverRow?.[dataKey]  || [];
-    const localIds = new Set(local.map(i => i.id));
-    const merged   = [...local];
-    for (const item of server) {
-        if (!localIds.has(item.id)) merged.push(item);
+    const serverUpdatedAt = serverRow?.updated_at ? Date.parse(serverRow.updated_at) : 0;
+    
+    const serverIds = new Set(server.map(i => i.id));
+    const merged = [];
+
+    // 1. Process local items with deletion check
+    for (const item of local) {
+        const id = item?.id;
+        if (!id) { merged.push(item); continue; }
+
+        if (serverUpdatedAt > 0 && !serverIds.has(id)) {
+            const localTs = Date.parse(item.updatedAt || item.updated_at || item.createdAt || item.created_at || '1970-01-01');
+            if (localTs < serverUpdatedAt) {
+                continue; // DROP (Deleted)
+            }
+        }
+        merged.push(item);
     }
+
+    // 2. Add server items not already in merged
+    const mergedIds = new Set(merged.map(i => i.id).filter(Boolean));
+    for (const item of server) {
+        if (!mergedIds.has(item.id)) merged.push(item);
+    }
+
     return { ...localPayload, [dataKey]: merged };
 }
 

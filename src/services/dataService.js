@@ -99,10 +99,6 @@ export async function deleteAllPatientsData(userId) {
 
 export async function fetchFromSupabase(userId) {
     if (!userId) return getStoredData();
-    // If there are offline changes, push them first so server has the latest data
-    if (pendingSync.hasPatients()) {
-        await syncToSupabase(userId);
-    }
     try {
         const { data } = await supabase
             .from('user_patients')
@@ -111,9 +107,14 @@ export async function fetchFromSupabase(userId) {
             .maybeSingle();
 
         if (data) {
-            // Server has a record (possibly empty from a reset). 
-            // We trust the server state if it exists.
             const serverPatients = Array.isArray(data.patients_data) ? data.patients_data : [];
+            const localPatients = getStoredData();
+            
+            // For patients, it's safer to just trust the server if it exists,
+            // but if we have offline changes (pendingSync), we should merge carefully.
+            // Currently Patients doesn't have a complex mergeSchedules like Schedules,
+            // so we rely on the Service Worker to do the heavy lifting for conflicts.
+            // However, to prevent resurrection, we update local cache.
             saveData(serverPatients);
             return serverPatients;
         }
@@ -176,25 +177,22 @@ export async function syncStasesToSupabase(userId) {
 
 export async function fetchStasesFromSupabase(userId) {
     if (!userId) return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
-    // Flush offline stase changes first
-    if (pendingSync.hasStases()) {
-        await syncStasesToSupabase(userId);
-    }
     try {
         const { data } = await supabase
             .from('user_stases')
-            .select('stases_data, pinned_stase_id')
+            .select('stases_data, pinned_stase_id, updated_at')
             .eq('user_id', userId)
             .maybeSingle();
 
-        if (data?.stases_data) {
-            saveStases(data.stases_data);
+        if (data) {
+            const serverStases = Array.isArray(data.stases_data) ? data.stases_data : [];
+            saveStases(serverStases);
             if (data.pinned_stase_id) {
                 setPinnedStaseId(data.pinned_stase_id);
             } else {
                 setPinnedStaseId(null);
             }
-            return { stases: data.stases_data, pinnedStaseId: data.pinned_stase_id || null };
+            return { stases: serverStases, pinnedStaseId: data.pinned_stase_id || null };
         }
     } catch (err) {
         console.error("Failed to fetch stases from Supabase:", err);
@@ -677,10 +675,6 @@ export async function syncSchedulesToSupabase(userId) {
 export async function fetchSchedulesFromSupabase(userId) {
     if (!userId) return getStoredSchedules();
     setScheduleStorageScope(userId);
-    // Flush offline schedule changes first
-    if (pendingSync.hasSchedules()) {
-        await syncSchedulesToSupabase(userId).catch(() => {});
-    }
     const localSchedules = getStoredSchedules();
     try {
         const { data } = await supabase
