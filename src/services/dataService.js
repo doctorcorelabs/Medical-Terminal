@@ -51,42 +51,65 @@ function saveData(patients) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
 }
 
+// ----- Per-item merge helper (shared by patients & stases foreground sync) -----
+function getItemTimestamp(item) {
+    const source = item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at;
+    const parsed = source ? Date.parse(source) : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr) {
+    const serverTimestamp = serverUpdatedAtStr ? Date.parse(serverUpdatedAtStr) : 0;
+    const serverMap = new Map();
+    for (const item of serverItems) {
+        if (item?.id) serverMap.set(item.id, item);
+    }
+    const merged = [];
+    const mergedIds = new Set();
+
+    for (const local of localItems) {
+        if (!local?.id) { merged.push(local); continue; }
+
+        const server = serverMap.get(local.id);
+        const localTs = getItemTimestamp(local);
+
+        if (!server) {
+            if (serverTimestamp > 0 && localTs < serverTimestamp) {
+                continue; // Deleted on another device
+            }
+            merged.push(local);
+            mergedIds.add(local.id);
+            continue;
+        }
+
+        const serverTs = getItemTimestamp(server);
+        merged.push(serverTs > localTs ? server : local);
+        mergedIds.add(local.id);
+    }
+
+    for (const server of serverItems) {
+        if (server?.id && !mergedIds.has(server.id)) merged.push(server);
+    }
+    return merged;
+}
+
 // ----- Supabase Sync Functions -----
 export async function syncToSupabase(userId) {
     if (!userId) return;
     const localPatients = getStoredData();
-    // Enqueue for background task
     await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: localPatients } }).catch(() => {});
     
     try {
-        // 1. Fetch current server state to avoid blind overwrite (Ghost Data Resurrection)
         const { data: serverRow } = await supabase
             .from('user_patients')
             .select('patients_data, updated_at')
             .eq('user_id', userId)
             .maybeSingle();
-            
-        let finalPatients = localPatients;
 
-        if (serverRow) {
-            const serverUpdatedAt = serverRow.updated_at ? Date.parse(serverRow.updated_at) : 0;
-            const serverPatients = Array.isArray(serverRow.patients_data) ? serverRow.patients_data : [];
-            
-            // Simple reconciliation: if server is newer but empty (reset), clear local.
-            // For Patients, we don't have a sophisticated mergeById yet in the foreground,
-            // but we at least check for Reset resurrection.
-            if (serverUpdatedAt > 0 && serverPatients.length === 0) {
-                // If local has haven't been touched since server reset, trust server (Reset)
-                const latestLocalTs = localPatients.reduce((max, p) => {
-                    const ts = Date.parse(p.updated_at || p.updatedAt || '1970-01-01');
-                    return ts > max ? ts : max;
-                }, 0);
-
-                if (latestLocalTs < serverUpdatedAt) {
-                    finalPatients = [];
-                }
-            }
-        }
+        const serverPatients = Array.isArray(serverRow?.patients_data) ? serverRow.patients_data : [];
+        const finalPatients = serverRow
+            ? mergeItemsByIdForeground(localPatients, serverPatients, serverRow.updated_at)
+            : localPatients;
 
         const { error } = await supabase.from('user_patients').upsert({
             user_id: userId,
@@ -95,7 +118,7 @@ export async function syncToSupabase(userId) {
         });
         
         if (error) throw error;
-        saveData(finalPatients); // Update local cache with reconciled data
+        saveData(finalPatients);
         pendingSync.clearPatients();
         clearQueueByType(userId, 'patients').catch(() => {});
     } catch (err) {
@@ -139,12 +162,13 @@ export async function fetchFromSupabase(userId) {
         if (data) {
             const serverPatients = Array.isArray(data.patients_data) ? data.patients_data : [];
             const localPatients = getStoredData();
-            
-            // For patients, it's safer to just trust the server if it exists,
-            // but if we have offline changes (pendingSync), we should merge carefully.
-            // Currently Patients doesn't have a complex mergeSchedules like Schedules,
-            // so we rely on the Service Worker to do the heavy lifting for conflicts.
-            // However, to prevent resurrection, we update local cache.
+
+            if (pendingSync.hasPatients() && localPatients.length > 0) {
+                const merged = mergeItemsByIdForeground(localPatients, serverPatients, data.updated_at);
+                saveData(merged);
+                return merged;
+            }
+
             saveData(serverPatients);
             return serverPatients;
         }
@@ -190,32 +214,26 @@ export async function syncStasesToSupabase(userId) {
     await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: localStases, pinned_stase_id: pinnedStaseId } }).catch(() => {});
     
     try {
-        // Fetch current server state
         const { data: serverRow } = await supabase
             .from('user_stases')
             .select('stases_data, pinned_stase_id, updated_at')
             .eq('user_id', userId)
             .maybeSingle();
 
-        let finalStases = localStases;
+        const serverStases = Array.isArray(serverRow?.stases_data) ? serverRow.stases_data : [];
+        const finalStases = serverRow
+            ? mergeItemsByIdForeground(localStases, serverStases, serverRow.updated_at)
+            : localStases;
+
         let finalPinned = pinnedStaseId;
-
         if (serverRow) {
-            const serverUpdatedAt = serverRow.updated_at ? Date.parse(serverRow.updated_at) : 0;
-            const serverStases = Array.isArray(serverRow.stases_data) ? serverRow.stases_data : [];
-
-            if (serverUpdatedAt > 0 && serverStases.length === 0) {
-                // Check if local was updated after server reset
-                const latestLocalTs = localStases.reduce((max, s) => {
-                    const ts = Date.parse(s.updated_at || s.updatedAt || s.createdAt || '1970-01-01');
-                    return ts > max ? ts : max;
-                }, 0);
-
-                if (latestLocalTs < serverUpdatedAt) {
-                    finalStases = [];
-                    finalPinned = null;
-                }
+            const serverTs = serverRow.updated_at ? Date.parse(serverRow.updated_at) : 0;
+            if (serverTs > 0 && serverRow.pinned_stase_id !== undefined) {
+                finalPinned = serverRow.pinned_stase_id;
             }
+        }
+        if (finalPinned && !finalStases.some(s => s.id === finalPinned)) {
+            finalPinned = null;
         }
 
         const { error } = await supabase.from('user_stases').upsert({
@@ -248,18 +266,46 @@ export async function fetchStasesFromSupabase(userId) {
 
         if (data) {
             const serverStases = Array.isArray(data.stases_data) ? data.stases_data : [];
-            saveStases(serverStases);
-            if (data.pinned_stase_id) {
-                setPinnedStaseId(data.pinned_stase_id);
-            } else {
-                setPinnedStaseId(null);
+            const localStases = getStoredStases();
+
+            if (pendingSync.hasStases() && localStases.length > 0) {
+                const merged = mergeItemsByIdForeground(localStases, serverStases, data.updated_at);
+                saveStases(merged);
+                const pinned = data.pinned_stase_id || getPinnedStaseId();
+                const validPinned = pinned && merged.some(s => s.id === pinned) ? pinned : null;
+                setPinnedStaseId(validPinned);
+                return { stases: merged, pinnedStaseId: validPinned };
             }
+
+            saveStases(serverStases);
+            setPinnedStaseId(data.pinned_stase_id || null);
             return { stases: serverStases, pinnedStaseId: data.pinned_stase_id || null };
         }
     } catch (err) {
         console.error("Failed to fetch stases from Supabase:", err);
     }
     return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
+}
+
+export async function deleteAllStasesData(userId) {
+    saveStases([]);
+    setPinnedStaseId(null);
+    pendingSync.clearStases();
+    if (userId) {
+        try {
+            await clearQueueByType(userId, 'stases').catch(() => {});
+            const { error } = await supabase.from('user_stases').upsert({
+                user_id: userId,
+                stases_data: [],
+                pinned_stase_id: null,
+                updated_at: new Date().toISOString()
+            });
+            if (error) throw error;
+        } catch (err) {
+            console.error('Failed to reset stases on Supabase:', err);
+            throw err;
+        }
+    }
 }
 
 // ----- Stase CRUD -----
@@ -284,7 +330,7 @@ export function updateStase(id, updates) {
     const stases = getStoredStases();
     const index = stases.findIndex(s => s.id === id);
     if (index === -1) return null;
-    stases[index] = { ...stases[index], ...updates };
+    stases[index] = { ...stases[index], ...updates, updatedAt: new Date().toISOString() };
     saveStases(stases);
     return stases[index];
 }

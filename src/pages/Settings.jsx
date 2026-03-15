@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { deleteAllPatientsData, syncToSupabase, getAllStases, syncStasesToSupabase } from '../services/dataService';
+import { deleteAllPatientsData, deleteAllStasesData, deleteAllSchedulesData, syncToSupabase, getAllStases, syncStasesToSupabase } from '../services/dataService';
 import StaseMappingModal from '../components/StaseMappingModal';
 
 export default function Settings() {
@@ -27,6 +27,8 @@ export default function Settings() {
         setDeleting(true);
         try {
             await deleteAllPatientsData(user?.id);
+            await deleteAllStasesData(user?.id);
+            await deleteAllSchedulesData(user?.id);
             addToast('Semua data telah dihapus permanen', 'success');
             setTimeout(() => window.location.reload(), 300);
         } catch (err) {

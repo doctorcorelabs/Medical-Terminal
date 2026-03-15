@@ -109,7 +109,7 @@ export const handler = async (event) => {
         const eventDate = String(eventItem?.date || '');
         if (!eventDate) continue;
 
-        const eventTime = eventItem?.isAllDay ? '09:00' : (eventItem?.startTime || null);
+        const eventTime = eventItem?.isAllDay ? '09:00' : (eventItem?.startTime || '09:00');
         if (!eventTime) continue;
 
         const eventUtc = localDateTimeToUtcWib(eventDate, eventTime);

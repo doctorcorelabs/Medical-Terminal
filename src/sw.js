@@ -204,35 +204,47 @@ async function mergePatients(localPayload, serverRow, userId) {
 }
 
 /**
- * Union by `id` — server-only items are appended so data from other
- * devices is not lost. Respects server-wide updated_at for deletions.
+ * Per-item merge by `id` with timestamp comparison.
+ * - Local-only + older than server row → DROP (deleted elsewhere)
+ * - Both exist → keep the one with newer individual timestamp
+ * - Server-only → keep (added from another device)
  */
 function mergeSimple(dataKey, localPayload, serverRow) {
     const local    = localPayload[dataKey] || [];
     const server   = serverRow?.[dataKey]  || [];
     const serverUpdatedAt = serverRow?.updated_at ? Date.parse(serverRow.updated_at) : 0;
-    
-    const serverIds = new Set(server.map(i => i.id));
-    const merged = [];
 
-    // 1. Process local items with deletion check
+    const serverMap = new Map();
+    for (const item of server) {
+        if (item?.id) serverMap.set(item.id, item);
+    }
+
+    const merged = [];
+    const mergedIds = new Set();
+
     for (const item of local) {
         const id = item?.id;
         if (!id) { merged.push(item); continue; }
 
-        if (serverUpdatedAt > 0 && !serverIds.has(id)) {
-            const localTs = Date.parse(item.updatedAt || item.updated_at || item.createdAt || item.created_at || '1970-01-01');
-            if (localTs < serverUpdatedAt) {
-                continue; // DROP (Deleted)
+        const serverItem = serverMap.get(id);
+        const localTs = Date.parse(item.updatedAt || item.updated_at || item.createdAt || item.created_at || '1970-01-01');
+
+        if (!serverItem) {
+            if (serverUpdatedAt > 0 && localTs < serverUpdatedAt) {
+                continue; // DROP (deleted on another device)
             }
+            merged.push(item);
+            mergedIds.add(id);
+            continue;
         }
-        merged.push(item);
+
+        const serverTs = Date.parse(serverItem.updatedAt || serverItem.updated_at || serverItem.createdAt || serverItem.created_at || '1970-01-01');
+        merged.push(serverTs > localTs ? serverItem : item);
+        mergedIds.add(id);
     }
 
-    // 2. Add server items not already in merged
-    const mergedIds = new Set(merged.map(i => i.id).filter(Boolean));
     for (const item of server) {
-        if (!mergedIds.has(item.id)) merged.push(item);
+        if (item?.id && !mergedIds.has(item.id)) merged.push(item);
     }
 
     return { ...localPayload, [dataKey]: merged };
