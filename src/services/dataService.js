@@ -79,15 +79,19 @@ export async function deleteAllPatientsData(userId) {
     // 1. Wipe local cache
     localStorage.removeItem(STORAGE_KEY);
     pendingSync.clearPatients();
-    // 2. Delete the row from Supabase (if logged in)
+    // 2. Perform the remote reset by upserting an empty array instead of deleting the row.
+    // This ensures other devices see an "empty but newer" state.
     if (userId) {
         try {
-            // Clear pending offline syncs so they don't overwrite the deletion later
             await clearQueueByType(userId, 'patients').catch(() => {});
-            const { error } = await supabase.from('user_patients').delete().eq('user_id', userId);
+            const { error } = await supabase.from('user_patients').upsert({
+                user_id: userId,
+                patients_data: [],
+                updated_at: new Date().toISOString()
+            });
             if (error) throw error;
         } catch (err) {
-            console.error('Failed to delete patients from Supabase:', err);
+            console.error('Failed to reset patients on Supabase:', err);
             throw err;
         }
     }
@@ -102,13 +106,16 @@ export async function fetchFromSupabase(userId) {
     try {
         const { data } = await supabase
             .from('user_patients')
-            .select('patients_data')
+            .select('patients_data, updated_at')
             .eq('user_id', userId)
             .maybeSingle();
 
-        if (data?.patients_data) {
-            saveData(data.patients_data);
-            return data.patients_data;
+        if (data) {
+            // Server has a record (possibly empty from a reset). 
+            // We trust the server state if it exists.
+            const serverPatients = Array.isArray(data.patients_data) ? data.patients_data : [];
+            saveData(serverPatients);
+            return serverPatients;
         }
     } catch (err) {
         console.error("Failed to fetch from Supabase:", err);
@@ -678,7 +685,7 @@ export async function fetchSchedulesFromSupabase(userId) {
     try {
         const { data } = await supabase
             .from('user_schedules')
-            .select('schedules_data')
+            .select('schedules_data, updated_at')
             .eq('user_id', userId)
             .maybeSingle();
 
@@ -689,7 +696,7 @@ export async function fetchSchedulesFromSupabase(userId) {
         // If server is empty and local is not empty, but we have no pending syncs,
         // it means other devices might have cleared the data.
         // But the common case here is merging additive schedules.
-        const mergedSchedules = mergeSchedules(localSchedules, serverSchedules);
+        const mergedSchedules = mergeSchedules(localSchedules, serverSchedules, data?.updated_at);
 
         saveSchedules(mergedSchedules);
         
@@ -779,13 +786,17 @@ export async function deleteAllSchedulesData(userId) {
         await clearQueueByType(userId, 'schedules').catch(() => {});
         pendingSync.clearSchedules();
         
-        // 2. Perform the remote wipe using delete() to ensure row is gone
-        const { error } = await supabase.from('user_schedules').delete().eq('user_id', userId);
+        // 2. Perform the remote reset by upserting an empty array instead of deleting the row.
+        // This ensures other devices see an "empty but newer" state and clear their local cache.
+        const { error } = await supabase.from('user_schedules').upsert({
+            user_id: userId,
+            schedules_data: [],
+            updated_at: new Date().toISOString(),
+        });
         if (error) throw error;
     } catch (err) {
-        console.error('Failed to delete schedules from Supabase:', err);
-        // Fallback: try upserting empty array if delete fails
-        await syncSchedulesToSupabase(userId).catch(() => {});
+        console.error('Failed to reset schedules on Supabase:', err);
+        throw err;
     }
 }
 // -------------------------------------------------------

@@ -29,27 +29,42 @@ function getScheduleTimestamp(item) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function mergeSchedules(localSchedules = [], serverSchedules = []) {
+/**
+ * Merges local and server schedules.
+ * If serverUpdatedAt is provided, it handles deletions: items in local but not 
+ * in server are removed if their updatedAt is before serverUpdatedAt.
+ */
+export function mergeSchedules(localSchedules = [], serverSchedules = [], serverUpdatedAt = null) {
     const mergedById = new Map();
-    const mergedWithoutId = [];
+    const serverTimestamp = serverUpdatedAt ? Date.parse(serverUpdatedAt) : 0;
+    const serverIds = new Set(serverSchedules.map(s => normalizedScheduleId(s)).filter(Boolean));
 
+    // 1. Process Local Schedules
     localSchedules.forEach((item) => {
         if (!item || typeof item !== 'object') return;
         const id = normalizedScheduleId(item);
-        if (!id) {
-            mergedWithoutId.push(item);
-            return;
+        if (!id) return; // Ignore items without ID in this logic or handle separately
+
+        const localTs = getScheduleTimestamp(item);
+
+        // Deletion Check: If it's NOT in server, was it deleted or is it just new?
+        if (serverTimestamp > 0 && !serverIds.has(id)) {
+            // Server row is newer than local item last touch.
+            // AND server doesn't have it. -> It was likely deleted on another device.
+            if (localTs < serverTimestamp) {
+                return; // DROP from local (Delete Sync)
+            }
         }
+        
         mergedById.set(id, item);
     });
 
+    // 2. Process Server Schedules
     serverSchedules.forEach((item) => {
         if (!item || typeof item !== 'object') return;
         const id = normalizedScheduleId(item);
-        if (!id) {
-            mergedWithoutId.push(item);
-            return;
-        }
+        if (!id) return;
+
         const localItem = mergedById.get(id);
         if (!localItem) {
             mergedById.set(id, item);
@@ -58,10 +73,16 @@ export function mergeSchedules(localSchedules = [], serverSchedules = []) {
 
         const localTs = getScheduleTimestamp(localItem);
         const serverTs = getScheduleTimestamp(item);
-        if (serverTs > localTs) mergedById.set(id, item);
+        if (serverTs > localTs) {
+            mergedById.set(id, item);
+        }
     });
 
-    return [...mergedById.values(), ...mergedWithoutId];
+    // Handle items without IDs (fallback)
+    const localWithoutId = localSchedules.filter(s => !normalizedScheduleId(s));
+    const serverWithoutId = serverSchedules.filter(s => !normalizedScheduleId(s));
+
+    return [...mergedById.values(), ...localWithoutId, ...serverWithoutId];
 }
 
 function normalizeScheduleForCompare(item) {
