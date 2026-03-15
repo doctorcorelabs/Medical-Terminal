@@ -9,20 +9,25 @@
 [functions]
   node_bundler = "esbuild"
 
+# --- Scheduled functions (runs daily at 05:00 UTC = 12:00 WIB) ---
 [functions."scheduled-news"]
   timeout = 26
+  schedule = "0 5 * * *"
 
 [functions."evaluate-alerts"]
   timeout = 26
+  schedule = "*/5 * * * *"
 
 [functions."inject-test-metrics"]
   timeout = 26
 
 [functions."cleanup-activity-events"]
   timeout = 26
+  schedule = "15 3 * * *"
 
 [functions."enqueue-alert-notifications"]
   timeout = 26
+  schedule = "*/2 * * * *"
 
 [functions."enqueue-schedule-reminders"]
   timeout = 26
@@ -32,9 +37,13 @@
 
 [functions."retry-notification-dispatch"]
   timeout = 26
+  schedule = "*/2 * * * *"
 
+# Main notification orchestrator: enqueue schedules + alerts, then send.
+# Also callable via HTTP POST from the frontend after import/add/update.
 [functions."notification-cycle"]
   timeout = 26
+  schedule = "*/1 * * * *"
 
 [functions."create-admin-broadcast"]
   timeout = 26
@@ -67,37 +76,3 @@
   to = "/index.html"
   status = 200
   force = false
-
-# Scheduled trigger: runs daily at 05:00 UTC = 12:00 WIB (GMT+7)
-# Fetch RSS feeds and upsert to Supabase. fetch-news.mjs only reads from DB.
-[[scheduled_functions]]
-  name = "scheduled-news"
-  cron = "0 5 * * *"
-
-[[scheduled_functions]]
-  name = "evaluate-alerts"
-  cron = "*/5 * * * *"
-
-[[scheduled_functions]]
-  name = "cleanup-activity-events"
-  cron = "15 3 * * *"
-
-[[scheduled_functions]]
-  name = "enqueue-alert-notifications"
-  cron = "*/2 * * * *"
-
-[[scheduled_functions]]
-  name = "enqueue-schedule-reminders"
-  cron = "*/1 * * * *"
-
-[[scheduled_functions]]
-  name = "send-telegram-notifications"
-  cron = "*/1 * * * *"
-
-[[scheduled_functions]]
-  name = "retry-notification-dispatch"
-  cron = "*/2 * * * *"
-
-[[scheduled_functions]]
-  name = "notification-cycle"
-  cron = "*/1 * * * *"

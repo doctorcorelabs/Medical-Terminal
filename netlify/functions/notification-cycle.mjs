@@ -41,6 +41,9 @@ export const handler = async (event) => {
     allowUserBearer: true,
     supabase,
   });
+
+  console.log(`[notification-cycle] invoked mode=${access.ok ? access.mode : 'DENIED'} method=${event.httpMethod || 'none'}`);
+
   if (!access.ok) {
     return json(access.statusCode || 401, { ok: false, error: access.error || 'Unauthorized' });
   }
@@ -78,6 +81,8 @@ export const handler = async (event) => {
       && schedulesBody.ok !== false
       && alertsBody.ok !== false
       && sendBody.ok !== false;
+
+    console.log(`[notification-cycle] result enqueue=${schedulesBody.enqueued ?? schedulesBody.candidateRows ?? '?'} sent=${sendBody.sent ?? '?'} failed=${sendBody.failed ?? '?'}`);
 
     return json(ok ? 200 : 207, {
       ok,
