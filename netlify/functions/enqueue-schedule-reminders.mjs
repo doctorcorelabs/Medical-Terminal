@@ -129,7 +129,9 @@ export const handler = async (event) => {
         );
         activeIdempotencyKeys.add(idempotencyKey);
 
-        if (reminderAt < windowStart || reminderAt > windowEnd) continue;
+        if (reminderAt < windowStart || reminderAt > windowEnd) {
+          continue;
+        }
 
         const effectiveNextAttempt = reminderAt > now ? reminderAt.toISOString() : now.toISOString();
 

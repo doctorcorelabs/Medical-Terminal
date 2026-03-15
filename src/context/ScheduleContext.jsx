@@ -63,8 +63,12 @@ export function ScheduleProvider({ children }) {
         const merged = dataService.upsertSchedulesBulk(items);
         refreshSchedules();
         if (user) {
-            await dataService.syncSchedulesToSupabase(user.id);
-            triggerNotificationCycle({ reason: 'schedule_import', force: true });
+            try {
+                await dataService.syncSchedulesToSupabase(user.id);
+                await triggerNotificationCycle({ reason: 'schedule_import', force: true });
+            } catch (err) {
+                // Silent fail — sync errors don't block UI
+            }
         }
         return merged;
     }, [refreshSchedules, user]);

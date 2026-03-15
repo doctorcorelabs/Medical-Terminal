@@ -28,11 +28,14 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
       body: JSON.stringify({ reason, triggeredAt: new Date().toISOString() }),
     });
 
+    let responseBody = null;
+    try { responseBody = await res.json(); } catch { responseBody = null; }
+
     if (!res.ok) {
       throw new Error(`notification-cycle returned ${res.status}`);
     }
-  } catch {
-    // best-effort only
+  } catch (err) {
+    // Silent fail — notifications are best-effort from the client side
   }
 }
 
