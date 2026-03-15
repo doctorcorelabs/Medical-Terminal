@@ -32,7 +32,7 @@ export function ScheduleProvider({ children }) {
         refreshSchedules();
         if (user) {
             dataService.syncSchedulesToSupabase(user.id)
-                .then(() => triggerNotificationCycle({ reason: 'schedule_add' }))
+                .then(() => triggerNotificationCycle({ reason: 'schedule_add', force: true }))
                 .catch(() => {});
         }
         return created;
@@ -43,7 +43,7 @@ export function ScheduleProvider({ children }) {
         refreshSchedules();
         if (user) {
             dataService.syncSchedulesToSupabase(user.id)
-                .then(() => triggerNotificationCycle({ reason: 'schedule_update' }))
+                .then(() => triggerNotificationCycle({ reason: 'schedule_update', force: true }))
                 .catch(() => {});
         }
         return updated;
@@ -54,7 +54,7 @@ export function ScheduleProvider({ children }) {
         refreshSchedules();
         if (user) {
             dataService.syncSchedulesToSupabase(user.id)
-                .then(() => triggerNotificationCycle({ reason: 'schedule_delete' }))
+                .then(() => triggerNotificationCycle({ reason: 'schedule_delete', force: true }))
                 .catch(() => {});
         }
     }, [refreshSchedules, user]);
@@ -64,7 +64,7 @@ export function ScheduleProvider({ children }) {
         refreshSchedules();
         if (user) {
             await dataService.syncSchedulesToSupabase(user.id);
-            triggerNotificationCycle({ reason: 'schedule_import' });
+            triggerNotificationCycle({ reason: 'schedule_import', force: true });
         }
         return merged;
     }, [refreshSchedules, user]);

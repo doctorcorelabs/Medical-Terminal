@@ -1,3 +1,8 @@
 name = "medterminal-chat-gateway"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+
+[env.copilot]
+name = "copilot-gateway"
+main = "copilot-worker.js"
+compatibility_date = "2024-01-01"
