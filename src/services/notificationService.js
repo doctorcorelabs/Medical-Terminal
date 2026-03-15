@@ -19,7 +19,7 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
 
     lastCycleTriggerAt = now;
 
-    await fetch('/.netlify/functions/notification-cycle', {
+    const res = await fetch('/.netlify/functions/notification-cycle', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -27,6 +27,10 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
       },
       body: JSON.stringify({ reason, triggeredAt: new Date().toISOString() }),
     });
+
+    if (!res.ok) {
+      throw new Error(`notification-cycle returned ${res.status}`);
+    }
   } catch {
     // best-effort only
   }

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { handler as sendTelegramHandler } from './send-telegram-notifications.mjs';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -45,6 +46,14 @@ function buildTestMessage() {
     '<i>Ini adalah pesan uji dari halaman Jadwal MedxTerminal.</i>',
     `<i>Waktu:</i> ${escapeHtml(when)} WIB`,
   ].join('\n');
+}
+
+function parseHandlerBody(res) {
+  try {
+    return typeof res?.body === 'string' ? JSON.parse(res.body) : (res?.body || {});
+  } catch {
+    return {};
+  }
 }
 
 export const handler = async (event) => {
@@ -112,7 +121,14 @@ export const handler = async (event) => {
 
     if (insertErr) throw insertErr;
 
-    return json(200, { ok: true, queueId: inserted?.id || null });
+    const dispatchRes = await sendTelegramHandler({ httpMethod: 'GET', internalCall: true });
+    const dispatchBody = parseHandlerBody(dispatchRes);
+
+    return json(200, {
+      ok: true,
+      queueId: inserted?.id || null,
+      dispatch: dispatchBody,
+    });
   } catch (err) {
     return json(500, { ok: false, error: err.message || 'Failed to enqueue test notification' });
   }
