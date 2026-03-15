@@ -12,6 +12,7 @@ import AdminRoute from './components/AdminRoute';
 import FeatureGate from './components/FeatureGate';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
+import CopilotChat from './components/common/CopilotChat';
 // Eager — rendered immediately on first load or before auth check
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
@@ -121,6 +122,7 @@ function AppContent() {
               </Suspense>
             </div>
           </main>
+          <CopilotChat />
         </div>
       </ScheduleProvider>
       </PatientProvider>
