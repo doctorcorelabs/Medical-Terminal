@@ -278,25 +278,10 @@
   box-shadow: 0 10px 20px -5px rgba(19, 109, 236, 0.3);
 }
 
-.message-attachments {
-  margin-top: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
+.message-attachments,
 .msg-attachment-tag {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
+  display: none;
 }
-
-.user .msg-attachment-tag { background: rgba(255, 255, 255, 0.2); }
 
 /* --- Input Area --- */
 .input-section {
@@ -305,93 +290,16 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-.attachment-previews {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.preview-item {
-  position: relative;
-  width: 64px;
-  height: 64px;
-  min-width: 64px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--copilot-border);
-}
-
-.preview-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.file-icon-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #f1f5f9;
-  font-size: 10px;
-  padding: 4px;
-  text-align: center;
-}
-
-.file-name-truncate {
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.remove-att {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 18px;
-  height: 18px;
-  background: rgba(0,0,0,0.5);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.remove-att .material-symbols-outlined { font-size: 12px; }
-
-.input-toolbar {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
+.attachment-previews,
+.preview-item,
+.preview-item img,
+.file-icon-placeholder,
+.file-name-truncate,
+.remove-att,
+.remove-att .material-symbols-outlined,
+.input-toolbar,
 .tool-btn {
-  background: none;
-  border: none;
-  color: var(--copilot-text-muted);
-  cursor: pointer;
-  padding: 8px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  border-radius: 8px;
-}
-
-.tool-btn:hover { 
-  background: var(--copilot-primary-light);
-  color: var(--copilot-primary); 
-}
-
-.dark .tool-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  display: none;
 }
 
 .input-wrapper-v2 {

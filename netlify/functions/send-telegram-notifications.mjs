@@ -10,6 +10,8 @@ const MAX_ATTEMPTS = Math.max(1, Number(process.env.NOTIFICATION_MAX_ATTEMPTS ||
 const REQUEST_TIMEOUT_MS = Math.max(1000, Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 7000));
 const BASE_BACKOFF_MS = Math.max(500, Number(process.env.NOTIFICATION_BACKOFF_BASE_MS || 5000));
 const STALE_LOCK_MINUTES = Math.max(1, Number(process.env.NOTIFICATION_STALE_LOCK_MINUTES || 2));
+const FUNCTION_SOFT_TIMEOUT_MS = Math.max(5000, Number(process.env.TELEGRAM_FUNCTION_SOFT_TIMEOUT_MS || 20000));
+const INTER_MESSAGE_DELAY_MS = Math.max(0, Number(process.env.TELEGRAM_INTER_MESSAGE_DELAY_MS || 150));
 
 function json(statusCode, body) {
   return {
@@ -143,7 +145,8 @@ export const handler = async (event) => {
   });
 
   try {
-    const runId = `send-telegram-${Date.now()}`;
+    const startMs = Date.now();
+    const runId = `send-telegram-${startMs}`;
     const now = new Date();
 
     // Recover stale locks (crashed previous workers).
@@ -165,33 +168,11 @@ export const handler = async (event) => {
     if (candidateError) throw candidateError;
 
     if (!candidates || candidates.length === 0) {
-      return json(200, { ok: true, claimed: 0, sent: 0, failed: 0, skippedQuiet: 0, skippedOptOut: 0, dead: 0 });
+      return json(200, { ok: true, claimed: 0, sent: 0, failed: 0, skippedQuiet: 0, skippedOptOut: 0, dead: 0, skippedTimeout: 0 });
     }
 
-    const claimed = [];
-    for (const item of candidates) {
-      const { data: lockedRow, error: lockError } = await supabase
-        .from('notification_dispatch_queue')
-        .update({
-          status: 'processing',
-          locked_at: now.toISOString(),
-          lock_owner: runId,
-          updated_at: now.toISOString(),
-        })
-        .eq('id', item.id)
-        .eq('status', 'pending')
-        .select('id, source_type, source_id, user_id, channel, payload, attempt_count')
-        .maybeSingle();
-
-      if (lockError) throw lockError;
-      if (lockedRow) claimed.push(lockedRow);
-    }
-
-    if (claimed.length === 0) {
-      return json(200, { ok: true, claimed: 0, sent: 0, failed: 0, skippedQuiet: 0, skippedOptOut: 0, dead: 0 });
-    }
-
-    const userIds = [...new Set(claimed.map((row) => row.user_id))];
+    // Pre-fetch channels for all candidate users so we have them ready.
+    const userIds = [...new Set(candidates.map((row) => row.user_id))];
     const { data: channels, error: channelsError } = await supabase
       .from('notification_channels')
       .select('user_id, telegram_chat_id, is_enabled, is_verified, schedule_enabled, alert_enabled, quiet_hours_start, quiet_hours_end, timezone')
@@ -201,9 +182,35 @@ export const handler = async (event) => {
     if (channelsError) throw channelsError;
     const channelMap = new Map((channels || []).map((row) => [row.user_id, row]));
 
-    const summary = { claimed: claimed.length, sent: 0, failed: 0, skippedQuiet: 0, skippedOptOut: 0, dead: 0 };
+    const summary = { claimed: 0, sent: 0, failed: 0, skippedQuiet: 0, skippedOptOut: 0, dead: 0, skippedTimeout: 0 };
 
-    for (const row of claimed) {
+    // Claim-one-send-one: claim a single row, process it, then move to the next.
+    // Unclaimed rows stay 'pending' and are immediately available for the next run.
+    for (const item of candidates) {
+      if (Date.now() - startMs > FUNCTION_SOFT_TIMEOUT_MS) {
+        summary.skippedTimeout = candidates.length - summary.claimed
+          - summary.skippedTimeout;
+        break;
+      }
+
+      const { data: row, error: lockError } = await supabase
+        .from('notification_dispatch_queue')
+        .update({
+          status: 'processing',
+          locked_at: new Date().toISOString(),
+          lock_owner: runId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', item.id)
+        .eq('status', 'pending')
+        .select('id, source_type, source_id, user_id, channel, payload, attempt_count')
+        .maybeSingle();
+
+      if (lockError) throw lockError;
+      if (!row) continue;
+
+      summary.claimed += 1;
+
       const channel = channelMap.get(row.user_id);
       const payload = row.payload || {};
       const sourceType = row.source_type;
@@ -283,6 +290,11 @@ export const handler = async (event) => {
           })
           .eq('id', row.id);
         summary.sent += 1;
+
+        // Delay to avoid Telegram 429 rate limit (max ~1 msg/sec per chat_id).
+        if (INTER_MESSAGE_DELAY_MS > 0) {
+          await new Promise((resolve) => setTimeout(resolve, INTER_MESSAGE_DELAY_MS));
+        }
       } else {
         const errMsg = sendResult.body?.description || sendResult.body?.message || `HTTP ${sendResult.httpStatus}`;
         const shouldRetry = sendResult.retryable && nextAttemptCount < MAX_ATTEMPTS;
