@@ -4,7 +4,7 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.NOTIFICATION_MAX_ATTEMPTS || 3));
-const STALE_LOCK_MINUTES = Math.max(1, Number(process.env.NOTIFICATION_STALE_LOCK_MINUTES || 10));
+const STALE_LOCK_MINUTES = Math.max(1, Number(process.env.NOTIFICATION_STALE_LOCK_MINUTES || 2));
 
 function json(statusCode, body) {
   return {

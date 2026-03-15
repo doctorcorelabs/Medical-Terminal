@@ -10,8 +10,8 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 const REMINDER_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_MINUTES || 10));
-const LOOKAHEAD_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_LOOKAHEAD_MINUTES || 5));
-const GRACE_MINUTES = Math.max(0, Number(process.env.SCHEDULE_REMINDER_GRACE_MINUTES || 2));
+const LOOKAHEAD_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_LOOKAHEAD_MINUTES || 60));
+const GRACE_MINUTES = Math.max(0, Number(process.env.SCHEDULE_REMINDER_GRACE_MINUTES || 15));
 
 function json(statusCode, body) {
   return {
@@ -131,6 +131,8 @@ export const handler = async (event) => {
 
         if (reminderAt < windowStart || reminderAt > windowEnd) continue;
 
+        const effectiveNextAttempt = reminderAt > now ? reminderAt.toISOString() : now.toISOString();
+
         rows.push({
           source_type: 'schedule',
           source_id: String(eventItem.id || `${channel.user_id}-${eventDate}-${eventTime}`),
@@ -147,7 +149,7 @@ export const handler = async (event) => {
             timezone: WIB_TIMEZONE,
           },
           status: 'pending',
-          next_attempt_at: new Date().toISOString(),
+          next_attempt_at: effectiveNextAttempt,
         });
       }
     }
@@ -187,6 +189,24 @@ export const handler = async (event) => {
       });
     }
 
+    // Clear terminal-state rows that would block re-enqueue via ignoreDuplicates.
+    // E.g. skipped_quiet_hours / skipped_opt_out rows keep the same idempotency_key
+    // and prevent a fresh 'pending' row from being inserted.
+    const enqueueKeys = rows.map((r) => r.idempotency_key);
+    const keyChunkSize = 500;
+    let clearedTerminal = 0;
+    for (let i = 0; i < enqueueKeys.length; i += keyChunkSize) {
+      const keyChunk = enqueueKeys.slice(i, i + keyChunkSize);
+      const { data: deleted, error: delErr } = await supabase
+        .from('notification_dispatch_queue')
+        .delete()
+        .in('idempotency_key', keyChunk)
+        .in('status', ['skipped_quiet_hours', 'skipped_opt_out', 'dead'])
+        .select('id');
+      if (delErr) throw delErr;
+      clearedTerminal += (deleted || []).length;
+    }
+
     let inserted = 0;
     const chunkSize = 500;
     for (let i = 0; i < rows.length; i += chunkSize) {
@@ -204,6 +224,7 @@ export const handler = async (event) => {
       usersScanned: channels.length,
       candidateRows: rows.length,
       enqueued: inserted,
+      clearedTerminal,
       reminderMinutes: REMINDER_MINUTES,
       staleRemoved,
       timezone: WIB_TIMEZONE,

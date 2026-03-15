@@ -46,9 +46,27 @@ export const handler = async (event) => {
   }
 
   try {
-    const enqueueSchedulesRes = await enqueueSchedulesHandler({ httpMethod: 'GET', internalCall: true });
-    const enqueueAlertsRes = await enqueueAlertsHandler({ httpMethod: 'GET', internalCall: true });
-    const sendRes = await sendTelegramHandler({ httpMethod: 'GET', internalCall: true });
+    let enqueueSchedulesRes = { statusCode: 500, body: '{"ok":false,"error":"not executed"}' };
+    let enqueueAlertsRes = { statusCode: 500, body: '{"ok":false,"error":"not executed"}' };
+    let sendRes = { statusCode: 500, body: '{"ok":false,"error":"not executed"}' };
+
+    try {
+      enqueueSchedulesRes = await enqueueSchedulesHandler({ httpMethod: 'GET', internalCall: true });
+    } catch (e) {
+      enqueueSchedulesRes = { statusCode: 500, body: JSON.stringify({ ok: false, error: e.message }) };
+    }
+
+    try {
+      enqueueAlertsRes = await enqueueAlertsHandler({ httpMethod: 'GET', internalCall: true });
+    } catch (e) {
+      enqueueAlertsRes = { statusCode: 500, body: JSON.stringify({ ok: false, error: e.message }) };
+    }
+
+    try {
+      sendRes = await sendTelegramHandler({ httpMethod: 'GET', internalCall: true });
+    } catch (e) {
+      sendRes = { statusCode: 500, body: JSON.stringify({ ok: false, error: e.message }) };
+    }
 
     const schedulesBody = parseBody(enqueueSchedulesRes);
     const alertsBody = parseBody(enqueueAlertsRes);
@@ -61,7 +79,7 @@ export const handler = async (event) => {
       && alertsBody.ok !== false
       && sendBody.ok !== false;
 
-    return json(ok ? 200 : 500, {
+    return json(ok ? 200 : 207, {
       ok,
       summary: {
         schedules: schedulesBody,

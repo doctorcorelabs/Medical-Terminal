@@ -76,18 +76,19 @@ const CopilotChat = () => {
         const currentAttachments = [...attachments];
         
         setInput('');
+        // Revoke preview URLs for current attachments to avoid memory leaks
+        currentAttachments.forEach(att => {
+            if (att.preview) {
+                URL.revokeObjectURL(att.preview);
+            }
+        });
         setAttachments([]);
         setIsLoading(true);
 
         try {
-            // Prepare content for AI
-            // If there are images, we might need to send them as base64 or similar depending on the worker capability
-            // For now, we'll send text and mention files. 
-            // Better: Convert images to base64 if we want true vision support via worker.
-            
+            // Prepare content for AI (text-only for GitHub Copilot gateway)
             let messageContent = currentInput;
-            
-            // Basic implementation: Mention files in the prompt if not handled by worker vision
+
             if (currentAttachments.length > 0) {
                 const fileNames = currentAttachments.map(a => a.name).join(', ');
                 messageContent += `\n\n[Attachments: ${fileNames}]`;

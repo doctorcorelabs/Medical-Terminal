@@ -28,6 +28,9 @@ build_output.txt
 build_error.txt
 test-reports/
 
+# Local documentation / analysis
+bug solved/
+
 
 # Local Netlify folder
 .netlify

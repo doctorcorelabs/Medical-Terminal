@@ -48,11 +48,11 @@ Additional environment variables for Telegram notification queue:
 - `TELEGRAM_SEND_TIMEOUT_MS` (default: `7000`)
 - `NOTIFICATION_MAX_ATTEMPTS` (default: `3`)
 - `NOTIFICATION_BACKOFF_BASE_MS` (default: `5000`)
-- `NOTIFICATION_STALE_LOCK_MINUTES` (default: `10`)
+- `NOTIFICATION_STALE_LOCK_MINUTES` (default: `2`)
 - `NOTIFICATION_ALERT_LOOKBACK_MINUTES` (default: `10`)
-- `SCHEDULE_REMINDER_MINUTES` (default: `30`)
-- `SCHEDULE_REMINDER_LOOKAHEAD_MINUTES` (default: `2`)
-- `SCHEDULE_REMINDER_GRACE_MINUTES` (default: `1`)
+- `SCHEDULE_REMINDER_MINUTES` (default: `10`)
+- `SCHEDULE_REMINDER_LOOKAHEAD_MINUTES` (default: `60`)
+- `SCHEDULE_REMINDER_GRACE_MINUTES` (default: `15`)
 
 Database setup:
 

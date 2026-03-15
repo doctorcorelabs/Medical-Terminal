@@ -9,7 +9,7 @@ const BATCH_SIZE = Math.max(1, Number(process.env.TELEGRAM_MAX_BATCH_SIZE || 100
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.NOTIFICATION_MAX_ATTEMPTS || 3));
 const REQUEST_TIMEOUT_MS = Math.max(1000, Number(process.env.TELEGRAM_SEND_TIMEOUT_MS || 7000));
 const BASE_BACKOFF_MS = Math.max(500, Number(process.env.NOTIFICATION_BACKOFF_BASE_MS || 5000));
-const STALE_LOCK_MINUTES = Math.max(1, Number(process.env.NOTIFICATION_STALE_LOCK_MINUTES || 10));
+const STALE_LOCK_MINUTES = Math.max(1, Number(process.env.NOTIFICATION_STALE_LOCK_MINUTES || 2));
 
 function json(statusCode, body) {
   return {
