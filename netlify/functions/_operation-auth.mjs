@@ -54,11 +54,22 @@ async function isAdminBearer(event, supabase) {
   return profile?.role === 'admin';
 }
 
+async function isAuthenticatedBearer(event, supabase) {
+  if (!supabase) return false;
+  const token = getBearerToken(event);
+  if (!token) return false;
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  if (userErr || !userData?.user?.id) return false;
+  return true;
+}
+
 export async function requireOperationalAccess(event, options = {}) {
   const {
     allowInternal = true,
     allowSchedule = true,
     allowAdminBearer = false,
+    allowUserBearer = false,
     supabase = null,
   } = options;
 
@@ -76,6 +87,10 @@ export async function requireOperationalAccess(event, options = {}) {
 
   if (allowAdminBearer && await isAdminBearer(event, supabase)) {
     return { ok: true, mode: 'admin-bearer' };
+  }
+
+  if (allowUserBearer && await isAuthenticatedBearer(event, supabase)) {
+    return { ok: true, mode: 'user-bearer' };
   }
 
   return {

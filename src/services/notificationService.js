@@ -12,12 +12,19 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
   if (!force && now - lastCycleTriggerAt < NOTIFICATION_CYCLE_COOLDOWN_MS) return;
   if (!navigator.onLine) return;
 
-  lastCycleTriggerAt = now;
-
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) return;
+
+    lastCycleTriggerAt = now;
+
     await fetch('/.netlify/functions/notification-cycle', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({ reason, triggeredAt: new Date().toISOString() }),
     });
   } catch {

@@ -1,7 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
 import { handler as enqueueAlertsHandler } from './enqueue-alert-notifications.mjs';
 import { handler as enqueueSchedulesHandler } from './enqueue-schedule-reminders.mjs';
 import { handler as sendTelegramHandler } from './send-telegram-notifications.mjs';
 import { requireOperationalAccess } from './_operation-auth.mjs';
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 function json(statusCode, body) {
   return {
@@ -9,7 +13,7 @@ function json(statusCode, body) {
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type, x-internal-key',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-internal-key',
     },
     body: JSON.stringify(body),
   };
@@ -26,10 +30,16 @@ function parseBody(res) {
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return json(200, { ok: true });
 
+  const supabase = (supabaseUrl && serviceRoleKey)
+    ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    : null;
+
   const access = await requireOperationalAccess(event, {
     allowInternal: true,
     allowSchedule: true,
     allowAdminBearer: false,
+    allowUserBearer: true,
+    supabase,
   });
   if (!access.ok) {
     return json(access.statusCode || 401, { ok: false, error: access.error || 'Unauthorized' });
