@@ -98,8 +98,7 @@ export default {
             const body = await request.json();
             
             // Map common models if necessary, or pass through
-            // Copilot usually accepts 'gpt-4o', 'gpt-4', 'gpt-3.5-turbo'
-            const model = body.model || 'gpt-4o';
+            const model = body.model || 'gpt-5-mini';
 
             const copilotResponse = await fetch(COPILOT_CHAT_URL, {
                 method: 'POST',

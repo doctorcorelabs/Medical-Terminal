@@ -11,7 +11,7 @@ const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
 const CopilotChat = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'ai', content: 'Halo! Saya asisten klinis MedxTerminal. Ada yang bisa saya bantu hari ini?' }
+        { role: 'ai', content: 'Halo! Saya asisten MedxTerminal. Ada yang bisa saya bantu hari ini?' }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +74,7 @@ const CopilotChat = () => {
                         role: m.role === 'ai' ? 'assistant' : 'user',
                         content: m.content
                     })),
-                    model: 'gpt-4o', // Preferred model for Copilot
+                    model: 'gpt-5-mini',
                 }),
             });
 
