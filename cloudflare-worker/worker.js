@@ -6,23 +6,45 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-internal-key',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-requested-with, x-internal-key',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+    'Access-Control-Expose-Headers': 'Content-Type',
 };
+
+function withCors(response) {
+    const headers = new Headers(response.headers || {});
+    for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
+}
 
 
 export default {
     async fetch(request, env) {
         // Handle CORS preflight
         if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: corsHeaders });
+            return withCors(new Response(null, { status: 204 }));
+        }
+
+        const url = new URL(request.url);
+
+        // Health check only for GET requests
+        if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/health')) {
+            return withCors(new Response(JSON.stringify({ status: 'ok', message: 'Medical Terminal AI Gateway is running' }), {
+                headers: { 'Content-Type': 'application/json' },
+            }));
         }
 
         if (request.method !== 'POST') {
-            return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+            return withCors(new Response(JSON.stringify({ error: 'Method not allowed' }), {
                 status: 405,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+                headers: { 'Content-Type': 'application/json' },
+            }));
         }
 
         // Security Check
@@ -31,22 +53,22 @@ export default {
         const expectedKey = env.INTERNAL_OPS_KEY || env.OPS_INTERNAL_KEY;
 
         if (!expectedKey) {
-            return new Response(JSON.stringify({ error: 'Worker configuration error: Missing internal key secret' }), {
+            return withCors(new Response(JSON.stringify({ error: 'Worker configuration error: Missing internal key secret' }), {
                 status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+                headers: { 'Content-Type': 'application/json' },
+            }));
         }
 
         const isAuthorized = (authHeader === `Bearer ${expectedKey}`) || (internalKey === expectedKey);
 
         if (!isAuthorized) {
-            return new Response(JSON.stringify({ 
+            return withCors(new Response(JSON.stringify({ 
                 error: 'Missing Bearer token or internal key',
                 request_id: `mt-${Date.now()}-${Math.random().toString(36).substring(7)}`
             }), {
                 status: 401,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+                headers: { 'Content-Type': 'application/json' },
+            }));
         }
 
 
@@ -72,18 +94,15 @@ export default {
 
             const data = await response.json();
 
-            return new Response(JSON.stringify(data), {
+            return withCors(new Response(JSON.stringify(data), {
                 status: response.status,
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/json',
-                },
-            });
+                headers: { 'Content-Type': 'application/json' },
+            }));
         } catch (error) {
-            return new Response(JSON.stringify({ error: error.message }), {
+            return withCors(new Response(JSON.stringify({ error: error.message }), {
                 status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
+                headers: { 'Content-Type': 'application/json' },
+            }));
         }
     },
 };

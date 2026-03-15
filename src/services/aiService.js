@@ -2,9 +2,82 @@
 const AI_WORKER_URL = import.meta.env.VITE_AI_WORKER_URL;
 const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
 
+function validateWorkerUrl() {
+    if (!AI_WORKER_URL || AI_WORKER_URL === 'undefined') {
+        throw new Error('VITE_AI_WORKER_URL tidak dikonfigurasi. Pastikan environment variable terpasang pada build/deploy.');
+    }
+    try {
+        const u = new URL(AI_WORKER_URL);
+        if (u.origin === window.location.origin) {
+            throw new Error('VITE_AI_WORKER_URL mengarah ke origin aplikasi — gunakan URL Cloudflare Workers lengkap.');
+        }
+    } catch (err) {
+        // rethrow with friendlier message
+        throw new Error(`VITE_AI_WORKER_URL tidak valid: ${err.message}`);
+    }
+}
+
+function extractTextContent(content) {
+    if (!content) return '';
+    if (typeof content === 'string') return content.trim();
+
+    if (Array.isArray(content)) {
+        return content
+            .map(item => {
+                if (typeof item === 'string') return item;
+                if (item?.type === 'text' && typeof item?.text === 'string') return item.text;
+                if (typeof item?.text === 'string') return item.text;
+                return '';
+            })
+            .filter(Boolean)
+            .join('\n')
+            .trim();
+    }
+
+    if (typeof content === 'object') {
+        if (typeof content.text === 'string') return content.text.trim();
+        if (Array.isArray(content.parts)) {
+            return content.parts
+                .map(part => (typeof part?.text === 'string' ? part.text : ''))
+                .filter(Boolean)
+                .join('\n')
+                .trim();
+        }
+    }
+
+    return '';
+}
+
+function extractAIMessage(data) {
+    if (!data || typeof data !== 'object') return '';
+
+    const choice = data.choices?.[0];
+    const messageContent = extractTextContent(choice?.message?.content);
+    if (messageContent) return messageContent;
+
+    const choiceText = extractTextContent(choice?.text);
+    if (choiceText) return choiceText;
+
+    const topLevelContent = extractTextContent(data.content);
+    if (topLevelContent) return topLevelContent;
+
+    const outputText = extractTextContent(data.output_text);
+    if (outputText) return outputText;
+
+    const candidateText = data.candidates?.[0]?.content?.parts
+        ?.map(part => (typeof part?.text === 'string' ? part.text : ''))
+        ?.filter(Boolean)
+        ?.join('\n')
+        ?.trim();
+    if (candidateText) return candidateText;
+
+    return '';
+}
+
 
 async function callAI(messages, options = {}) {
-    // If not using worker, you could fallback, but for security we enforce worker:
+    // Validate worker URL early to avoid accidental local POSTs
+    validateWorkerUrl();
     const url = AI_WORKER_URL;
     const headers = {
         'Content-Type': 'application/json',
@@ -29,6 +102,14 @@ async function callAI(messages, options = {}) {
     };
 
     try {
+        if (!url || url === 'undefined') {
+            throw new Error('VITE_AI_WORKER_URL belum dikonfigurasi.');
+        }
+
+        if (!AI_INTERNAL_KEY || AI_INTERNAL_KEY === 'undefined') {
+            throw new Error('VITE_OPS_INTERNAL_KEY belum dikonfigurasi.');
+        }
+
         const response = await fetch(url, {
             method: 'POST',
             headers,
@@ -41,7 +122,22 @@ async function callAI(messages, options = {}) {
         }
 
         const data = await response.json();
-        return data.choices?.[0]?.message?.content || 'Tidak ada respons dari AI.';
+        if (data?.status === 'ok' && typeof data?.message === 'string' && /gateway is running/i.test(data.message)) {
+            throw new Error('AI gateway mengembalikan endpoint health, bukan hasil chat completion. Periksa routing worker (POST / harus diproksikan ke OpenRouter).');
+        }
+
+        if (data?.error) {
+            const errMessage = typeof data.error === 'string' ? data.error : data.error?.message;
+            if (errMessage) {
+                throw new Error(`AI Gateway: ${errMessage}`);
+            }
+        }
+
+        const parsedText = extractAIMessage(data);
+        if (parsedText) return parsedText;
+
+        console.warn('AI response format not recognized:', data);
+        return 'Respons AI kosong atau format respons belum dikenali.';
     } catch (error) {
         console.error('AI Service Error:', error);
         throw error;

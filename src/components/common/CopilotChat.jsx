@@ -31,6 +31,30 @@ const CopilotChat = () => {
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
 
+        // Check if configuration is present and looks valid
+        if (!COPILOT_WORKER_URL || COPILOT_WORKER_URL === 'undefined') {
+            const configError = 'Konfigurasi VITE_COPILOT_WORKER_URL tidak ditemukan. Harap tambahkan di Environment Variables (Netlify/Vercel).';
+            setMessages(prev => [...prev, { role: 'ai', content: `Error: ${configError}` }]);
+            console.error(configError);
+            return;
+        }
+
+        // Prevent accidental requests to the same app origin (avoid POSTing to /patient/undefined)
+        try {
+            const workerUrlObj = new URL(COPILOT_WORKER_URL);
+            if (workerUrlObj.origin === window.location.origin) {
+                const originError = 'Konfigurasi VITE_COPILOT_WORKER_URL invalid: worker URL mengarah ke origin aplikasi. Gunakan URL workers.dev atau lengkap.';
+                setMessages(prev => [...prev, { role: 'ai', content: `Error: ${originError}` }]);
+                console.error(originError, COPILOT_WORKER_URL);
+                return;
+            }
+        } catch (e) {
+            const parseError = 'Konfigurasi VITE_COPILOT_WORKER_URL tidak valid.';
+            setMessages(prev => [...prev, { role: 'ai', content: `Error: ${parseError}` }]);
+            console.error(parseError, e);
+            return;
+        }
+
         const userMessage = { role: 'user', content: input };
         setMessages(prev => [...prev, userMessage]);
         setInput('');
@@ -50,12 +74,13 @@ const CopilotChat = () => {
                         role: m.role === 'ai' ? 'assistant' : 'user',
                         content: m.content
                     })),
-                    model: 'gpt-5-mini',
+                    model: 'gpt-4o', // Preferred model for Copilot
                 }),
             });
 
             if (!response.ok) {
-                throw new Error('Gagal menghubungi Copilot Gateway');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}: Gagal menghubungi Copilot Gateway`);
             }
 
             const data = await response.json();
@@ -64,7 +89,7 @@ const CopilotChat = () => {
             setMessages(prev => [...prev, { role: 'ai', content: aiContent }]);
         } catch (error) {
             console.error('Copilot Error:', error);
-            setMessages(prev => [...prev, { role: 'ai', content: `Error: ${error.message}. Pastikan Cloudflare Worker Anda sudah berjalan.` }]);
+            setMessages(prev => [...prev, { role: 'ai', content: `**Error:** ${error.message}\n\n*Pastikan Cloudflare Worker Anda sudah berjalan dan Environment Variables sudah benar.*` }]);
         } finally {
             setIsLoading(false);
         }

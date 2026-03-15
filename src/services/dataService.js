@@ -1323,14 +1323,20 @@ export function parseAIDiagnoses(text) {
         // Bersihkan markdown bold/italic
         const cleanLine = line.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_/g, '').trim();
 
-        // Regex fleksibel: nomor. [nama termasuk (CAP) dsb] - Probabilitas: Tinggi/Sedang/Rendah
+        // Terima berbagai format umum:
+        // 1. Dx - Probabilitas: Tinggi
+        // 1) Dx (Tinggi)
+        // - Dx - kemungkinan sedang
+        // Dx: ... | Probabilitas tinggi
         const match = cleanLine.match(
-            /^\d+\.\s+(.+?)\s*-\s*Probabilitas\s*:\s*(Tinggi|Sedang|Rendah)/i
+            /^(?:[-*]\s*)?(?:\d+[.)]\s*)?(.+?)(?:\s*-\s*Probabilitas\s*:?\s*(Tinggi|Sedang|Rendah)|\s*\((Tinggi|Sedang|Rendah)\)|\s*-\s*(?:kemungkinan\s*)?(Tinggi|Sedang|Rendah))\b/i
         );
 
         if (match) {
             const rawName = match[1].trim();
-            const probText = match[2].toLowerCase();
+            const probText = (match[2] || match[3] || match[4] || '').toLowerCase();
+
+            if (!rawName || !probText) continue;
 
             let probValue;
             if (probText === 'tinggi') probValue = 85 + Math.floor(Math.random() * 10);
