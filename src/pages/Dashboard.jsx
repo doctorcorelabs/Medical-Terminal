@@ -25,6 +25,34 @@ import { useEffect, useMemo, useState } from 'react';
 import { ALL_TOOLS } from '../data/toolsCatalog';
 import { useFeatureFlags } from '../context/FeatureFlagContext';
 
+function timeToMinutes(t) {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function isEventPassed(ev) {
+    const today = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    
+    if (ev.date < today) return true;
+    if (ev.date > today) return false;
+
+    // Today cases
+    if (ev.isAllDay) return false;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const endMinutes = timeToMinutes(ev.endTime || ev.startTime);
+
+    if (endMinutes !== null && currentMinutes > endMinutes) {
+        return true;
+    }
+    return false;
+}
+
 export default function Dashboard() {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -41,7 +69,7 @@ export default function Dashboard() {
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     })();
     const todaySchedules = schedules
-        .filter(ev => ev.date === todayStr)
+        .filter(ev => ev.date === todayStr && !isEventPassed(ev))
         .sort((a, b) => {
             if (a.isAllDay && !b.isAllDay) return -1;
             if (!a.isAllDay && b.isAllDay) return 1;

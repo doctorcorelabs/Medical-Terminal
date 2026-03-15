@@ -9,9 +9,9 @@ import {
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-const REMINDER_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_MINUTES || 30));
-const LOOKAHEAD_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_LOOKAHEAD_MINUTES || 2));
-const GRACE_MINUTES = Math.max(0, Number(process.env.SCHEDULE_REMINDER_GRACE_MINUTES || 1));
+const REMINDER_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_MINUTES || 10));
+const LOOKAHEAD_MINUTES = Math.max(1, Number(process.env.SCHEDULE_REMINDER_LOOKAHEAD_MINUTES || 5));
+const GRACE_MINUTES = Math.max(0, Number(process.env.SCHEDULE_REMINDER_GRACE_MINUTES || 2));
 
 function json(statusCode, body) {
   return {

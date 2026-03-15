@@ -42,6 +42,7 @@ const VIEWS = [
     { id: 'mingguan',  label: 'Mingguan',  icon: 'view_week'      },
     { id: 'bulanan',   label: 'Bulanan',   icon: 'calendar_month' },
     { id: 'mendatang', label: 'Mendatang', icon: 'upcoming'       },
+    { id: 'selesai',   label: 'Selesai',   icon: 'task_alt'       },
 ];
 
 // ─────────────────────────────────────────────
@@ -56,6 +57,25 @@ function timeToMinutes(t) {
     if (!t) return null;
     const [h, m] = t.split(':').map(Number);
     return h * 60 + m;
+}
+
+function isEventPassed(ev) {
+    const now = new Date();
+    const today = todayStr();
+    if (ev.date < today) return true;
+    if (ev.date > today) return false;
+
+    // Today cases
+    if (ev.isAllDay) return false; // All-day events pass when the day is over (handled by ev.date < today)
+
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Use endTime if exists, else use startTime
+    const endMinutes = timeToMinutes(ev.endTime || ev.startTime);
+
+    if (endMinutes !== null && currentMinutes > endMinutes) {
+        return true;
+    }
+    return false;
 }
 
 function getMonthCalendarDays(year, month) {
@@ -649,7 +669,7 @@ function UpcomingView({ schedules, onEventClick, patients }) {
         const tomorrowStr    = toDateStr(new Date(base.getTime() + 86400000));
 
         const upcoming = schedules
-            .filter(ev => ev.date >= today)
+            .filter(ev => ev.date >= today && !isEventPassed(ev))
             .sort((a, b) => {
                 if (a.date !== b.date) return a.date.localeCompare(b.date);
                 if (a.isAllDay && !b.isAllDay) return -1;
@@ -710,6 +730,71 @@ function UpcomingView({ schedules, onEventClick, patients }) {
                     </div>
                 );
             })}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// CompletedView
+// ─────────────────────────────────────────────
+function CompletedView({ schedules, onEventClick, patients }) {
+    const completed = useMemo(() => {
+        return schedules
+            .filter(ev => isEventPassed(ev))
+            .sort((a, b) => {
+                // Latest first
+                if (a.date !== b.date) return b.date.localeCompare(a.date);
+                const aTime = timeToMinutes(a.endTime || a.startTime) || 0;
+                const bTime = timeToMinutes(b.endTime || b.startTime) || 0;
+                return bTime - aTime;
+            });
+    }, [schedules]);
+
+    if (completed.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">check_circle</span>
+                </div>
+                <h3 className="font-semibold text-slate-700 dark:text-slate-300 mb-1">Belum ada jadwal selesai</h3>
+                <p className="text-sm text-slate-400 max-w-xs">Jadwal yang telah dilewati waktunya akan muncul di sini.</p>
+            </div>
+        );
+    }
+
+    // Group by date for cleaner look
+    const groupedByDate = useMemo(() => {
+        const groups = {};
+        completed.forEach(ev => {
+            if (!groups[ev.date]) groups[ev.date] = [];
+            groups[ev.date].push(ev);
+        });
+        return groups;
+    }, [completed]);
+
+    return (
+        <div className="space-y-7">
+            <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 rounded-xl p-3 flex items-start gap-3 mb-2">
+                <span className="material-symbols-outlined text-amber-500 text-[20px] shrink-0">info</span>
+                <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                    Bagian ini menampilkan riwayat jadwal yang telah selesai berdasarkan waktu berakhir atau waktu mulai yang telah dilewati.
+                </p>
+            </div>
+
+            {Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a)).map(date => (
+                <div key={date}>
+                    <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">{formatDisplayDate(date)}</h3>
+                        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                        <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full shrink-0">{groupedByDate[date].length}</span>
+                    </div>
+                    <div className="space-y-2 opacity-75 grayscale-[0.3]">
+                        {groupedByDate[date].map(ev => (
+                            <EventCard key={ev.id} event={ev} onEdit={onEventClick} patients={patients} />
+                        ))}
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
@@ -1250,7 +1335,8 @@ export default function Schedule() {
         return {
             today:    schedules.filter(ev => ev.date === today).length,
             week:     schedules.filter(ev => ev.date >= wStart && ev.date <= wEnd).length,
-            upcoming: schedules.filter(ev => ev.date >= today).length,
+            upcoming: schedules.filter(ev => ev.date >= today && !isEventPassed(ev)).length,
+            completed: schedules.filter(ev => isEventPassed(ev)).length,
         };
     }, [schedules]);
 
@@ -1436,8 +1522,8 @@ export default function Schedule() {
             <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
                     { label: 'Hari Ini',   value: stats.today,    icon: 'today',          color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20'   },
-                    { label: 'Minggu Ini', value: stats.week,     icon: 'view_week',      color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
                     { label: 'Mendatang',  value: stats.upcoming, icon: 'upcoming',       color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20'  },
+                    { label: 'Selesai',    value: stats.completed, icon: 'task_alt',      color: 'text-slate-500',  bg: 'bg-slate-50 dark:bg-slate-900/20' },
                 ].map(s => (
                     <div key={s.label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 md:p-4 shadow-sm">
                         <div className="flex items-center gap-2 md:gap-3">
@@ -1486,7 +1572,7 @@ export default function Schedule() {
                             <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400">
                                 <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                             </button>
-                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-3 min-w-42.5 text-center select-none">{navLabel}</span>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-3 min-w-48 text-center select-none">{navLabel}</span>
                             <button onClick={() => navigate(1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400">
                                 <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                             </button>
@@ -1522,6 +1608,13 @@ export default function Schedule() {
             )}
             {view === 'mendatang' && (
                 <UpcomingView
+                    schedules={schedules}
+                    onEventClick={openEdit}
+                    patients={patients}
+                />
+            )}
+            {view === 'selesai' && (
+                <CompletedView
                     schedules={schedules}
                     onEventClick={openEdit}
                     patients={patients}
