@@ -82,6 +82,8 @@ export async function deleteAllPatientsData(userId) {
     // 2. Delete the row from Supabase (if logged in)
     if (userId) {
         try {
+            // Clear pending offline syncs so they don't overwrite the deletion later
+            await clearQueueByType(userId, 'patients').catch(() => {});
             const { error } = await supabase.from('user_patients').delete().eq('user_id', userId);
             if (error) throw error;
         } catch (err) {
@@ -683,10 +685,21 @@ export async function fetchSchedulesFromSupabase(userId) {
         const serverSchedules = Array.isArray(data?.schedules_data)
             ? purgeExpiredSchedules(data.schedules_data)
             : [];
+            
+        // If server is empty and local is not empty, but we have no pending syncs,
+        // it means other devices might have cleared the data.
+        // But the common case here is merging additive schedules.
         const mergedSchedules = mergeSchedules(localSchedules, serverSchedules);
 
         saveSchedules(mergedSchedules);
+        
+        // If server was null (deleted), but we have local data, we should sync it up
+        // unless we just did a reset (handled by pendingSync check above).
         if (
+            !data && localSchedules.length > 0
+        ) {
+            syncSchedulesToSupabase(userId).catch(() => {});
+        } else if (
             (Array.isArray(data?.schedules_data) && serverSchedules.length !== data.schedules_data.length)
             || schedulesDiffer(serverSchedules, mergedSchedules)
         ) {
@@ -761,7 +774,19 @@ export async function deleteAllSchedulesData(userId) {
         pendingSync.clearSchedules();
         return;
     }
-    await syncSchedulesToSupabase(userId);
+    try {
+        // 1. Clear IndexedDB queue to stop pending syncs from overwriting the reset
+        await clearQueueByType(userId, 'schedules').catch(() => {});
+        pendingSync.clearSchedules();
+        
+        // 2. Perform the remote wipe using delete() to ensure row is gone
+        const { error } = await supabase.from('user_schedules').delete().eq('user_id', userId);
+        if (error) throw error;
+    } catch (err) {
+        console.error('Failed to delete schedules from Supabase:', err);
+        // Fallback: try upserting empty array if delete fails
+        await syncSchedulesToSupabase(userId).catch(() => {});
+    }
 }
 // -------------------------------------------------------
 
