@@ -1,4 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import {
+  WIB_TIMEZONE,
+  localDateTimeToUtcWib,
+  buildScheduleIdempotencyKey,
+  computeStaleScheduleQueueIds,
+} from './_schedule-reminder-utils.mjs';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
@@ -26,40 +32,10 @@ function escapeHtml(value = '') {
     .replaceAll('>', '&gt;');
 }
 
-function parseTime(time) {
-  const [h, m] = String(time || '').split(':').map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  return { h, m };
-}
-
-function getOffsetMinutes(timeZone, atDate = new Date()) {
-  const text = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    timeZoneName: 'shortOffset',
-    hour: '2-digit',
-  }).formatToParts(atDate).find((part) => part.type === 'timeZoneName')?.value || 'GMT+0';
-
-  const match = text.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
-  if (!match) return 0;
-  const sign = match[1] === '-' ? -1 : 1;
-  const hours = Number(match[2] || 0);
-  const minutes = Number(match[3] || 0);
-  return sign * (hours * 60 + minutes);
-}
-
-function localDateTimeToUtc(dateStr, timeStr, timeZone) {
-  const [year, month, day] = String(dateStr).split('-').map(Number);
-  const time = parseTime(timeStr);
-  if (!year || !month || !day || !time) return null;
-  const offset = getOffsetMinutes(timeZone, new Date());
-  const localAsUtcMillis = Date.UTC(year, month - 1, day, time.h, time.m, 0, 0);
-  return new Date(localAsUtcMillis - offset * 60 * 1000);
-}
-
-function formatEventDate(dateStr, timeZone) {
+function formatEventDate(dateStr) {
   const date = new Date(`${dateStr}T00:00:00Z`);
   return date.toLocaleDateString('id-ID', {
-    timeZone,
+    timeZone: WIB_TIMEZONE,
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -67,7 +43,7 @@ function formatEventDate(dateStr, timeZone) {
   });
 }
 
-function buildScheduleMessage(event, reminderMinutes, timeZone) {
+function buildScheduleMessage(event, reminderMinutes) {
   const timeLine = event.isAllDay
     ? 'Seharian'
     : event.startTime
@@ -77,8 +53,9 @@ function buildScheduleMessage(event, reminderMinutes, timeZone) {
   return [
     '⏰ <b>Reminder Jadwal</b>',
     `<b>${escapeHtml(event.title || 'Kegiatan')}</b>`,
-    `<i>${escapeHtml(formatEventDate(event.date, timeZone))}</i>`,
+    `<i>${escapeHtml(formatEventDate(event.date))}</i>`,
     `<i>Jam:</i> ${escapeHtml(timeLine)}`,
+    '<i>Zona waktu:</i> WIB (GMT+7)',
     `<i>Reminder:</i> ${reminderMinutes} menit sebelum jadwal`,
   ].join('\n');
 }
@@ -125,9 +102,9 @@ export const handler = async (event) => {
     const scheduleMap = new Map((schedulesRows || []).map((row) => [row.user_id, Array.isArray(row.schedules_data) ? row.schedules_data : []]));
 
     const rows = [];
+    const activeIdempotencyKeys = new Set();
     for (const channel of channels) {
       const events = scheduleMap.get(channel.user_id) || [];
-      const tz = channel.timezone || 'Asia/Jakarta';
       for (const eventItem of events) {
         const eventDate = String(eventItem?.date || '');
         if (!eventDate) continue;
@@ -135,25 +112,35 @@ export const handler = async (event) => {
         const eventTime = eventItem?.isAllDay ? '09:00' : (eventItem?.startTime || null);
         if (!eventTime) continue;
 
-        const eventUtc = localDateTimeToUtc(eventDate, eventTime, tz);
+        const eventUtc = localDateTimeToUtcWib(eventDate, eventTime);
         if (!eventUtc) continue;
 
         const reminderAt = new Date(eventUtc.getTime() - REMINDER_MINUTES * 60 * 1000);
         if (reminderAt < windowStart || reminderAt > windowEnd) continue;
+
+        const idempotencyKey = buildScheduleIdempotencyKey(
+          channel.user_id,
+          eventItem.id,
+          eventDate,
+          eventTime,
+          REMINDER_MINUTES,
+        );
+        activeIdempotencyKeys.add(idempotencyKey);
 
         rows.push({
           source_type: 'schedule',
           source_id: String(eventItem.id || `${channel.user_id}-${eventDate}-${eventTime}`),
           user_id: channel.user_id,
           channel: 'telegram',
-          idempotency_key: `schedule:${channel.user_id}:${eventItem.id || 'na'}:${eventDate}:${eventTime}:${REMINDER_MINUTES}`,
+          idempotency_key: idempotencyKey,
           payload: {
-            text: buildScheduleMessage(eventItem, REMINDER_MINUTES, tz),
+            text: buildScheduleMessage(eventItem, REMINDER_MINUTES),
             parse_mode: 'HTML',
             telegram_chat_id: channel.telegram_chat_id,
             event_date: eventDate,
             event_time: eventTime,
             reminder_at: reminderAt.toISOString(),
+            timezone: WIB_TIMEZONE,
           },
           status: 'pending',
           next_attempt_at: new Date().toISOString(),
@@ -161,8 +148,39 @@ export const handler = async (event) => {
       }
     }
 
+    let staleRemoved = 0;
+    if (userIds.length > 0) {
+      const { data: existingRows, error: existingError } = await supabase
+        .from('notification_dispatch_queue')
+        .select('id, idempotency_key')
+        .eq('source_type', 'schedule')
+        .in('status', ['pending', 'failed'])
+        .in('user_id', userIds)
+        .like('idempotency_key', 'schedule:%')
+        .limit(10000);
+
+      if (existingError) throw existingError;
+
+      const staleIds = computeStaleScheduleQueueIds(existingRows || [], activeIdempotencyKeys);
+      if (staleIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('notification_dispatch_queue')
+          .delete()
+          .in('id', staleIds);
+        if (deleteError) throw deleteError;
+        staleRemoved = staleIds.length;
+      }
+    }
+
     if (rows.length === 0) {
-      return json(200, { ok: true, enqueued: 0, usersScanned: channels.length, candidateRows: 0 });
+      return json(200, {
+        ok: true,
+        enqueued: 0,
+        usersScanned: channels.length,
+        candidateRows: 0,
+        staleRemoved,
+        timezone: WIB_TIMEZONE,
+      });
     }
 
     let inserted = 0;
@@ -183,6 +201,8 @@ export const handler = async (event) => {
       candidateRows: rows.length,
       enqueued: inserted,
       reminderMinutes: REMINDER_MINUTES,
+      staleRemoved,
+      timezone: WIB_TIMEZONE,
     });
   } catch (err) {
     return json(500, { ok: false, error: err.message || 'Failed to enqueue schedule reminders' });
