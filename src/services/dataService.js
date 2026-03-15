@@ -54,22 +54,52 @@ function saveData(patients) {
 // ----- Supabase Sync Functions -----
 export async function syncToSupabase(userId) {
     if (!userId) return;
-    const patients = getStoredData();
-    // Enqueue BEFORE attempting sync — ensures SW retries if tab closes mid-sync
-    await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: patients } }).catch(() => {});
+    const localPatients = getStoredData();
+    // Enqueue for background task
+    await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: localPatients } }).catch(() => {});
+    
     try {
+        // 1. Fetch current server state to avoid blind overwrite (Ghost Data Resurrection)
+        const { data: serverRow } = await supabase
+            .from('user_patients')
+            .select('patients_data, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+            
+        let finalPatients = localPatients;
+
+        if (serverRow) {
+            const serverUpdatedAt = serverRow.updated_at ? Date.parse(serverRow.updated_at) : 0;
+            const serverPatients = Array.isArray(serverRow.patients_data) ? serverRow.patients_data : [];
+            
+            // Simple reconciliation: if server is newer but empty (reset), clear local.
+            // For Patients, we don't have a sophisticated mergeById yet in the foreground,
+            // but we at least check for Reset resurrection.
+            if (serverUpdatedAt > 0 && serverPatients.length === 0) {
+                // If local has haven't been touched since server reset, trust server (Reset)
+                const latestLocalTs = localPatients.reduce((max, p) => {
+                    const ts = Date.parse(p.updated_at || p.updatedAt || '1970-01-01');
+                    return ts > max ? ts : max;
+                }, 0);
+
+                if (latestLocalTs < serverUpdatedAt) {
+                    finalPatients = [];
+                }
+            }
+        }
+
         const { error } = await supabase.from('user_patients').upsert({
             user_id: userId,
-            patients_data: patients,
+            patients_data: finalPatients,
             updated_at: new Date().toISOString()
         });
+        
         if (error) throw error;
+        saveData(finalPatients); // Update local cache with reconciled data
         pendingSync.clearPatients();
-        clearQueueByType(userId, 'patients').catch(() => {}); // success: dequeue
+        clearQueueByType(userId, 'patients').catch(() => {});
     } catch (err) {
-        console.error("Failed to sync to Supabase:", err);
-        // Mark as pending so OfflineContext flushes when back online
-        // Queue item already written — SW will retry when online
+        console.error("Failed to sync Patients to Supabase:", err);
         pendingSync.markPatients();
         throw err;
     }
@@ -154,20 +184,52 @@ export function setPinnedStaseId(id) {
 // ----- Stase Supabase Sync -----
 export async function syncStasesToSupabase(userId) {
     if (!userId) return;
-    const stases = getStoredStases();
+    const localStases = getStoredStases();
     const pinnedStaseId = getPinnedStaseId();
-    // Enqueue BEFORE attempting sync
-    await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: stases, pinned_stase_id: pinnedStaseId } }).catch(() => {});
+    
+    await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: localStases, pinned_stase_id: pinnedStaseId } }).catch(() => {});
+    
     try {
+        // Fetch current server state
+        const { data: serverRow } = await supabase
+            .from('user_stases')
+            .select('stases_data, pinned_stase_id, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        let finalStases = localStases;
+        let finalPinned = pinnedStaseId;
+
+        if (serverRow) {
+            const serverUpdatedAt = serverRow.updated_at ? Date.parse(serverRow.updated_at) : 0;
+            const serverStases = Array.isArray(serverRow.stases_data) ? serverRow.stases_data : [];
+
+            if (serverUpdatedAt > 0 && serverStases.length === 0) {
+                // Check if local was updated after server reset
+                const latestLocalTs = localStases.reduce((max, s) => {
+                    const ts = Date.parse(s.updated_at || s.updatedAt || s.createdAt || '1970-01-01');
+                    return ts > max ? ts : max;
+                }, 0);
+
+                if (latestLocalTs < serverUpdatedAt) {
+                    finalStases = [];
+                    finalPinned = null;
+                }
+            }
+        }
+
         const { error } = await supabase.from('user_stases').upsert({
             user_id: userId,
-            stases_data: stases,
-            pinned_stase_id: pinnedStaseId,
+            stases_data: finalStases,
+            pinned_stase_id: finalPinned,
             updated_at: new Date().toISOString()
         });
+        
         if (error) throw error;
+        saveStases(finalStases);
+        setPinnedStaseId(finalPinned);
         pendingSync.clearStases();
-        clearQueueByType(userId, 'stases').catch(() => {}); // success: dequeue
+        clearQueueByType(userId, 'stases').catch(() => {});
     } catch (err) {
         console.error("Failed to sync stases to Supabase:", err);
         pendingSync.markStases();
@@ -653,18 +715,34 @@ export function clearSchedulesCache() {
 export async function syncSchedulesToSupabase(userId) {
     if (!userId) return;
     setScheduleStorageScope(userId);
-    const schedules = getStoredSchedules();
-    // Enqueue BEFORE attempting sync
-    await enqueue({ type: 'schedules', op: 'upsert', userId, payload: { schedules_data: schedules } }).catch(() => {});
+    const localSchedules = getStoredSchedules();
+    
+    // Enqueue for background retry
+    await enqueue({ type: 'schedules', op: 'upsert', userId, payload: { schedules_data: localSchedules } }).catch(() => {});
+    
     try {
+        // 1. Fetch current server state to avoid blind overwrite
+        const { data: serverRow } = await supabase
+            .from('user_schedules')
+            .select('schedules_data, updated_at')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        // 2. Perform reconciled merge
+        const merged = mergeSchedules(localSchedules, serverRow?.schedules_data || [], serverRow?.updated_at);
+
+        // 3. Push merged state
         const { error } = await supabase.from('user_schedules').upsert({
             user_id: userId,
-            schedules_data: schedules,
+            schedules_data: merged,
             updated_at: new Date().toISOString(),
         });
+        
         if (error) throw error;
+        
+        saveSchedules(merged); // Update local with merged result
         pendingSync.clearSchedules();
-        clearQueueByType(userId, 'schedules').catch(() => {}); // success: dequeue
+        clearQueueByType(userId, 'schedules').catch(() => {});
     } catch (err) {
         console.error('Failed to sync schedules to Supabase:', err);
         pendingSync.markSchedules();
