@@ -117,6 +117,7 @@ function EventModal({ event, prefill, onClose, onSave, onDelete, patients }) {
         const errs = {};
         if (!form.title.trim()) errs.title = 'Judul wajib diisi';
         if (!form.date)         errs.date  = 'Tanggal wajib diisi';
+        if (!form.isAllDay && !form.startTime) errs.startTime = 'Jam mulai wajib diisi untuk reminder jadwal';
         if (Object.keys(errs).length) { setErrors(errs); return; }
         onSave(form);
     }
@@ -189,9 +190,12 @@ function EventModal({ event, prefill, onClose, onSave, onDelete, patients }) {
                         {!form.isAllDay && (
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Mulai</label>
+                                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                                        Mulai <span className="text-red-500">*</span>
+                                    </label>
                                     <input type="time" value={form.startTime} onChange={e => set('startTime', e.target.value)}
-                                        className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all" />
+                                        className={`w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all ${errors.startTime ? 'border-red-400' : 'border-slate-200 dark:border-slate-700'}`} />
+                                    {errors.startTime && <p className="text-xs text-red-500 mt-1">{errors.startTime}</p>}
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">Selesai</label>
