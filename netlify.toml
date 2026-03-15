@@ -48,10 +48,25 @@
 [functions."send-telegram-test"]
   timeout = 26
 
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[redirects]]
+  from = "/assets/*"
+  status = 404
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
 
 # Scheduled trigger: runs daily at 05:00 UTC = 12:00 WIB (GMT+7)
 # Fetch RSS feeds and upsert to Supabase. fetch-news.mjs only reads from DB.
