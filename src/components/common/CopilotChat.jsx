@@ -42,9 +42,12 @@ const CopilotChat = () => {
     };
 
     useEffect(() => {
+        // Auto-scroll disabled based on user request
+        /*
         if (isOpen) {
             scrollToBottom();
         }
+        */
     }, [messages, isLoading, isOpen]);
 
     const extractPdfText = async (dataUrl) => {
@@ -238,7 +241,7 @@ const CopilotChat = () => {
                         model: targetModel,
                         stream: false,
                         messages: [
-                            { role: 'system', content: `Analisis medis draf. Berikan info lengkap.` },
+                            { role: 'system', content: `Analisis medis draf. Berikan info lengkap. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
@@ -264,11 +267,12 @@ const CopilotChat = () => {
                         model: 'gpt-4o',
                         stream: false, // Diganti ke non-stream untuk pengujian
                         messages: [
-                            { role: 'system', content: `Anda adalah Master Editor Medis. Poles draf menjadi sangat profesional, baku, dan BEBAS TYPO.
-ATURAN:
-1. LANGSUNG berikan hasil akhir tanpa kalimat pembuka (seperti "Berikut adalah...") atau penutup.
-2. Gunakan Markdown yang estetik.
-3. JANGAN mengubah data medis.` },
+                             { role: 'system', content: `Anda adalah Master Editor Medis. Poles draf menjadi sangat profesional, baku, dan BEBAS TYPO.
+ ATURAN:
+ 1. LANGSUNG berikan hasil akhir tanpa kalimat pembuka (seperti "Berikut adalah...") atau penutup.
+ 2. Gunakan Markdown yang estetik.
+ 3. JANGAN mengubah data medis.
+ 4. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),
@@ -311,7 +315,7 @@ ATURAN:
                         model: targetModel,
                         stream: false,
                         messages: [
-                            { role: 'system', content: 'Anda adalah Medx Copilot. Jawablah secara ramah dan profesional.' },
+                            { role: 'system', content: 'Anda adalah Medx Copilot. Jawablah secara ramah dan profesional. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.' },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
                         ],
