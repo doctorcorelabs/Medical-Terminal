@@ -98,7 +98,8 @@ export default {
             const body = await request.json();
             
             // Map common models if necessary, or pass through
-            const model = body.model || 'gpt-5-mini';
+            const model = body.model || 'gpt-4.1';
+            const isStream = body.stream !== undefined ? body.stream : true;
 
             const copilotResponse = await fetch(COPILOT_CHAT_URL, {
                 method: 'POST',
@@ -113,25 +114,43 @@ export default {
                 },
                 body: JSON.stringify({
                     messages: body.messages,
-                    model: model,
+                    model: model, 
                     temperature: body.temperature || 0.1,
                     top_p: body.top_p || 1,
                     n: body.n || 1,
-                    stream: body.stream || false,
-                    max_tokens: body.max_tokens || 4096,
+                    stream: isStream,
+                    max_tokens: body.max_tokens || 12000,
                 }),
             });
 
             // 3. Return response to client
-            const data = await copilotResponse.text();
-            
-            return new Response(data, {
-                status: copilotResponse.status,
-                headers: {
+            if (copilotResponse.ok) {
+                const responseHeaders = {
                     ...corsHeaders,
-                    'Content-Type': 'application/json',
-                },
-            });
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                };
+
+                if (isStream) {
+                    responseHeaders['Content-Type'] = 'text/event-stream';
+                    return new Response(copilotResponse.body, {
+                        status: copilotResponse.status,
+                        headers: responseHeaders,
+                    });
+                } else {
+                    const data = await copilotResponse.json();
+                    return new Response(JSON.stringify(data), {
+                        status: 200,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    });
+                }
+            } else {
+                const errorData = await copilotResponse.text();
+                return new Response(errorData, {
+                    status: copilotResponse.status,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+            }
 
         } catch (error) {
             return new Response(JSON.stringify({ error: error.message }), {

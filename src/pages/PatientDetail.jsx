@@ -14,6 +14,7 @@ import remarkGfm from 'remark-gfm';
 import { exportPatientPDF } from '../services/pdfExportService';
 import BloodGroupPicker from '../components/BloodGroupPicker';
 import FornasDrugPicker from '../components/FornasDrugPicker';
+import { useCopilotContext } from '../context/CopilotContext';
 
 function getNowLocalISO() {
     const now = new Date();
@@ -34,6 +35,44 @@ export default function PatientDetail() {
     }, [activeTab]);
     const [aiLoading, setAiLoading] = useState({});
     const [aiResults, setAiResults] = useState(patient?.aiInsights || {});
+
+    const { setPageContext, clearPageContext } = useCopilotContext();
+
+    // Berikan konteks pasien ke CopilotChat
+    useEffect(() => {
+        if (patient) {
+            const sympText = (patient.symptoms || []).map(s => `- ${s.name} (${s.severity})`).join('\n');
+            const physText = (patient.physicalExams || []).map(e => `- [${e.system}] ${e.findings}`).join('\n');
+            const labText = (patient.supportingExams || []).map(l => `- ${l.testName}: ${l.value} ${l.unit} (${l.result || 'Normal'})`).join('\n');
+            const medText = (patient.prescriptions || []).map(m => `- ${m.name} ${m.dosage} (${m.frequency})`).join('\n');
+
+            const contextText = `DATA PASIEN:
+Nama: ${patient.name}
+Umur: ${patient.age} tahun
+Jenis Kelamin: ${patient.gender === 'female' ? 'Perempuan' : 'Laki-laki'}
+Kondisi: ${patient.condition}
+Diagnosis: ${patient.diagnosis || 'Belum ada'}
+Keluhan Utama: ${patient.chiefComplaint || 'Tidak ada'}
+Riwayat Medis: ${patient.medicalHistory || 'Tidak ada'}
+Alergi: ${patient.allergies || 'Tidak ada'}
+Vital Terakhir: HR ${patient.heartRate || '-'}, BP ${patient.bloodPressure || '-'}, Temp ${patient.temperature || '-'}, SpO2 ${patient.spO2 || '-'}
+
+GEJALA:
+${sympText || 'Belum ada data'}
+
+PEMERIKSAAN FISIK:
+${physText || 'Belum ada data'}
+
+HASIL LABORATORIUM:
+${labText || 'Belum ada data'}
+
+OBAT/RESEP:
+${medText || 'Belum ada data'}`;
+            
+            setPageContext(contextText);
+        }
+        return () => clearPageContext();
+    }, [patient, setPageContext, clearPageContext]);
 
     // Sinkronisasi data AI jika pasien berubah
     useEffect(() => {

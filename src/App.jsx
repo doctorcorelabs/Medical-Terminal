@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext';
 import { OfflineProvider } from './context/OfflineContext';
 import { FeatureFlagProvider } from './context/FeatureFlagContext';
 import { AdminAlertProvider } from './context/AdminAlertContext';
+import { CopilotProvider } from './context/CopilotContext';
 import AdminRoute from './components/AdminRoute';
 import FeatureGate from './components/FeatureGate';
 import Sidebar from './components/layout/Sidebar';
@@ -139,7 +140,9 @@ export default function App() {
           <OfflineProvider>
             <FeatureFlagProvider>
               <AdminAlertProvider>
-                <AppContent />
+                <CopilotProvider>
+                  <AppContent />
+                </CopilotProvider>
               </AdminAlertProvider>
             </FeatureFlagProvider>
           </OfflineProvider>
