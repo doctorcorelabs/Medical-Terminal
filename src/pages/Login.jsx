@@ -70,10 +70,29 @@ export default function Login() {
         const timer = window.setTimeout(() => {
             setCaptchaLoadError((prev) => prev || 'Captcha belum termuat. Silakan muat ulang captcha.');
             logCaptchaTelemetry('widget_load_timeout');
-        }, 10000);
+        }, 12000);
 
         return () => window.clearTimeout(timer);
     }, [requiresCaptcha, turnstileSiteKey, isCaptchaReady, captchaKey, logCaptchaTelemetry]);
+
+    // Reset captcha when user returns to the page (e.g. from Google Login window or Back button)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && requiresCaptcha) {
+                remountCaptcha('page_visible');
+            }
+        };
+        const handleFocus = () => {
+            if (requiresCaptcha) remountCaptcha('window_focus');
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [requiresCaptcha, remountCaptcha]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

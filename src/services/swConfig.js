@@ -12,7 +12,7 @@ import { openDB } from './idbQueue';
  * Store Supabase URL + anon key into IDB so the service worker can read them.
  * Call this once after the app boots (e.g., in main.jsx or OfflineContext).
  */
-export async function storeSwConfig() {
+export async function storeSwConfig(accessToken = null) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) return;
@@ -21,7 +21,10 @@ export async function storeSwConfig() {
         const db = await openDB();
         await new Promise((resolve, reject) => {
             const tx = db.transaction('swConfig', 'readwrite');
-            tx.objectStore('swConfig').put({ key: 'config', data: { supabaseUrl, supabaseKey } });
+            tx.objectStore('swConfig').put({ 
+                key: 'config', 
+                data: { supabaseUrl, supabaseKey, accessToken } 
+            });
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error);
         });

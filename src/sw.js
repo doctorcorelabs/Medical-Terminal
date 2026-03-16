@@ -117,14 +117,15 @@ async function processQueue() {
 }
 
 // ── Fetch current server row ──────────────────────────────────────
-async function fetchServerRow(supabaseUrl, supabaseKey, table, userId) {
+async function fetchServerRow(supabaseUrl, supabaseKey, table, userId, accessToken) {
     try {
+        const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
         const res = await fetch(
             `${supabaseUrl}/rest/v1/${table}?user_id=eq.${userId}&select=*&t=${Date.now()}`,
             {
                 headers: {
                     'apikey': supabaseKey,
-                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Authorization': authHeader,
                     'Accept': 'application/json',
                 },
                 cache: 'no-store'
@@ -268,7 +269,9 @@ async function flushGroup(group) {
         throw new Error('[SW] Missing Supabase config. Page must call storeSwConfig() first.');
     }
 
-    const { supabaseUrl, supabaseKey } = config;
+    const { supabaseUrl, supabaseKey, accessToken } = config;
+    const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
+    
     const tableMap = {
         patients:  'user_patients',
         stases:    'user_stases',
@@ -286,7 +289,7 @@ async function flushGroup(group) {
         const lastPayload = upserts[upserts.length - 1].payload;
 
         // 1. Fetch current server state
-        const serverRow = await fetchServerRow(supabaseUrl, supabaseKey, table, group.userId);
+        const serverRow = await fetchServerRow(supabaseUrl, supabaseKey, table, group.userId, accessToken);
 
         // 2. Merge (records conflict in IDB when needed)
         const mergedPayload = await mergeWithConflictDetection(
@@ -299,7 +302,7 @@ async function flushGroup(group) {
             method: 'POST',
             headers: {
                 'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`,
+                'Authorization': authHeader,
                 'Content-Type': 'application/json',
                 'Prefer': 'resolution=merge-duplicates',
             },
@@ -317,7 +320,7 @@ async function flushGroup(group) {
             method: 'DELETE',
             headers: {
                 'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`,
+                'Authorization': authHeader,
             },
         });
         if (!res.ok) {

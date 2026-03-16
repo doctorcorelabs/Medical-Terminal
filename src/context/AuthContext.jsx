@@ -5,8 +5,14 @@ import { logUserActivity } from '../services/activityService';
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
-    const [profile, setProfile] = useState(null);
+    const [user, setUser] = useState(() => {
+        const saved = localStorage.getItem('medterminal_user_cache');
+        return saved ? JSON.parse(saved) : null;
+    });
+    const [profile, setProfile] = useState(() => {
+        const saved = localStorage.getItem('medterminal_profile_cache');
+        return saved ? JSON.parse(saved) : null;
+    });
     const [loading, setLoading] = useState(true);
     // Pre-detect recovery mode from URL hash before Supabase events fire to prevent dashboard flash
     const [isRecoveryMode, _setIsRecoveryMode] = useState(() =>
@@ -27,7 +33,10 @@ export function AuthProvider({ children }) {
                 .select('id, user_id, username, full_name, role, created_at')
                 .eq('user_id', userId)
                 .single();
-            if (!error && data) setProfile(data);
+            if (!error && data) {
+                setProfile(data);
+                localStorage.setItem('medterminal_profile_cache', JSON.stringify(data));
+            }
         } catch (_err) {
             // profile fetch failure is non-fatal
         }
@@ -53,6 +62,14 @@ export function AuthProvider({ children }) {
             }
             const sessionUser = session?.user ?? null;
             setUser(sessionUser);
+            if (sessionUser) {
+                localStorage.setItem('medterminal_user_cache', JSON.stringify(sessionUser));
+            } else {
+                localStorage.removeItem('medterminal_user_cache');
+                localStorage.removeItem('medterminal_profile_cache');
+                setProfile(null);
+            }
+
             fetchProfile(sessionUser?.id);
             if (event === 'SIGNED_IN' && sessionUser?.id) {
                 logUserActivity({ userId: sessionUser.id, eventType: 'auth_signed_in' });
@@ -70,6 +87,8 @@ export function AuthProvider({ children }) {
             if (user?.id) {
                 logUserActivity({ userId: user.id, eventType: 'auth_signed_out' });
             }
+            localStorage.removeItem('medterminal_user_cache');
+            localStorage.removeItem('medterminal_profile_cache');
             localStorage.removeItem('medterminal_patients');
             localStorage.removeItem('medterminal_stases');
             localStorage.removeItem('medterminal_pinned_stase');
@@ -77,6 +96,7 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('medterminal_pending_stases_sync');
             localStorage.removeItem('medterminal_pending_schedules_sync');
             setProfile(null);
+            setUser(null);
             return supabase.auth.signOut();
         },
         updateProfile: (data) => supabase.auth.updateUser({ data }),

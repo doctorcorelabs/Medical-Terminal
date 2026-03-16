@@ -33,7 +33,7 @@ const SOURCE_ICONS = {
     'JAMA': 'menu_book',
     'Nature Medicine': 'biotech',
     'BMJ': 'menu_book',
-    'Mayo Clinic': 'hospital',
+    'Mayo Clinic': 'local_hospital',
     'Healthline': 'health_and_safety',
     'Medscape': 'newspaper',
     'WHO News': 'public',
@@ -42,11 +42,15 @@ const SOURCE_ICONS = {
     'ScienceDaily': 'science',
     'EurekAlert': 'emoji_objects',
     'medRxiv': 'description',
+    'PubMed': 'description',
+    'Stat News': 'newspaper',
+    'Oncodaily': 'medication',
 };
 
 function NewsCard({ article, featured = false }) {
     const catStyles = CATEGORY_COLORS[article.category] || CATEGORY_COLORS['Berita Medis'];
-    const icon = SOURCE_ICONS[article.source] || 'article';
+    const normalizedSource = article.source?.split(' - ')[0] || article.source;
+    const icon = SOURCE_ICONS[normalizedSource] || SOURCE_ICONS[article.source] || 'article';
 
     if (featured) {
         return (
@@ -71,11 +75,7 @@ function NewsCard({ article, featured = false }) {
                         {article.title}
                     </h3>
 
-                    {article.description && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3 mb-4 flex-1">
-                            {article.description}
-                        </p>
-                    )}
+
 
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
                         <div className="flex items-center gap-1.5 min-w-0">

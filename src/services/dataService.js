@@ -1508,3 +1508,78 @@ export function parseAIDiagnoses(text) {
 
     return diagnoses.length > 0 ? diagnoses : null;
 }
+
+export function getComprehensiveTemplate() {
+    return [
+        {
+            "id": crypto.randomUUID(),
+            "name": "Template Pasien Super Komprehensif",
+            "age": 45,
+            "gender": "male",
+            "room": "Anggrek - Bed 1",
+            "bloodType": "B",
+            "rhesus": "+",
+            "admissionDate": new Date().toISOString().split('T')[0],
+            "targetDays": 7,
+            "status": "active",
+            "condition": "stable",
+            "chiefComplaint": "Pasien datang dengan keluhan sesak napas dan demam tinggi sejak 2 hari yang lalu.",
+            "diagnosis": "Community-Acquired Pneumonia (J18.9)\nDiabetes Mellitus Type 2 (E11.9)",
+            "allergies": "Amoxicillin (Rash), Seafood (Gatal-gatal)",
+            "medicalHistory": "Hipertensi Terkontrol (5 tahun), DM Type 2 (3 tahun)",
+            "heartRate": "92",
+            "bloodPressure": "120/80",
+            "temperature": "38.2",
+            "respRate": "24",
+            "spO2": "95",
+            "weight": "70",
+            "height": "170",
+            "symptoms": [
+                { "id": crypto.randomUUID(), "name": "Sesak Napas", "severity": "sedang", "notes": "Bertambah berat saat aktivitas, membaik dengan istirahat.", "recordedAt": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "name": "Batuk Produktif", "severity": "sedang", "notes": "Sputum berwarna kuning kehijauan, kental.", "recordedAt": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "name": "Demam", "severity": "berat", "notes": "Suhu naik turun, menggigil (+), berkeringat malam (+).", "recordedAt": new Date().toISOString() }
+            ],
+            "physicalExams": [
+                { "id": crypto.randomUUID(), "system": "umum", "findings": "Kesan sakit sedang, Compos Mentis, GCS 15 (E4V5M6), Status gizi cukup.", "date": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "system": "kepala", "findings": "Mata: CA (-/-), SI (-/-). Mulut: Mukosa bibir kering (-), Sianosis (-).", "date": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "system": "thorax", "findings": "Paru: Simetris, Retraksi (-). Suara napas Vesikuler (+/+), Rhonki basah halus basal dextra (+), Wheezing (-/-). Jantung: BJ I-II murni reguler, Murmur (-), Gallop (-).", "date": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "system": "abdomen", "findings": "Datar, Supel, BU (+) normal, Nyeri tekan epigastrium (-), Hepar/Lien tak teraba.", "date": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "system": "ekstremitas", "findings": "Akral hangat, CRT < 2 detik, Edema pretibial (-/-).", "date": new Date().toISOString() }
+            ],
+            "supportingExams": [
+                { "id": crypto.randomUUID(), "type": "lab", "testName": "Hemoglobin", "value": "13.5", "unit": "g/dL", "labKey": "hb", "date": new Date().toISOString(), "result": { "status": "normal", "label": "✓ Normal" } },
+                { "id": crypto.randomUUID(), "type": "lab", "testName": "Leukosit", "value": "15600", "unit": "/uL", "labKey": "leukosit", "date": new Date().toISOString(), "result": { "status": "high", "label": "↑ Tinggi" } },
+                { "id": crypto.randomUUID(), "type": "lab", "testName": "Gula Darah Sewaktu", "value": "210", "unit": "mg/dL", "labKey": "gdSewaktu", "date": new Date().toISOString(), "result": { "status": "high", "label": "↑ Tinggi" } },
+                { "id": crypto.randomUUID(), "type": "radiology", "testName": "Foto Thorax PA", "value": "Infiltrat di basal paru kanan, kesan Pneumonia.", "unit": "-", "date": new Date().toISOString(), "result": { "status": "abnormal", "label": "⚠ Abnormal" } }
+            ],
+            "prescriptions": [
+                { "id": crypto.randomUUID(), "name": "Levofloxacin", "dosage": "750mg", "frequency": "1x/hari", "route": "iv", "fornas_source": true, "fornas_category": "Antibakteri", "date": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "name": "Paracetamol", "dosage": "500mg", "frequency": "3x/hari (KP)", "route": "oral", "fornas_source": true, "fornas_category": "Analgetik Antipiretik", "date": new Date().toISOString() },
+                { "id": crypto.randomUUID(), "name": "Metformin", "dosage": "500mg", "frequency": "2x/hari", "route": "oral", "fornas_source": true, "fornas_category": "Antidiabetik Oral", "date": new Date().toISOString() }
+            ],
+            "dailyReports": [
+                { "id": crypto.randomUUID(), "notes": "Pasien merasa sedikit lebih nyaman, namun sesak masih dirasakan saat berubah posisi. Demam mulai turun setelah pemberian antipiretik.", "condition": "stabil", "recordedAt": new Date().toISOString() }
+            ],
+            "vitalSigns": [
+                {
+                    "id": crypto.randomUUID(),
+                    "recordedAt": new Date(Date.now() - 3600000).toISOString(),
+                    "heartRate": "98",
+                    "bloodPressure": "130/85",
+                    "temperature": "38.8",
+                    "respRate": "26",
+                    "spO2": "94"
+                },
+                {
+                    "id": crypto.randomUUID(),
+                    "recordedAt": new Date().toISOString(),
+                    "heartRate": "92",
+                    "bloodPressure": "120/80",
+                    "temperature": "38.2",
+                    "respRate": "24",
+                    "spO2": "95"
+                }
+            ]
+        }
+    ];
+}

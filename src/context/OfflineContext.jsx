@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '../services/supabaseClient';
 import { pendingSync } from '../services/offlineQueue';
 import { syncToSupabase, syncStasesToSupabase, syncSchedulesToSupabase } from '../services/dataService';
 import { useAuth } from './AuthContext';
@@ -18,8 +19,18 @@ export function OfflineProvider({ children }) {
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
 
-    // Store Supabase config into IDB for the service worker on mount
-    useEffect(() => { storeSwConfig(); }, []);
+    // Store Supabase config + session into IDB for the service worker
+    useEffect(() => { 
+        const syncSessionToSw = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                await storeSwConfig(session?.access_token || null);
+            } catch (err) {
+                console.warn('[OfflineContext] Failed to sync session to SW:', err);
+            }
+        };
+        syncSessionToSw();
+    }, [user]);
 
     // Refresh conflict count from IDB
     const refreshConflictCount = useCallback(() => {

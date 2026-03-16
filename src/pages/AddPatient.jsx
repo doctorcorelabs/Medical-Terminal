@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
-import { checkLabValue, labReferences, labCategories } from '../services/dataService';
+import { checkLabValue, labReferences, labCategories, getComprehensiveTemplate } from '../services/dataService';
+import { useToast } from '../context/ToastContext';
 import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
 import BloodGroupPicker from '../components/BloodGroupPicker';
@@ -11,6 +12,7 @@ import FornasDrugPicker from '../components/FornasDrugPicker';
 export default function AddPatient() {
     const navigate = useNavigate();
     const { addPatient } = usePatients();
+    const { addToast } = useToast();
     const { stases, pinnedStaseId } = useStase();
 
     const [activeTab, setActiveTab] = useState(() => {
@@ -46,6 +48,75 @@ export default function AddPatient() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const downloadTemplate = (templateData) => {
+        const blob = new Blob([JSON.stringify(templateData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `patient_template_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportJSON = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target.result);
+                const patients = Array.isArray(data) ? data : [data];
+                
+                if (patients.length > 0) {
+                    const p = patients[0]; // Take first patient as template for current form
+                    
+                    // Map patient data to form state
+                    setForm(prev => ({
+                        ...prev,
+                        name: p.name || prev.name,
+                        age: p.age?.toString() || prev.age,
+                        gender: p.gender || prev.gender,
+                        room: p.room || prev.room,
+                        bloodType: p.bloodType || prev.bloodType,
+                        rhesus: p.rhesus || prev.rhesus,
+                        admissionDate: p.admissionDate || prev.admissionDate,
+                        targetDays: p.targetDays?.toString() || prev.targetDays,
+                        status: p.status || prev.status,
+                        condition: p.condition || prev.condition,
+                        chiefComplaint: p.chiefComplaint || prev.chiefComplaint,
+                        diagnosis: p.diagnosis || prev.diagnosis,
+                        heartRate: p.heartRate || prev.heartRate,
+                        bloodPressure: p.bloodPressure || prev.bloodPressure,
+                        temperature: p.temperature || prev.temperature,
+                        respRate: p.respRate || prev.respRate,
+                        spO2: p.spO2 || prev.spO2,
+                        weight: p.weight || prev.weight,
+                        height: p.height || prev.height,
+                        allergies: p.allergies || prev.allergies,
+                        medicalHistory: p.medicalHistory || prev.medicalHistory,
+                        
+                        // Arrays: normalize with new IDs to avoid conflicts
+                        symptoms: (p.symptoms || []).map(s => ({ ...s, id: crypto.randomUUID() })),
+                        physicalExams: (p.physicalExams || []).map(e => ({ ...e, id: crypto.randomUUID() })),
+                        supportingExams: (p.supportingExams || []).map(l => ({ ...l, id: crypto.randomUUID() })),
+                        prescriptions: (p.prescriptions || []).map(pr => ({ ...pr, id: crypto.randomUUID() })),
+                        dailyReports: (p.dailyReports || []).map(r => ({ ...r, id: crypto.randomUUID() })),
+                    }));
+
+                    addToast('Data berhasil dimuat dari JSON', 'success');
+                }
+            } catch (err) {
+                console.error('Import error:', err);
+                addToast('Gagal membaca file JSON', 'error');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Reset input
     };
 
     const addItem = (key, data, setInputFn, initialInput) => {
@@ -98,11 +169,43 @@ export default function AddPatient() {
                             <span>Pasien</span><span>/</span><span className="text-primary font-medium">Tambah Baru</span>
                         </nav>
                     </div>
-                    <button onClick={handleSubmit}
-                        className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg active:scale-95">
-                        <span className="material-symbols-outlined text-xl">save</span>
-                        Simpan Registrasi
+                    <div className="flex items-center gap-2">
+                        <div className="hidden sm:flex items-center gap-2 mr-2">
+                            <button 
+                                onClick={() => downloadTemplate(getComprehensiveTemplate())}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">description</span>
+                                Template
+                            </button>
+                            <label className="cursor-pointer px-4 py-2.5 rounded-xl text-xs font-bold text-primary border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                                Impor JSON
+                                <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                            </label>
+                        </div>
+                        <button onClick={handleSubmit}
+                            className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg active:scale-95">
+                            <span className="material-symbols-outlined text-xl">save</span>
+                            Simpan Registrasi
+                        </button>
+                    </div>
+                </div>
+
+                {/* Mobile Import/Template actions */}
+                <div className="flex sm:hidden items-center gap-2">
+                    <button 
+                        onClick={() => downloadTemplate(getComprehensiveTemplate())}
+                        className="flex-1 px-4 py-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center gap-2"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">description</span>
+                        Template
                     </button>
+                    <label className="flex-1 cursor-pointer px-4 py-3 rounded-xl text-xs font-bold text-primary border border-primary/20 bg-primary/5 flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                        Impor
+                        <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
+                    </label>
                 </div>
 
                 {/* Tab Navigation */}
