@@ -28,23 +28,20 @@ function getRelativeTime(dateStr) {
 }
 
 const SOURCE_ICONS = {
-    'Google News Health': 'health_and_safety',
-    'Google News Research': 'biotech',
-    'Google News WHO': 'public',
-    'Google News Drug': 'medication',
-    'Google News Disease': 'coronavirus',
-    'ScienceDaily Health': 'science',
-    'ScienceDaily': 'science',
-    'WHO News': 'public',
-    'NIH News': 'biotech',
-    'CDC Newsroom': 'health_and_safety',
-    'EurekAlert': 'emoji_objects',
-    'STAT News': 'newspaper',
     'The Lancet': 'menu_book',
+    'NEJM': 'menu_book',
+    'JAMA': 'menu_book',
+    'Nature Medicine': 'biotech',
+    'BMJ': 'menu_book',
+    'Mayo Clinic': 'hospital',
+    'Healthline': 'health_and_safety',
+    'Medscape': 'newspaper',
+    'WHO News': 'public',
+    'CDC News': 'health_and_safety',
+    'FDA Press': 'medication',
+    'ScienceDaily': 'science',
+    'EurekAlert': 'emoji_objects',
     'medRxiv': 'description',
-    'PubMed': 'search',
-    'FDA Press Releases': 'medication',
-    'Medical News Today': 'health_and_safety',
 };
 
 function NewsCard({ article, featured = false }) {
@@ -497,7 +494,7 @@ export default function News() {
                         {/* Footer info */}
                         <div className="mt-8 text-center">
                             <p className="text-xs text-slate-400 dark:text-slate-600">
-                                Menampilkan {filtered.length} dari {articles.length} berita · Sumber: ScienceDaily, WHO, CDC, NIH, FDA, WebMD, EurekAlert, STAT News, The Lancet, medRxiv, PubMed
+                                Menampilkan {filtered.length} dari {articles.length} berita · Sumber: The Lancet, NEJM, JAMA, BMJ, Nature, Mayo Clinic, Healthline, Medscape, WHO, CDC, FDA, ScienceDaily, EurekAlert, medRxiv
                             </p>
                         </div>
                     </>

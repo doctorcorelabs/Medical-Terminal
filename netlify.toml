@@ -43,7 +43,7 @@
 # Also callable via HTTP POST from the frontend after import/add/update.
 [functions."notification-cycle"]
   timeout = 26
-  schedule = "*/1 * * * *"
+  schedule = "*/3 * * * *"
 
 [functions."create-admin-broadcast"]
   timeout = 26
@@ -69,6 +69,7 @@
 
 [[redirects]]
   from = "/assets/*"
+  to = "/assets/:splat"
   status = 404
 
 [[redirects]]

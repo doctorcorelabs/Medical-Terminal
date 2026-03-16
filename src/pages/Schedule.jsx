@@ -1498,7 +1498,7 @@ export default function Schedule() {
                                     disabled={isTelegramBusy || !isTelegramConnected}
                                     className={`mt-1 h-9 px-3 rounded-lg text-xs font-semibold border-2 transition-colors ${telegramChannel.schedule_enabled ? 'border-primary/40 bg-primary/10 text-primary' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'} disabled:opacity-60`}
                                 >
-                                    {telegramChannel.schedule_enabled ? `Aktif (${REMINDER_MINUTES_LABEL} menit sebelum jadwal)` : 'Nonaktif'}
+                                    {telegramChannel.schedule_enabled ? `Aktif (±${REMINDER_MINUTES_LABEL} menit sebelum)` : 'Nonaktif'}
                                 </button>
                             </div>
 

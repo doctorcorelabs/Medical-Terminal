@@ -9,98 +9,96 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const RSS_SOURCES = [
-    // Google News RSS - very reliable, proxied globally
-    {
-        name: 'Google News Health',
-        url: 'https://news.google.com/rss/search?q=medical+health+medicine&hl=en-US&gl=US&ceid=US:en',
-        category: 'Berita Medis',
-        color: '#136dec',
-    },
-    {
-        name: 'Google News Research',
-        url: 'https://news.google.com/rss/search?q=medical+research+clinical+trial&hl=en-US&gl=US&ceid=US:en',
-        category: 'Riset',
-        color: '#7c3aed',
-    },
-    {
-        name: 'Google News WHO',
-        url: 'https://news.google.com/rss/search?q=WHO+world+health+organization&hl=en-US&gl=US&ceid=US:en',
-        category: 'Kesehatan Global',
-        color: '#2f855a',
-    },
-    {
-        name: 'Google News Drug',
-        url: 'https://news.google.com/rss/search?q=FDA+drug+approval+treatment&hl=en-US&gl=US&ceid=US:en',
-        category: 'Farmasi',
-        color: '#b45309',
-    },
-    {
-        name: 'Google News Disease',
-        url: 'https://news.google.com/rss/search?q=disease+outbreak+pandemic+epidemic&hl=en-US&gl=US&ceid=US:en',
-        category: 'Penyakit',
-        color: '#dc2626',
-    },
-    // The Lancet - confirmed working
+    // Top-tier Medical Journals (Proxy via Google News for 100% reliability)
     {
         name: 'The Lancet',
-        url: 'https://www.thelancet.com/rssfeed/lancet_online.xml',
+        url: 'https://news.google.com/rss/search?q=site:thelancet.com&hl=en-US&gl=US&ceid=US:en',
         category: 'Jurnal',
         color: '#c05621',
     },
-    // WHO - try directly
+    {
+        name: 'NEJM',
+        url: 'https://news.google.com/rss/search?q=site:nejm.org&hl=en-US&gl=US&ceid=US:en',
+        category: 'Jurnal',
+        color: '#136dec',
+    },
+    {
+        name: 'JAMA',
+        url: 'https://news.google.com/rss/search?q=site:jamanetwork.com&hl=en-US&gl=US&ceid=US:en',
+        category: 'Jurnal',
+        color: '#dc2626',
+    },
+    {
+        name: 'Nature Medicine',
+        url: 'https://news.google.com/rss/search?q=site:nature.com/nm&hl=en-US&gl=US&ceid=US:en',
+        category: 'Jurnal',
+        color: '#7c3aed',
+    },
+    {
+        name: 'BMJ',
+        url: 'https://news.google.com/rss/search?q=site:bmj.com&hl=en-US&gl=US&ceid=US:en',
+        category: 'Jurnal',
+        color: '#2b6cb0',
+    },
+
+    // Health News & Mayo Clinic
+    {
+        name: 'Mayo Clinic',
+        url: 'https://news.google.com/rss/search?q=site:mayoclinic.org&hl=en-US&gl=US&ceid=US:en',
+        category: 'Berita Medis',
+        color: '#1e40af',
+    },
+    {
+        name: 'Healthline',
+        url: 'https://news.google.com/rss/search?q=site:healthline.com&hl=en-US&gl=US&ceid=US:en',
+        category: 'Berita Kesehatan',
+        color: '#0ea5e9',
+    },
+    {
+        name: 'Medscape',
+        url: 'https://news.google.com/rss/search?q=site:medscape.com&hl=en-US&gl=US&ceid=US:en',
+        category: 'Berita Medis',
+        color: '#7c3aed',
+    },
+
+    // Global Health Organizations
     {
         name: 'WHO News',
-        url: 'https://www.who.int/rss-feeds/news-english.xml',
+        url: 'https://news.google.com/rss/search?q=WHO+site:who.int&hl=en-US&gl=US&ceid=US:en',
         category: 'Kesehatan Global',
         color: '#2f855a',
     },
-    // ScienceDaily - lightweight and open
+    {
+        name: 'CDC News',
+        url: 'https://news.google.com/rss/search?q=CDC+site:cdc.gov&hl=en-US&gl=US&ceid=US:en',
+        category: 'Kesehatan Publik',
+        color: '#0891b2',
+    },
+    {
+        name: 'FDA Press',
+        url: 'https://news.google.com/rss/search?q=FDA+site:fda.gov&hl=en-US&gl=US&ceid=US:en',
+        category: 'Farmasi',
+        color: '#b45309',
+    },
+
+    // Research & Discoveries
     {
         name: 'ScienceDaily',
-        url: 'https://www.sciencedaily.com/rss/health_medicine.xml',
+        url: 'https://news.google.com/rss/search?q=site:sciencedaily.com+medical&hl=en-US&gl=US&ceid=US:en',
         category: 'Sains & Medis',
         color: '#0ea5e9',
     },
-    // medRxiv - open-access preprint server
-    {
-        name: 'medRxiv',
-        url: 'https://connect.medrxiv.org/medrxiv_xml.php?subject=all',
-        category: 'Preprint',
-        color: '#059669',
-    },
-    // PubMed — fixed URL (&limit tidak valid, ganti ke &format=rss)
-    {
-        name: 'PubMed',
-        url: 'https://pubmed.ncbi.nlm.nih.gov/rss/pubmed/?term=medicine%5BMeSH%5D&format=rss',
-        category: 'Riset',
-        color: '#2b6cb0',
-    },
-    // STAT News (menggantikan CDC Newsroom — media ID berubah, 0 artikel)
-    {
-        name: 'STAT News',
-        url: 'https://www.statnews.com/feed/',
-        category: 'Berita Medis',
-        color: '#3b82f6',
-    },
-    // EurekAlert (menggantikan NIH News — HTTP 404)
     {
         name: 'EurekAlert',
-        url: 'https://www.eurekalert.org/rss/index.xml',
+        url: 'https://news.google.com/rss/search?q=site:eurekalert.org+medicine&hl=en-US&gl=US&ceid=US:en',
         category: 'Penemuan Baru',
         color: '#10b981',
     },
     {
-        name: 'FDA Press Releases',
-        url: 'https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml',
-        category: 'Farmasi',
-        color: '#eab308',
-    },
-    // Medical News Today (menggantikan WebMD Health News — RSS diblokir/fetch failed)
-    {
-        name: 'Medical News Today',
-        url: 'https://www.medicalnewstoday.com/newsfeeds/rss.xml',
-        category: 'Berita Kesehatan',
-        color: '#0ea5e9',
+        name: 'medRxiv',
+        url: 'https://news.google.com/rss/search?q=site:medrxiv.org&hl=en-US&gl=US&ceid=US:en',
+        category: 'Preprint',
+        color: '#059669',
     },
 ];
 
