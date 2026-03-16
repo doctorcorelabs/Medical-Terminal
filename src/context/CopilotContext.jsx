@@ -4,13 +4,18 @@ const CopilotContext = createContext();
 
 export function CopilotProvider({ children }) {
     const [pageContext, setPageContext] = useState(null);
-    const [isContextEnabled, setIsContextEnabled] = useState(() => {
-        const saved = localStorage.getItem('copilot_context_enabled');
-        return saved !== null ? JSON.parse(saved) : true;
-    });
+    const [isContextEnabled, setIsContextEnabled] = useState(false); // Default OFF
+
+    const updatePageContext = useCallback((content) => {
+        setPageContext(content);
+        if (content) {
+            setIsContextEnabled(true); // Auto ON saat ada data pasien
+        }
+    }, []);
 
     const clearPageContext = useCallback(() => {
         setPageContext(null);
+        setIsContextEnabled(false); // Auto OFF saat keluar
     }, []);
 
     const toggleContext = useCallback((val) => {
@@ -21,7 +26,7 @@ export function CopilotProvider({ children }) {
     return (
         <CopilotContext.Provider value={{ 
             pageContext, 
-            setPageContext, 
+            setPageContext: updatePageContext, 
             clearPageContext,
             isContextEnabled,
             toggleContext

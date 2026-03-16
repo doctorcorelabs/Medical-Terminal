@@ -165,7 +165,7 @@ const CopilotChat = () => {
         // JIKA Context ON -> PAKSA GPT-4.1 (Akurasi Tinggi & Bebas Typo)
         // JIKA Context OFF -> Ikut aturan (Gambar ? GPT-4.1 : GPT-5-Mini)
         const isMultiModal = attachments.length > 0;
-        const selectedModel = (isContextEnabled || isMultiModal) ? 'gpt-4.1' : 'gpt-5-mini';
+        const selectedModel = ((isContextEnabled && pageContext) || isMultiModal) ? 'gpt-4.1' : 'gpt-5-mini';
 
         const userMessage = { 
             role: 'user', 
@@ -206,134 +206,161 @@ const CopilotChat = () => {
                 currentMessageContent = currentInput;
             }
 
-            // --- TAHAP 1: DRAFTING (LOGIKA & KONTEKS) ---
-            setIsLoading(true);
-            scrollToBottom();
+            const activeContext = isContextEnabled && pageContext;
+            const targetModel = (activeContext || isMultiModal) ? 'gpt-4.1' : 'gpt-5-mini';
 
-            // Tentukan model dasar
-            const draftModel = (isContextEnabled || isMultiModal) ? 'gpt-4.1' : 'gpt-5-mini';
+            // --- JALUR 1: ADVANCED (Hanya jika Context ON / Patient Detail) ---
+            if (activeContext) {
+                setMessages(prev => [...prev, { 
+                    role: 'ai', 
+                    content: '', 
+                    usedModel: targetModel,
+                    isStreaming: true,
+                    stage: 'thinking' 
+                }]);
 
-            setMessages(prev => [...prev, { 
-                role: 'ai', 
-                content: '', 
-                usedModel: draftModel,
-                isStreaming: true,
-                stage: 'thinking' 
-            }]);
+                const sanitizedHistory = messages.slice(-10).map(m => ({
+                    role: m.role === 'ai' ? 'assistant' : 'user',
+                    content: (targetModel === 'gpt-5-mini' && Array.isArray(m.content)) 
+                        ? (m.content.find(c => c.type === 'text')?.text || "") 
+                        : m.content
+                }));
 
-            // Riwayat diperpendek & disanitasi: Konversi AI messages agar kompatibel
-            const sanitizedHistory = messages.slice(-10).map(m => {
-                const role = m.role === 'ai' ? 'assistant' : 'user';
-                let content = m.content;
-                // Jika draftModel adalah mini, paksa content jadi string (No Vision/Array)
-                if (draftModel === 'gpt-5-mini' && Array.isArray(content)) {
-                    content = content.find(c => c.type === 'text')?.text || "";
+                // Tahap 1: Drafting Medis
+                const draftResponse = await fetch(COPILOT_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
+                    body: JSON.stringify({
+                        model: targetModel,
+                        stream: false,
+                        messages: [
+                            { role: 'system', content: `Analisis medis draf. Berikan info lengkap.` },
+                            { role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` },
+                            ...sanitizedHistory,
+                            { role: 'user', content: currentMessageContent }
+                        ],
+                    }),
+                });
+
+                const draftData = await draftResponse.json();
+                const draftText = draftData.choices?.[0]?.message?.content || "";
+
+                // Tahap 2: Refining (GPT-4o)
+                setMessages(prev => {
+                    const next = [...prev];
+                    next[next.length - 1].stage = 'refining';
+                    next[next.length - 1].usedModel = 'gpt-4o';
+                    return next;
+                });
+
+                const refiningResponse = await fetch(COPILOT_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
+                    body: JSON.stringify({
+                        model: 'gpt-4o',
+                        stream: true,
+                        messages: [
+                            { role: 'system', content: `Poles draf medis ini menjadi profesional, bebas typo, dan aesthetic. Gunakan Markdown.` },
+                            { role: 'user', content: `Draf:\n${draftText}` }
+                        ],
+                    }),
+                });
+
+                const reader = refiningResponse.body.getReader();
+                const decoder = new TextDecoder();
+                let acc = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.slice(6).trim();
+                            if (dataStr === '[DONE]') break;
+                            try {
+                                const data = JSON.parse(dataStr);
+                                const delta = data.choices?.[0]?.delta?.content || '';
+                                if (delta) {
+                                    acc += delta;
+                                    setMessages(prev => {
+                                        const next = [...prev];
+                                        const lastMsg = next[next.length - 1];
+                                        lastMsg.stage = 'ready';
+                                        lastMsg.content = acc;
+                                        return next;
+                                    });
+                                }
+                            } catch (e) {}
+                        }
+                    }
                 }
-                return { role, content };
-            });
+            } 
+            // --- JALUR 2: BASIC (Jika Context OFF / Gambar saja / Halaman Lain) ---
+            else {
+                setMessages(prev => [...prev, { 
+                    role: 'ai', 
+                    content: '', 
+                    usedModel: targetModel,
+                    isStreaming: true,
+                    stage: 'ready' 
+                }]);
 
-            // 1. Ambil Draf Logika (Raw Data) - Gunakan JSON (stream: false)
-            const draftResponse = await fetch(COPILOT_WORKER_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${AI_INTERNAL_KEY}`,
-                    'x-internal-key': AI_INTERNAL_KEY,
-                },
-                body: JSON.stringify({
-                    model: draftModel,
-                    stream: false,
-                    messages: [
-                        { role: 'system', content: `Anda adalah asisten medis yang memberikan analisis draf dasar. Jawab berdasarkan konteks yang diberikan. JANGAN khawatir tentang gaya bahasa atau typo. Berikan informasi lengkap.` },
-                        ...(isContextEnabled && pageContext ? [{ role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` }] : []),
-                        ...sanitizedHistory,
-                        { role: 'user', content: currentMessageContent }
-                    ],
-                }),
-            });
+                const sanitizedHistory = messages.slice(-10).map(m => ({
+                    role: m.role === 'ai' ? 'assistant' : 'user',
+                    content: (targetModel === 'gpt-5-mini' && Array.isArray(m.content)) 
+                        ? (m.content.find(c => c.type === 'text')?.text || "") 
+                        : m.content
+                }));
 
-            if (!draftResponse.ok) throw new Error("Gagal mengambil draf medis.");
-            const draftData = await draftResponse.json();
-            const draftText = draftData.choices?.[0]?.message?.content || "";
+                const response = await fetch(COPILOT_WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
+                    body: JSON.stringify({
+                        model: targetModel,
+                        stream: true,
+                        messages: [
+                            { role: 'system', content: 'Anda adalah Medx Copilot. Jawablah secara ramah dan profesional.' },
+                            ...sanitizedHistory,
+                            { role: 'user', content: currentMessageContent }
+                        ],
+                    }),
+                });
 
-            // --- TAHAP 2: MASTER REFINING (GPT-4o) ---
-            setMessages(prev => {
-                const next = [...prev];
-                const lastMsg = next[next.length - 1];
-                lastMsg.stage = 'refining';
-                lastMsg.usedModel = 'gpt-4o'; // Informasikan model pemoles
-                return next;
-            });
-
-            const refiningResponse = await fetch(COPILOT_WORKER_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${AI_INTERNAL_KEY}`,
-                    'x-internal-key': AI_INTERNAL_KEY,
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o',
-                    stream: true,
-                    messages: [
-                        { 
-                            role: 'system', 
-                            content: `Anda adalah Master Editor Medis MedxTerminal.
-Tugas Anda: Memoles draf jawaban menjadi sangat profesional, baku (Bahasa Indonesia Medis), dan BEBAS TYPO.
-
-ATURAN:
-1. Gunakan Markdown yang sangat estetik (tabel, list, bold).
-2. Perbaiki semua kesalahan ejaan (contoh: TBumnya -> TB-nya, untukeksi -> untuk infeksi).
-3. Jangan mengurangi akurasi data medis dari draf asli.
-4. Langsung berikan hasil akhir tanpa basa-basi.` 
-                        },
-                        { role: 'user', content: `Draf yang harus dipoles:\n---\n${draftText}\n---` }
-                    ],
-                }),
-            });
-
-            if (!refiningResponse.ok) throw new Error("Gagal mempoles jawaban.");
-
-            const reader = refiningResponse.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedFinal = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.slice(6).trim();
-                        if (dataStr === '[DONE]') break;
-
-                        try {
-                            const data = JSON.parse(dataStr);
-                            const delta = data.choices?.[0]?.delta?.content || '';
-                            if (delta) {
-                                accumulatedFinal += delta;
-                                setMessages(prev => {
-                                    const next = [...prev];
-                                    const lastMsg = next[next.length - 1];
-                                    lastMsg.stage = 'ready'; // Sembunyikan pill refining saat teks mulai muncul
-                                    lastMsg.content = accumulatedFinal;
-                                    return next;
-                                });
-                            }
-                        } catch (e) {}
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let acc = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.slice(6).trim();
+                            if (dataStr === '[DONE]') break;
+                            try {
+                                const data = JSON.parse(dataStr);
+                                const delta = data.choices?.[0]?.delta?.content || '';
+                                if (delta) {
+                                    acc += delta;
+                                    setMessages(prev => {
+                                        const next = [...prev];
+                                        next[next.length - 1].content = acc;
+                                        return next;
+                                    });
+                                }
+                            } catch (e) {}
+                        }
                     }
                 }
             }
 
-            // Finalisasi Selesai
+            // Finalisasi
             setMessages(prev => {
                 const next = [...prev];
-                const lastMsg = next[next.length - 1];
-                lastMsg.isStreaming = false;
-                lastMsg.stage = 'completed';
+                next[next.length - 1].isStreaming = false;
+                next[next.length - 1].stage = 'completed';
                 return next;
             });
 
@@ -372,7 +399,9 @@ ATURAN:
                             <span className="header-name">Medx Copilot Dynamic</span>
                             <div className="header-controls">
                                 <span className="header-status">
-                                    {(isContextEnabled || attachments.length > 0) ? "Mode: GPT-4.1 (Vision)" : "Mode: GPT-5-Mini (Lightweight)"}
+                                    {((isContextEnabled && pageContext) || attachments.length > 0) 
+                                        ? "Mode: GPT-4.1 (Medical Context)" 
+                                        : "Mode: GPT-5-Mini (Fast)"}
                                 </span>
                                 <div className="header-actions">
                                     {pageContext && (
