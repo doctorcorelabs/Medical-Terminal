@@ -99,7 +99,7 @@ export default {
             
             // Map common models if necessary, or pass through
             const model = body.model || 'gpt-4.1';
-            const isStream = body.stream !== undefined ? body.stream : true;
+            const isStream = false; // Disabled globally as requested
 
             const copilotResponse = await fetch(COPILOT_CHAT_URL, {
                 method: 'POST',

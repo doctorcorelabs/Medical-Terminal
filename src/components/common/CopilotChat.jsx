@@ -19,6 +19,7 @@ const CopilotChat = () => {
     const [attachments, setAttachments] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -145,11 +146,14 @@ const CopilotChat = () => {
     }, [input]);
 
     const clearChat = () => {
-        if (window.confirm("Bersihkan riwayat percakapan?")) {
-            setMessages([
-                { role: 'ai', content: 'Halo! Saya asisten MedxTerminal. Ada yang bisa saya bantu hari ini?' }
-            ]);
-        }
+        setShowConfirmModal(true);
+    };
+
+    const confirmClearChat = () => {
+        setMessages([
+            { role: 'ai', content: 'Halo! Saya asisten MedxTerminal. Ada yang bisa saya bantu hari ini?' }
+        ]);
+        setShowConfirmModal(false);
     };
 
     const handleSend = async () => {
@@ -305,7 +309,7 @@ ATURAN:
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
                     body: JSON.stringify({
                         model: targetModel,
-                        stream: true,
+                        stream: false,
                         messages: [
                             { role: 'system', content: 'Anda adalah Medx Copilot. Jawablah secara ramah dan profesional.' },
                             ...sanitizedHistory,
@@ -314,33 +318,15 @@ ATURAN:
                     }),
                 });
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let acc = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const dataStr = line.slice(6).trim();
-                            if (dataStr === '[DONE]') break;
-                            try {
-                                const data = JSON.parse(dataStr);
-                                const delta = data.choices?.[0]?.delta?.content || '';
-                                if (delta) {
-                                    acc += delta;
-                                    setMessages(prev => {
-                                        const next = [...prev];
-                                        next[next.length - 1].content = acc;
-                                        return next;
-                                    });
-                                }
-                            } catch (e) {}
-                        }
-                    }
-                }
+                if (!response.ok) throw new Error("Gagal mendapatkan jawaban.");
+                const data = await response.json();
+                const acc = data.choices?.[0]?.message?.content || "";
+                
+                setMessages(prev => {
+                    const next = [...prev];
+                    next[next.length - 1].content = acc;
+                    return next;
+                });
             }
 
             // Finalisasi
@@ -442,10 +428,18 @@ ATURAN:
                                     </div>
                                 )}
                                 
-                                {(msg.content !== undefined && (msg.content !== '' || msg.role === 'user' || msg.stage === 'ready' || msg.stage === 'completed')) && (
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                        {typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || ''}
-                                    </ReactMarkdown>
+                                {msg.role === 'ai' && msg.isStreaming && !msg.content ? (
+                                    <div className="skeleton-loader">
+                                        <div className="skeleton-line"></div>
+                                        <div className="skeleton-line"></div>
+                                        <div className="skeleton-line"></div>
+                                    </div>
+                                ) : (
+                                    (msg.content !== undefined && (msg.content !== '' || msg.role === 'user' || msg.stage === 'ready' || msg.stage === 'completed')) && (
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || ''}
+                                        </ReactMarkdown>
+                                    )
                                 )}
                                 
                                 {msg.attachments && msg.attachments.length > 0 && (
@@ -557,6 +551,29 @@ ATURAN:
                             disabled={isLoading || (!input.trim() && attachments.length === 0)}
                         >
                             <span className="material-symbols-outlined">send</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Custom Refresh Confirmation Modal */}
+            <div className={`copilot-modal-overlay ${showConfirmModal ? 'show' : ''}`} onClick={() => setShowConfirmModal(false)}>
+                <div className={`copilot-modal ${showConfirmModal ? 'show' : ''}`} onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-icon-header">
+                        <div className="modal-icon-circle">
+                            <span className="material-symbols-outlined">restart_alt</span>
+                        </div>
+                    </div>
+                    <h3 className="modal-title">Bersihkan Chat?</h3>
+                    <p className="modal-description">
+                        Seluruh riwayat percakapan saat ini akan dihapus. Perubahan ini tidak dapat dibatalkan.
+                    </p>
+                    <div className="modal-actions">
+                        <button className="modal-btn-cancel" onClick={() => setShowConfirmModal(false)}>
+                            Batal
+                        </button>
+                        <button className="modal-btn-confirm" onClick={confirmClearChat}>
+                            Hapus Sekarang
                         </button>
                     </div>
                 </div>
