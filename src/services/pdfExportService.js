@@ -126,79 +126,118 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
     const LH = 4.2;      // line height mm
     const FS = 8.5;       // base font size
     const INDENT = 2;     // extra left indent for body text
-
-    /**
-     * Manual justify: distribute words across maxWidth using precise word spacing.
-     * For the last line of a paragraph, render left-aligned instead.
-     */
-    function justifyLine(doc, line, curX, curY, mw, isLastLine) {
-        const words = line.trim().split(/\s+/).filter(w => w.length > 0);
-        if (words.length <= 1 || isLastLine) {
-            // Last line or single word: just left-align
-            doc.text(line.trim(), curX, curY);
-            return;
-        }
-        const totalWordWidth = words.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
-        const totalSpace = mw - totalWordWidth;
-        const spacePerGap = totalSpace / (words.length - 1);
-        let wx = curX;
-        words.forEach((word, _i) => {
-            doc.text(word, wx, curY);
-            wx += doc.getTextWidth(word) + spacePerGap;
-        });
-    }
-
-    /**
-     * Render an array of pre-wrapped lines with styling.
-     * Uses manual justification except for the last line and list items.
-     */
-    function renderWrapped(lines, curY, fontStyle, fontSize, color, indentX, doJustify = false) {
-        doc.setFont('helvetica', fontStyle);
-        doc.setFontSize(fontSize);
-        doc.setTextColor(...color);
-        lines.forEach((l, idx) => {
-            if (curY > pageBottomY) { doc.addPage(); curY = 20; }
-            const isLast = idx === lines.length - 1;
-            const isList = /^(\d+[.)]|[-•*])\s/.test(l.trimStart());
-            const tooShort = doc.getTextWidth(l.trim()) < mw * 0.6; // skip justify if line fills < 60% width
-            if (doJustify && !isLast && !isList && !tooShort) {
-                justifyLine(doc, l, indentX, curY, maxWidth, false);
-            } else {
-                doc.text(l.trim(), indentX, curY);
-            }
-            curY += LH;
-        });
-        return curY;
-    }
-
-    // Alias for clarity inside closures
     const mw = maxWidth;
 
-    const rawLines = rawText.split('\n');
-    let paragraphBuffer = [];
+    function renderLineSegments(doc, line, curX, curY, mw, isLastLine, doJustify) {
+        const segments = [];
+        let remaining = line.trim();
+        
+        while (remaining.length > 0) {
+            const boldMatch = remaining.match(/^(\*\*)(.*?)(\*\*)/);
+            const italicMatch = remaining.match(/^(\*)(.*?)(\*)/);
+            
+            if (boldMatch) {
+                segments.push({ text: boldMatch[2], style: 'bold' });
+                remaining = remaining.substring(boldMatch[0].length);
+            } else if (italicMatch) {
+                segments.push({ text: italicMatch[2], style: 'italic' });
+                remaining = remaining.substring(italicMatch[0].length);
+            } else {
+                const nextMarker = remaining.search(/\*\*|\*/);
+                if (nextMarker === -1) {
+                    segments.push({ text: remaining, style: 'normal' });
+                    remaining = '';
+                } else {
+                    if (nextMarker > 0) {
+                        segments.push({ text: remaining.substring(0, nextMarker), style: 'normal' });
+                    }
+                    remaining = remaining.substring(nextMarker);
+                }
+            }
+        }
+
+        const cleanLine = segments.map(s => s.text).join('');
+        const lineWords = cleanLine.split(/\s+/).filter(w => w.length > 0);
+        
+        if (lineWords.length <= 1 || isLastLine || !doJustify) {
+            let wx = curX;
+            segments.forEach(s => {
+                doc.setFont('helvetica', s.style === 'bold' ? 'bold' : s.style === 'italic' ? 'italic' : 'normal');
+                const words = s.text.split(/(\s+)/);
+                words.forEach(w => {
+                    doc.text(w, wx, curY);
+                    wx += doc.getTextWidth(w);
+                });
+            });
+            return;
+        }
+
+        const totalWordWidth = lineWords.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
+        const totalSpace = mw - totalWordWidth;
+        const spacePerGap = totalSpace / (lineWords.length - 1);
+        
+        let wx = curX;
+        const wordStyler = [];
+        segments.forEach(s => {
+            const ws = s.text.split(/(\s+)/);
+            ws.forEach(part => {
+                if (part.trim().length > 0) {
+                    wordStyler.push({ text: part, style: s.style });
+                }
+            });
+        });
+
+        wordStyler.forEach((ws, idx) => {
+            doc.setFont('helvetica', ws.style === 'bold' ? 'bold' : ws.style === 'italic' ? 'italic' : 'normal');
+            doc.text(ws.text, wx, curY);
+            wx += doc.getTextWidth(ws.text) + (idx < wordStyler.length - 1 ? spacePerGap : 0);
+        });
+    }
 
     function flushBuffer(curY) {
         if (paragraphBuffer.length === 0) return curY;
         const joined = paragraphBuffer.join(' ');
         paragraphBuffer = [];
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(FS);
-        doc.setTextColor(...DARK);
-        const wrapped = doc.splitTextToSize(joined, mw);
-        wrapped.forEach((l, idx) => {
+        
+        const cleanJoined = joined.replace(/\*\*/g, '').replace(/\*/g, '');
+        const wrapped = doc.splitTextToSize(cleanJoined, mw);
+        
+        let currentText = joined;
+        wrapped.forEach((firstLineClean, idx) => {
             if (curY > pageBottomY) { doc.addPage(); curY = 20; }
-            const isLast = idx === wrapped.length - 1;
-            const lineTextWidth = doc.getTextWidth(l.trim());
-            // Justify if not last line and fills > 60% of width
-            if (!isLast && lineTextWidth > mw * 0.6) {
-                justifyLine(doc, l, x + INDENT, curY, mw, false);
-            } else {
-                doc.text(l.trim(), x + INDENT, curY);
+            
+            let markdownLine = '';
+            let cleanCount = 0;
+            let i = 0;
+            while (cleanCount < firstLineClean.length && i < currentText.length) {
+                if (currentText.substring(i, i + 2) === '**') {
+                    markdownLine += '**';
+                    i += 2;
+                } else if (currentText[i] === '*') {
+                    markdownLine += '*';
+                    i++;
+                } else {
+                    markdownLine += currentText[i];
+                    cleanCount++;
+                    i++;
+                }
             }
+            
+            const isLast = idx === wrapped.length - 1;
+            const remains = currentText.substring(i);
+            const tooShort = doc.getTextWidth(firstLineClean.trim()) < mw * 0.6;
+            
+            renderLineSegments(doc, markdownLine, x + INDENT, curY, mw, isLast || tooShort, true);
+            
             curY += LH;
+            currentText = remains.trim();
         });
+        
         return curY;
     }
+
+    const rawLines = rawText.split('\n');
+    let paragraphBuffer = [];
 
     for (let i = 0; i < rawLines.length; i++) {
         const raw = rawLines[i];
@@ -211,79 +250,65 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             continue;
         }
 
-        // Heading: ## Title or # Title
-        const headingMatch = trimmed.match(/^#{1,6}\s+(.+)/);
-        if (headingMatch) {
+        // Table: starts with |
+        if (trimmed.startsWith('|')) {
             y = flushBuffer(y);
-            const content = headingMatch[1].replace(/\*\*/g, '').replace(/\*/g, '');
-            if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const wrapped = doc.splitTextToSize(content, mw);
-            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT, false);
-            continue;
-        }
+            const tableLines = [];
+            while (i < rawLines.length && rawLines[i].trim().startsWith('|')) {
+                tableLines.push(rawLines[i].trim());
+                i++;
+            }
+            i--; // step back
 
-        // All-bold line: **...**  or __...__
-        const allBoldMatch = trimmed.match(/^\*\*(.+)\*\*$/) || trimmed.match(/^__(.+)__$/);
-        if (allBoldMatch) {
-            y = flushBuffer(y);
-            const content = allBoldMatch[1];
-            if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const wrapped = doc.splitTextToSize(content, mw);
-            y = renderWrapped(wrapped, y, 'bold', FS, DARK, x + INDENT, false);
-            continue;
-        }
+            if (tableLines.length >= 2) {
+                const parsedRows = tableLines.map(line => {
+                    let row = line.trim();
+                    if (row.startsWith('|')) row = row.substring(1);
+                    if (row.endsWith('|')) row = row.substring(0, row.length - 1);
+                    return row.split('|').map(cell => cell.trim());
+                });
 
-        // All-italic line: *...* or _..._
-        const allItalicMatch = trimmed.match(/^\*([^*]+)\*$/) || trimmed.match(/^_([^_]+)_$/);
-        if (allItalicMatch) {
-            y = flushBuffer(y);
-            const content = allItalicMatch[1];
-            if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const wrapped = doc.splitTextToSize(content, mw);
-            y = renderWrapped(wrapped, y, 'italic', FS, MUTED, x + INDENT, false);
-            continue;
-        }
+                const isSeparator = (r) => r.every(cell => /^[ \-:]+$/.test(cell));
+                let head = [];
+                let body = [];
 
-        // Inline bold prefix: **Label:** rest of text
-        const boldPrefixMatch = trimmed.match(/^\*\*([^*]+)\*\*[:\s](.*)$/);
-        if (boldPrefixMatch) {
-            y = flushBuffer(y);
-            if (y > pageBottomY) { doc.addPage(); y = 20; }
-            const boldPart = boldPrefixMatch[1] + ':';
-            const restPart = boldPrefixMatch[2].replace(/\*\*/g, '').replace(/\*/g, '').trim();
-
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(FS);
-            doc.setTextColor(...DARK);
-            const boldW = doc.getTextWidth(boldPart + ' ');
-            doc.text(boldPart, x + INDENT, y);
-
-            if (restPart) {
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(...DARK);
-                const restMaxW = mw - boldW;
-                const restLines = doc.splitTextToSize(restPart, restMaxW);
-                doc.text(restLines[0].trim(), x + INDENT + boldW, y);
-                y += LH;
-                if (restLines.length > 1) {
-                    y = renderWrapped(restLines.slice(1), y, 'normal', FS, DARK, x + INDENT, true);
+                if (parsedRows.length >= 2 && isSeparator(parsedRows[1])) {
+                    head = [parsedRows[0]];
+                    body = parsedRows.slice(2);
+                } else {
+                    body = parsedRows;
                 }
-            } else {
-                y += LH;
+
+                if (body.length > 0 || head.length > 0) {
+                    const cleanCell = (t) => t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '').trim();
+                    const cleanedHead = head.map(row => row.map(c => cleanCell(c)));
+                    const cleanedBody = body.map(row => row.map(c => cleanCell(c)));
+
+                    if (y > pageBottomY - 20) { doc.addPage(); y = 20; }
+                    y = tbl(doc, {
+                        startY: y,
+                        head: cleanedHead.length > 0 ? cleanedHead : undefined,
+                        body: cleanedBody,
+                        theme: 'grid',
+                        headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: FS - 0.5, halign: 'center' },
+                        styles: { fontSize: FS - 1, cellPadding: 2, textColor: DARK, overflow: 'linebreak', halign: 'justify' },
+                        alternateRowStyles: { fillColor: STRIPE },
+                        margin: { left: x + INDENT, right: 14 }
+                    }) + LH;
+                }
             }
             continue;
         }
 
-        // List item: starts with number, dash, or bullet
-        const listMatch = trimmed.match(/^(\d+[.)\s]|[-•*]\s)(.+)/);
-        if (listMatch) {
+        const headingMatch = trimmed.match(/^#{1,6}\s+(.+)/);
+        if (headingMatch) {
             y = flushBuffer(y);
-            const clean = trimmed.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
+            const cleanTitle = headingMatch[1].replace(/\*\*/g, '').replace(/\*/g, '');
             if (y > pageBottomY) { doc.addPage(); y = 20; }
-            doc.setFont('helvetica', 'normal');
+            doc.setFont('helvetica', 'bold');
             doc.setFontSize(FS);
             doc.setTextColor(...DARK);
-            const wrapped = doc.splitTextToSize(clean, mw);
+            const wrapped = doc.splitTextToSize(cleanTitle, mw);
             wrapped.forEach(l => {
                 if (y > pageBottomY) { doc.addPage(); y = 20; }
                 doc.text(l.trim(), x + INDENT, y);
@@ -292,9 +317,70 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             continue;
         }
 
-        // Regular paragraph text — buffer for justified rendering
-        const clean = trimmed.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
-        paragraphBuffer.push(clean);
+        // Horizontal line separator (---, ___, or ***)
+        if (trimmed.match(/^[ \-]{3,}$/) || trimmed.match(/^[ _]{3,}$/) || trimmed.match(/^[ *]{3,}$/)) {
+            y = flushBuffer(y);
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.2);
+            doc.line(x + INDENT, y + 1, x + INDENT + mw, y + 1);
+            y += LH;
+            continue;
+        }
+
+
+        const listMatch = trimmed.match(/^(\d+[.)\s]|[-•*]\s)(.+)/);
+        if (listMatch) {
+            y = flushBuffer(y);
+            const bullet = listMatch[1];
+            const content = listMatch[2];
+            const cleanContent = content.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
+            
+            // Render bullet separately
+            if (y > pageBottomY) { doc.addPage(); y = 20; }
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(FS);
+            doc.setTextColor(...DARK);
+            doc.text(bullet, x + INDENT, y);
+            
+            const bulletW = doc.getTextWidth(bullet);
+            const wrapped = doc.splitTextToSize(cleanContent, mw - bulletW);
+            
+            wrapped.forEach((l, idx) => {
+                const isLast = idx === wrapped.length - 1;
+                const tooShort = doc.getTextWidth(l.trim()) < (mw - bulletW) * 0.6;
+                
+                // Re-insert markdown markers for formatting if possible? 
+                // For simplicity, let's just render the wrapped lines justified
+                // but since we lost markdown markers during splitTextToSize, 
+                // we'll just use the regular justifyLine logic here or call renderLineSegments
+                
+                // Construct the markdown line for this segment (simplified: just the clean text)
+                // If we want to keep markers, we'd need a more complex mapper.
+                // Let's at least justify it.
+                
+                if (idx > 0 && y > pageBottomY) { doc.addPage(); y = 20; }
+                
+                if (!isLast && !tooShort) {
+                    // Manual justify for list item body
+                    const words = l.trim().split(/\s+/).filter(w => w.length > 0);
+                    const totalWordWidth = words.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
+                    const totalSpace = (mw - bulletW) - totalWordWidth;
+                    const spacePerGap = totalSpace / (words.length - 1);
+                    let wx = x + INDENT + bulletW;
+                    words.forEach((word, wordIdx) => {
+                        doc.text(word, wx, y);
+                        wx += doc.getTextWidth(word) + spacePerGap;
+                    });
+                } else {
+                    doc.text(l.trim(), x + INDENT + bulletW, y);
+                }
+                y += LH;
+            });
+            continue;
+        }
+
+        paragraphBuffer.push(trimmed);
     }
 
     // Flush remaining buffer
@@ -902,6 +988,55 @@ function _renderPatientToDoc(doc, patient) {
             y = rcy + rRadius + 25;
         }
 
+}
+
+// ================================================================
+// EXPORT COPILOT RESPONSE TO PDF
+// ================================================================
+export function exportCopilotResponsePDF(content, patient = null) {
+    try {
+        console.log('[PDF Export] Exporting Copilot response to PDF...');
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        let y = 14;
+
+        // ===== HEADER =====
+        doc.setFillColor(...PRIMARY);
+        doc.rect(0, 0, pageWidth, 32, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(...WHITE);
+        doc.text('MedxTerminal', 14, 14);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text('REKOMENDASI AI COPILOT (INTELLIGENT INSIGHT)', 14, 21);
+        doc.setFontSize(8);
+        doc.text(`Dicetak: ${fmtDateTime(new Date().toISOString())}`, pageWidth - 14, 14, { align: 'right' });
+        
+        if (patient) {
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Pasien: ${patient.name || '-'} (${patient.age || '-'}th)`, pageWidth - 14, 21, { align: 'right' });
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Diagnosis: ${patient.diagnosis || '-'}`, pageWidth - 14, 26, { align: 'right' });
+        }
+        
+        doc.setFillColor(59, 130, 246);
+        doc.rect(0, 32, pageWidth, 1.5, 'F');
+        y = 45;
+
+        // ===== CONTENT =====
+        // Since renderMarkdownPDF is already available and custom-tuned for this project's style
+        y = renderMarkdownPDF(doc, content, 14, y, pageWidth - 28);
+        
+        addFooters(doc);
+        
+        const safeName = patient ? (patient.name || 'pasien').replace(/[^a-zA-Z0-9]/g, '_') : 'MedxTerminal';
+        doc.save(`Saran_AI_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        console.log('[PDF Export] Copilot response PDF saved successfully');
+    } catch (err) {
+        console.error('[PDF Export] Error exporting Copilot response:', err);
+        alert('Gagal mengekspor saran AI ke PDF: ' + err.message);
+    }
 }
 
 // ================================================================

@@ -5,16 +5,17 @@ import remarkGfm from 'remark-gfm';
 import './CopilotChat.css';
 
 import { useCopilotContext } from '../../context/CopilotContext';
+import { exportCopilotResponsePDF } from '../../services/pdfExportService';
 
 const COPILOT_WORKER_URL = import.meta.env.VITE_COPILOT_WORKER_URL;
 const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
 
 
 const CopilotChat = () => {
-    const { pageContext, isContextEnabled, toggleContext } = useCopilotContext();
+    const { pageContext, patientData, isContextEnabled, toggleContext } = useCopilotContext();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'ai', content: 'Halo! Saya asisten MedxTerminal. Ada yang bisa saya bantu hari ini?' }
+        { role: 'ai', content: 'Halo! Saya asisten MedxTerminal. Ada yang bisa saya bantu hari ini?', isWelcome: true }
     ]);
     const [attachments, setAttachments] = useState([]);
     const [input, setInput] = useState('');
@@ -373,39 +374,38 @@ const CopilotChat = () => {
                             <span className="material-symbols-outlined">terminal</span>
                         </div>
                         <div className="header-info">
-                            <span className="header-name">Medx Copilot Dynamic</span>
-                            <div className="header-controls">
-                                <span className="header-status">
-                                    {((isContextEnabled && pageContext) || attachments.length > 0) 
-                                        ? "Mode: GPT-4.1 (Medical Context)" 
-                                        : "Mode: GPT-5-Mini (Fast)"}
-                                </span>
-                                <div className="header-actions">
-                                    {pageContext && (
-                                        <div className="context-toggle-wrapper">
-                                            <label className="context-switch">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={isContextEnabled}
-                                                    onChange={(e) => toggleContext(e.target.checked)}
-                                                />
-                                                <span className="context-slider"></span>
-                                            </label>
-                                            <span className={`context-label ${isContextEnabled ? 'active' : ''}`}>
-                                                Context
-                                            </span>
-                                        </div>
-                                    )}
-                                    <button className="chat-action-btn" onClick={clearChat} title="Bersihkan chat">
-                                        <span className="material-symbols-outlined">refresh</span>
-                                    </button>
-                                </div>
-                            </div>
+                            <span className="header-name">Medx AI Agent</span>
+                            <span className="header-status">
+                                {((isContextEnabled && pageContext) || attachments.length > 0) 
+                                    ? "Research Mode" 
+                                    : "Swift Mode"}
+                            </span>
                         </div>
                     </div>
-                    <button className="close-window-btn" onClick={() => setIsOpen(false)}>
-                        <span className="material-symbols-outlined">close</span>
-                    </button>
+
+                    <div className="header-actions-group">
+                        {pageContext && (
+                            <div className="context-toggle-wrapper">
+                                <label className="context-switch">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isContextEnabled}
+                                        onChange={(e) => toggleContext(e.target.checked)}
+                                    />
+                                    <span className="context-slider"></span>
+                                </label>
+                                <span className={`context-label ${isContextEnabled ? 'active' : ''}`}>
+                                    Context
+                                </span>
+                            </div>
+                        )}
+                        <button className="chat-action-btn" onClick={clearChat} title="Bersihkan chat">
+                            <span className="material-symbols-outlined">refresh</span>
+                        </button>
+                        <button className="close-window-btn" onClick={() => setIsOpen(false)}>
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="messages-area custom-scrollbar">
@@ -440,9 +440,20 @@ const CopilotChat = () => {
                                     </div>
                                 ) : (
                                     (msg.content !== undefined && (msg.content !== '' || msg.role === 'user' || msg.stage === 'ready' || msg.stage === 'completed')) && (
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                            {typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || ''}
-                                        </ReactMarkdown>
+                                        <div className="markdown-content">
+                                            <ReactMarkdown 
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    table: ({node, ...props}) => (
+                                                        <div className="table-container">
+                                                            <table {...props} />
+                                                        </div>
+                                                    )
+                                                }}
+                                            >
+                                                {typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || ''}
+                                            </ReactMarkdown>
+                                        </div>
                                     )
                                 )}
                                 
@@ -457,6 +468,17 @@ const CopilotChat = () => {
                                             </div>
                                         ))}
                                     </div>
+                                )}
+
+                                {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
+                                    <button 
+                                        className="export-pdf-mini-btn" 
+                                        onClick={() => exportCopilotResponsePDF(typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '', patientData)}
+                                        title="Export jawaban ini ke PDF"
+                                    >
+                                        <span className="material-symbols-outlined">picture_as_pdf</span>
+                                        <span>Simpan PDF</span>
+                                    </button>
                                 )}
 
                                 {msg.usedModel && (

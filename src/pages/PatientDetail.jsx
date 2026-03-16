@@ -89,7 +89,7 @@ ${reportText || 'Kosong'}
 === EVALUASI AI (TAB AI) ===
 ${aiText || 'Belum ada evaluasi AI'}`;
             
-            setPageContext(contextText);
+            setPageContext(contextText, patient);
         }
         return () => clearPageContext();
     }, [patient, setPageContext, clearPageContext]);

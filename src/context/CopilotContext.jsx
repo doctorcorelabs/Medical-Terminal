@@ -4,13 +4,15 @@ const CopilotContext = createContext();
 
 export function CopilotProvider({ children }) {
     const [pageContext, setPageContext] = useState(null);
+    const [patientData, setPatientData] = useState(null);
     const [isContextEnabled, setIsContextEnabled] = useState(() => {
         const saved = localStorage.getItem('copilot_context_enabled');
         return saved !== null ? JSON.parse(saved) : false;
     });
 
-    const updatePageContext = useCallback((content) => {
+    const updatePageContext = useCallback((content, data = null) => {
         setPageContext(content);
+        setPatientData(data);
         if (content) {
             // Only auto-enable if there is no previous explicit user preference to turn it OFF
             const saved = localStorage.getItem('copilot_context_enabled');
@@ -22,6 +24,7 @@ export function CopilotProvider({ children }) {
 
     const clearPageContext = useCallback(() => {
         setPageContext(null);
+        setPatientData(null);
     }, []);
 
     const toggleContext = useCallback((val) => {
@@ -32,6 +35,7 @@ export function CopilotProvider({ children }) {
     return (
         <CopilotContext.Provider value={{ 
             pageContext, 
+            patientData,
             setPageContext: updatePageContext, 
             clearPageContext,
             isContextEnabled,
