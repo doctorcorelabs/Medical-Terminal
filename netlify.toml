@@ -43,7 +43,7 @@
 # Also callable via HTTP POST from the frontend after import/add/update.
 [functions."notification-cycle"]
   timeout = 26
-  schedule = "*/3 * * * *"
+  schedule = "*/5 * * * *"
 
 [functions."create-admin-broadcast"]
   timeout = 26

@@ -56,7 +56,7 @@ function buildScheduleMessage(event, reminderMinutes) {
     `<i>${escapeHtml(formatEventDate(event.date))}</i>`,
     `<i>Jam:</i> ${escapeHtml(timeLine)}`,
     '<i>Zona waktu:</i> WIB (GMT+7)',
-    `<i>Reminder:</i> ±${reminderMinutes} menit (estimasi) sebelum jadwal`,
+    `<i>Reminder:</i> Aktif (±${reminderMinutes} menit sebelum jadwal)`,
   ].join('\n');
 }
 
