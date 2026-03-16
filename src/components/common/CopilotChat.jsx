@@ -258,43 +258,30 @@ const CopilotChat = () => {
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
                     body: JSON.stringify({
                         model: 'gpt-4o',
-                        stream: true,
+                        stream: false, // Diganti ke non-stream untuk pengujian
                         messages: [
-                            { role: 'system', content: `Poles draf medis ini menjadi profesional, bebas typo, dan aesthetic. Gunakan Markdown.` },
+                            { role: 'system', content: `Anda adalah Master Editor Medis. Poles draf menjadi sangat profesional, baku, dan BEBAS TYPO.
+ATURAN:
+1. LANGSUNG berikan hasil akhir tanpa kalimat pembuka (seperti "Berikut adalah...") atau penutup.
+2. Gunakan Markdown yang estetik.
+3. JANGAN mengubah data medis.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),
                 });
 
-                const reader = refiningResponse.body.getReader();
-                const decoder = new TextDecoder();
-                let acc = '';
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const dataStr = line.slice(6).trim();
-                            if (dataStr === '[DONE]') break;
-                            try {
-                                const data = JSON.parse(dataStr);
-                                const delta = data.choices?.[0]?.delta?.content || '';
-                                if (delta) {
-                                    acc += delta;
-                                    setMessages(prev => {
-                                        const next = [...prev];
-                                        const lastMsg = next[next.length - 1];
-                                        lastMsg.stage = 'ready';
-                                        lastMsg.content = acc;
-                                        return next;
-                                    });
-                                }
-                            } catch (e) {}
-                        }
-                    }
-                }
+                if (!refiningResponse.ok) throw new Error("Gagal mempoles jawaban.");
+                
+                const refineData = await refiningResponse.json();
+                const acc = refineData.choices?.[0]?.message?.content || "";
+
+                setMessages(prev => {
+                    const next = [...prev];
+                    const lastMsg = next[next.length - 1];
+                    lastMsg.stage = 'ready';
+                    lastMsg.content = acc;
+                    return next;
+                });
             } 
             // --- JALUR 2: BASIC (Jika Context OFF / Gambar saja / Halaman Lain) ---
             else {
@@ -449,7 +436,7 @@ const CopilotChat = () => {
                                         {msg.stage === 'refining' && (
                                             <div className="stage-pill active">
                                                 <div className="stage-dot"></div>
-                                                <span className="stage-text">Mempoles Jawaban & Cek Ejaan...</span>
+                                                <span className="stage-text">Menyajikan Jawaban...</span>
                                             </div>
                                         )}
                                     </div>

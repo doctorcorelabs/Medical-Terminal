@@ -38,36 +38,56 @@ export default function PatientDetail() {
 
     const { setPageContext, clearPageContext } = useCopilotContext();
 
-    // Berikan konteks pasien ke CopilotChat
+    // Berikan konteks pasien ke CopilotChat (Menjangkau 8 Tab: Ringkasan, Vital, Gejala, Fisik, Lab, Obat, Harian, AI)
     useEffect(() => {
         if (patient) {
-            const sympText = (patient.symptoms || []).map(s => `- ${s.name} (${s.severity})`).join('\n');
+            const sympText = (patient.symptoms || []).map(s => `- ${s.name} (${s.severity}): ${s.notes || ''}`).join('\n');
             const physText = (patient.physicalExams || []).map(e => `- [${e.system}] ${e.findings}`).join('\n');
             const labText = (patient.supportingExams || []).map(l => `- ${l.testName}: ${l.value} ${l.unit} (${l.result || 'Normal'})`).join('\n');
-            const medText = (patient.prescriptions || []).map(m => `- ${m.name} ${m.dosage} (${m.frequency})`).join('\n');
+            const medText = (patient.prescriptions || []).map(m => `- ${m.name} ${m.dosage} (${m.frequency}) via ${m.route}`).join('\n');
+            const reportText = (patient.dailyReports || []).map(r => `- [${formatDate(r.date)}] Kondisi: ${r.condition}. Catatan: ${r.notes}`).join('\n');
+            
+            // Format AI Insights (Jika ada)
+            const aiText = Object.entries(patient.aiInsights || {}).map(([key, val]) => `> [${key.toUpperCase()}] ${val}`).join('\n\n');
 
-            const contextText = `DATA PASIEN:
-Nama: ${patient.name}
-Umur: ${patient.age} tahun
-Jenis Kelamin: ${patient.gender === 'female' ? 'Perempuan' : 'Laki-laki'}
-Kondisi: ${patient.condition}
+            // Format riwayat vital signs
+            const vitalHistory = (patient.vitalSigns || [])
+                .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
+                .slice(0, 5)
+                .map(v => `- [${formatDateTime(v.recordedAt)}] HR: ${v.heartRate || '-'}, BP: ${v.bloodPressure || '-'}, Temp: ${v.temperature || '-'}, SpO2: ${v.spO2 || '-'}`).join('\n');
+
+            const latestV = (patient.vitalSigns || []).sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))[0] || {};
+
+            const contextText = `=== RINGKASAN PASIEN ===
+Nama: ${patient.name} (${patient.gender === 'female' ? 'P' : 'L'})
+Umur: ${patient.age}th | Ruang: ${patient.room || '-'}
+Kondisi Saat Ini: ${patient.condition}
 Diagnosis: ${patient.diagnosis || 'Belum ada'}
 Keluhan Utama: ${patient.chiefComplaint || 'Tidak ada'}
-Riwayat Medis: ${patient.medicalHistory || 'Tidak ada'}
-Alergi: ${patient.allergies || 'Tidak ada'}
-Vital Terakhir: HR ${patient.heartRate || '-'}, BP ${patient.bloodPressure || '-'}, Temp ${patient.temperature || '-'}, SpO2 ${patient.spO2 || '-'}
+Riwayat & Alergi: ${patient.medicalHistory || '-'} | Alergi: ${patient.allergies || 'Tidak ada'}
+Fisik: BB ${patient.weight || '-'}kg, TB ${patient.height || '-'}cm
+Vital Terkahir: HR ${latestV.heartRate || patient.heartRate || '-'}, BP ${latestV.bloodPressure || patient.bloodPressure || '-'}, Temp ${latestV.temperature || patient.temperature || '-'}, SpO2 ${latestV.spO2 || patient.spO2 || '-'}
 
-GEJALA:
-${sympText || 'Belum ada data'}
+=== RIWAYAT VITAL SIGNS (5 Terkini) ===
+${vitalHistory || 'Kosong'}
 
-PEMERIKSAAN FISIK:
-${physText || 'Belum ada data'}
+=== GEJALA (TAB GEJALA) ===
+${sympText || 'Kosong'}
 
-HASIL LABORATORIUM:
-${labText || 'Belum ada data'}
+=== TEMUAN FISIK (TAB FISIK) ===
+${physText || 'Kosong'}
 
-OBAT/RESEP:
-${medText || 'Belum ada data'}`;
+=== HASIL LABORATORIUM (TAB LAB) ===
+${labText || 'Kosong'}
+
+=== REJIMEN OBAT (TAB OBAT) ===
+${medText || 'Kosong'}
+
+=== LAPORAN HARIAN (TAB HARIAN) ===
+${reportText || 'Kosong'}
+
+=== EVALUASI AI (TAB AI) ===
+${aiText || 'Belum ada evaluasi AI'}`;
             
             setPageContext(contextText);
         }
