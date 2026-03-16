@@ -1624,7 +1624,7 @@ export default function Schedule() {
             {/* ── Mobile FAB ── */}
             <button
                 onClick={() => openAdd()}
-                className="lg:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary rounded-full shadow-xl shadow-primary/30 flex items-center justify-center text-white z-30 hover:bg-primary/90 transition-all active:scale-95"
+                className="lg:hidden fixed bottom-5 left-1/2 -translate-x-1/2 w-14 h-14 bg-primary rounded-full shadow-xl shadow-primary/30 flex items-center justify-center text-white z-30 hover:bg-primary/90 transition-all active:scale-95"
                 aria-label="Tambah jadwal"
             >
                 <span className="material-symbols-outlined text-[24px]">add</span>
