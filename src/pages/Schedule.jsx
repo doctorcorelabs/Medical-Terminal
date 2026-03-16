@@ -750,6 +750,16 @@ function CompletedView({ schedules, onEventClick, patients }) {
             });
     }, [schedules]);
 
+    // Group by date for cleaner look
+    const groupedByDate = useMemo(() => {
+        const groups = {};
+        completed.forEach(ev => {
+            if (!groups[ev.date]) groups[ev.date] = [];
+            groups[ev.date].push(ev);
+        });
+        return groups;
+    }, [completed]);
+
     if (completed.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -761,16 +771,6 @@ function CompletedView({ schedules, onEventClick, patients }) {
             </div>
         );
     }
-
-    // Group by date for cleaner look
-    const groupedByDate = useMemo(() => {
-        const groups = {};
-        completed.forEach(ev => {
-            if (!groups[ev.date]) groups[ev.date] = [];
-            groups[ev.date].push(ev);
-        });
-        return groups;
-    }, [completed]);
 
     return (
         <div className="space-y-7">
@@ -1519,12 +1519,12 @@ export default function Schedule() {
             </div>
 
             {/* ── Stats row ── */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className={`grid ${view === 'selesai' ? 'grid-cols-1' : 'grid-cols-3'} gap-3 mb-6`}>
                 {[
                     { label: 'Hari Ini',   value: stats.today,    icon: 'today',          color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20'   },
                     { label: 'Mendatang',  value: stats.upcoming, icon: 'upcoming',       color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20'  },
                     { label: 'Selesai',    value: stats.completed, icon: 'task_alt',      color: 'text-slate-500',  bg: 'bg-slate-50 dark:bg-slate-900/20' },
-                ].map(s => (
+                ].filter(s => view !== 'selesai' || s.label === 'Selesai').map(s => (
                     <div key={s.label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 md:p-4 shadow-sm">
                         <div className="flex items-center gap-2 md:gap-3">
                             <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 ${s.bg}`}>
@@ -1560,7 +1560,7 @@ export default function Schedule() {
                 </div>
 
                 {/* Date navigation (hidden for Mendatang) */}
-                {view !== 'mendatang' && (
+                {view !== 'mendatang' && view !== 'selesai' && (
                     <div className="flex items-center gap-2">
                         <button
                             onClick={goToday}

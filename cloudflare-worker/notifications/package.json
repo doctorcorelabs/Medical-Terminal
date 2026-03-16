@@ -1,0 +1,10 @@
+{
+  "name": "medterminal-notifications",
+  "version": "1.0.0",
+  "devDependencies": {
+    "wrangler": "^3.34.2"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.8"
+  }
+}

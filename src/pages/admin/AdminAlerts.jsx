@@ -181,8 +181,11 @@ export default function AdminAlerts() {
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Sesi login tidak ditemukan. Silakan login ulang.');
 
-      const res = await fetch('/.netlify/functions/evaluate-alerts', {
-        method: 'GET',
+      const workerUrl = import.meta.env.VITE_NOTIFICATION_WORKER_URL;
+      const url = workerUrl ? `${workerUrl}/run-alerts` : '/.netlify/functions/evaluate-alerts';
+
+      const res = await fetch(url, {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -300,7 +303,10 @@ export default function AdminAlerts() {
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Sesi login tidak ditemukan. Silakan login ulang.');
 
-      const res = await fetch('/.netlify/functions/create-admin-broadcast', {
+      const workerUrl = import.meta.env.VITE_NOTIFICATION_WORKER_URL;
+      const url = workerUrl ? `${workerUrl}/create-broadcast` : '/.netlify/functions/create-admin-broadcast';
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -342,7 +348,10 @@ export default function AdminAlerts() {
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Sesi login tidak ditemukan. Silakan login ulang.');
 
-      const res = await fetch('/.netlify/functions/reset-broadcast-history', {
+      const workerUrl = import.meta.env.VITE_NOTIFICATION_WORKER_URL;
+      const url = workerUrl ? `${workerUrl}/reset-broadcast-history` : '/.netlify/functions/reset-broadcast-history';
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -355,7 +364,7 @@ export default function AdminAlerts() {
       setBroadcastRows([]);
       setDeliveryByCorrelation({});
       setConfirmResetOpen(false);
-      addToast(`Riwayat broadcast berhasil direset. Total alert terhapus: ${data.deleted_alerts || 0}.`, 'success');
+      addToast(`Riwayat broadcast berhasil direset. Total alert terhapus: ${data.deletedCount || data.deleted_alerts || 0}.`, 'success');
       fetchRows();
       fetchBroadcastRows();
     } catch (err) {

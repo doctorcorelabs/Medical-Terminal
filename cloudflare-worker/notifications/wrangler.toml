@@ -1,0 +1,18 @@
+name = "medterminal-notifications"
+main = "index.js"
+compatibility_date = "2024-03-16"
+
+# Cron triggers:
+# 1. Every 1 minute for notification cycles
+# 2. Every day at 05:00 UTC (12:00 WIB) for news
+[triggers]
+crons = ["* * * * *", "*/5 * * * *", "0 5 * * *"]
+
+[vars]
+TELEGRAM_MAX_BATCH_SIZE = 100
+NOTIFICATION_ALERT_LOOKBACK_MINUTES = 10
+SCHEDULE_REMINDER_MINUTES = 10
+SCHEDULE_REMINDER_LOOKAHEAD_MINUTES = 60
+SCHEDULE_REMINDER_GRACE_MINUTES = 15
+# Secrets (VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TELEGRAM_BOT_TOKEN, OPS_INTERNAL_KEY) 
+# must be set via wrangler secret put or Cloudflare Dashboard

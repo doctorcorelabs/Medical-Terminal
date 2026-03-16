@@ -18,8 +18,12 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
     if (!accessToken) return;
 
     lastCycleTriggerAt = now;
+    const workerUrl = import.meta.env.VITE_NOTIFICATION_WORKER_URL;
 
-    const res = await fetch('/.netlify/functions/notification-cycle', {
+    // Use Cloudflare Worker endpoint if available, fallback to Netlify logic (for gradual migration)
+    const url = workerUrl ? `${workerUrl}/run-notifications` : '/.netlify/functions/notification-cycle';
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,7 +52,10 @@ export async function sendTelegramTestNotification() {
   const accessToken = sessionData?.session?.access_token;
   if (!accessToken) throw new Error('Sesi login tidak ditemukan.');
 
-  const res = await fetch('/.netlify/functions/send-telegram-test', {
+  const workerUrl = import.meta.env.VITE_NOTIFICATION_WORKER_URL;
+  const url = workerUrl ? `${workerUrl}/test-notification` : '/.netlify/functions/send-telegram-test';
+
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -68,6 +75,7 @@ export async function sendTelegramTestNotification() {
     throw new Error(payload?.error || 'Gagal membuat notifikasi tes.');
   }
 
-  await triggerNotificationCycle({ reason: 'telegram_test_notification', force: true });
+  // Not needed if the test endpoint already triggers dispatch
+  // await triggerNotificationCycle({ reason: 'telegram_test_notification', force: true });
   return payload;
 }
