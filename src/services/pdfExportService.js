@@ -12,10 +12,15 @@ const WARNING = [245, 158, 11];
 const DANGER = [239, 68, 68];
 
 // Strip Unicode symbols not supported by jsPDF default font (e.g. ↑ ↓ ✓ ⚠)
+// Strip Unicode symbols not supported by jsPDF default font (termasuk karakter spasi aneh)
 function cleanLabel(label) {
     if (!label) return '-';
-    // Hanya hapus karakter kontrol non-printable, biarkan spasi dan karakter standar
-    return String(label).replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim() || '-';
+    // Hapus karakter kontrol dan karakter non-ASCII yang sering merusak font helvetica standar
+    // Gunakan filter yang lebih ketat untuk spasi: hanya spasi standar (0x20) yang dibiarkan
+    return String(label)
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") 
+        .replace(/[^\x20-\x7E\xA0-\xFF]/g, " ") // Konversi karakter luar Latin-1 dasar ke spasi agar aman
+        .trim() || '-';
 }
 
 const cleanCell = (t) => cleanLabel(t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''));
@@ -165,11 +170,10 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             let wx = curX;
             segments.forEach(s => {
                 doc.setFont('helvetica', s.style === 'bold' ? 'bold' : s.style === 'italic' ? 'italic' : 'normal');
-                const words = s.text.split(/(\s+)/);
-                words.forEach(w => {
-                    doc.text(w, wx, curY);
-                    wx += doc.getTextWidth(w);
-                });
+                // Langsung gambar teks segmen tanpa dipisah per kata jika tidak menjustifikasi
+                // Ini mencegah masalah akumulasi lebar yang membuat spasi aneh
+                doc.text(s.text, wx, curY);
+                wx += doc.getTextWidth(s.text);
             });
             return;
         }
@@ -282,9 +286,9 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
                 }
 
                 if (body.length > 0 || head.length > 0) {
-                    const cleanCell = (t) => t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '').trim();
-                    const cleanedHead = head.map(row => row.map(c => cleanCell(c)));
-                    const cleanedBody = body.map(row => row.map(c => cleanCell(c)));
+                    const cleanCellFn = (t) => cleanLabel(t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''));
+                    const cleanedHead = head.map(row => row.map(c => cleanCellFn(c)));
+                    const cleanedBody = body.map(row => row.map(c => cleanCellFn(c)));
 
                     if (y > pageBottomY - 20) { doc.addPage(); y = 20; }
                     y = tbl(doc, {
@@ -292,11 +296,12 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
                         head: cleanedHead.length > 0 ? cleanedHead : undefined,
                         body: cleanedBody,
                         theme: 'grid',
-                        headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: FS - 0.5, halign: 'center' },
-                        styles: { fontSize: FS - 1, cellPadding: 2, textColor: DARK, overflow: 'linebreak', halign: 'left', minCellWidth: 20 },
-                        columnStyles: { 0: { cellWidth: 'auto', minCellWidth: 30 } },
+                        headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: FS - 1.5, halign: 'center' },
+                        styles: { fontSize: FS - 1.5, cellPadding: 1.5, textColor: DARK, overflow: 'linebreak', halign: 'left' },
+                        columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 'auto' } },
                         alternateRowStyles: { fillColor: STRIPE },
-                        margin: { left: x + INDENT, right: 14 }
+                        margin: { left: x + INDENT, right: 14 },
+                        tableWidth: 'auto'
                     }) + LH;
                 }
             }
@@ -364,20 +369,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
                 
                 if (idx > 0 && y > pageBottomY) { doc.addPage(); y = 20; }
                 
-                if (!isLast && !tooShort) {
-                    // Manual justify for list item body
-                    const words = l.trim().split(/\s+/).filter(w => w.length > 0);
-                    const totalWordWidth = words.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
-                    const totalSpace = (mw - bulletW) - totalWordWidth;
-                    const spacePerGap = totalSpace / (words.length - 1);
-                    let wx = x + INDENT + bulletW;
-                    words.forEach((word, wordIdx) => {
-                        doc.text(word, wx, y);
-                        wx += doc.getTextWidth(word) + spacePerGap;
-                    });
-                } else {
-                    doc.text(l.trim(), x + INDENT + bulletW, y);
-                }
+                doc.text(l.trim(), x + INDENT + bulletW, y);
                 y += LH;
             });
             continue;
@@ -1012,7 +1004,7 @@ export function exportCopilotResponsePDF(content, patient = null) {
         doc.text('MedxTerminal', 14, 14);
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('REKOMENDASI AI COPILOT (INTELLIGENT INSIGHT)', 14, 21);
+        doc.text('Medx Agent Insight', 14, 21);
         doc.setFontSize(8);
         doc.text(`Dicetak: ${fmtDateTime(new Date().toISOString())}`, pageWidth - 14, 14, { align: 'right' });
         
@@ -1034,7 +1026,7 @@ export function exportCopilotResponsePDF(content, patient = null) {
         addFooters(doc);
         
         const safeName = patient ? (patient.name || 'pasien').replace(/[^a-zA-Z0-9]/g, '_') : 'MedxTerminal';
-        doc.save(`Saran_AI_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        doc.save(`Medx_Agent_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
         console.log('[PDF Export] Copilot response PDF saved successfully');
     } catch (err) {
         console.error('[PDF Export] Error exporting Copilot response:', err);
