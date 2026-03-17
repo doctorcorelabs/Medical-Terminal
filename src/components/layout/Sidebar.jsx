@@ -13,7 +13,6 @@ const navItems = [
     { to: '/tools', icon: 'medical_information', label: 'Tools' },
     { to: '/reports', icon: 'analytics', label: 'Laporan' },
     { to: '/news', icon: 'newspaper', label: 'News' },
-    { to: '/conflicts', icon: 'merge_type', label: 'Konflik Data', conflictBadge: true },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {

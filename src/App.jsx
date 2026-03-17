@@ -38,7 +38,6 @@ const InfusionCalc    = lazyRetry(() => import('./pages/tools/InfusionCalc'));
 const PharmacokineticCalc = lazyRetry(() => import('./pages/tools/PharmacokineticCalc'));
 const NutritionCalc   = lazyRetry(() => import('./pages/tools/NutritionCalc'));
 const PediatricCalc   = lazyRetry(() => import('./pages/tools/PediatricCalc'));
-const ConflictCenter  = lazyRetry(() => import('./pages/ConflictCenter'));
 const AdminDashboard  = lazyRetry(() => import('./pages/admin/AdminDashboard'));
 const AdminUsers      = lazyRetry(() => import('./pages/admin/AdminUsers'));
 const AdminFeatures   = lazyRetry(() => import('./pages/admin/AdminFeatures'));
@@ -111,7 +110,6 @@ function AppContent() {
                   <Route path="/tools/pediatric" element={<FeatureGate featureKey="pediatric-calc"><PediatricCalc /></FeatureGate>} />
                   <Route path="/news" element={<FeatureGate featureKey="news"><News /></FeatureGate>} />
                   <Route path="/reports" element={<FeatureGate featureKey="reports"><Reports /></FeatureGate>} />
-                  <Route path="/conflicts" element={<ConflictCenter />} />
                   <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                   <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
                   <Route path="/admin/features" element={<AdminRoute><AdminFeatures /></AdminRoute>} />

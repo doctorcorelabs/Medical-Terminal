@@ -125,7 +125,7 @@ export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
                 )}
 
                 <button
-                    onClick={() => conflictCount > 0 ? navigate('/conflicts') : undefined}
+                    onClick={() => navigate('/settings#data-conflicts')}
                     title={conflictCount > 0 ? `${conflictCount} konflik data perlu ditinjau` : 'Notifikasi'}
                     className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
                 >

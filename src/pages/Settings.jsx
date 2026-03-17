@@ -1,12 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { deleteAllPatientsData, deleteAllStasesData, deleteAllSchedulesData, syncToSupabase, getAllStases, syncStasesToSupabase } from '../services/dataService';
 import StaseMappingModal from '../components/StaseMappingModal';
+import ConflictManager from '../components/ConflictManager';
 
 export default function Settings() {
     const { user, updateProfile, isUsernameAvailable, isAdmin } = useAuth();
+    // ... rest of state ...
+
+    // Use effect to handle hash scrolling
+    useEffect(() => {
+        if (window.location.hash === '#data-conflicts') {
+            const element = document.getElementById('data-conflicts');
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    }, []);
     const [username, setUsername] = useState(() => user?.user_metadata?.username || '');
     const [savedUser, setSavedUser] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -284,6 +296,10 @@ export default function Settings() {
                             <p className="text-xs text-slate-500 leading-relaxed">Selalu lakukan ekspor JSON secara rutin untuk mencadangkan data pasien Anda secara offline dan aman.</p>
                         </div>
                     </div>
+                </div>
+
+                <div className="mt-6 lg:mt-10">
+                    <ConflictManager />
                 </div>
             </div>
         </div>
