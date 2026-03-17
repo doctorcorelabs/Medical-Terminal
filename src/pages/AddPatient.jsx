@@ -8,6 +8,7 @@ import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
 import BloodGroupPicker from '../components/BloodGroupPicker';
 import FornasDrugPicker from '../components/FornasDrugPicker';
+import CustomSelect from '../components/common/CustomSelect';
 
 export default function AddPatient() {
     const navigate = useNavigate();
@@ -249,41 +250,71 @@ export default function AddPatient() {
                                 </FormSection>
                                 <FormSection title="Detail Medis" icon="clinical_notes">
                                     <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <BloodGroupPicker label="Gol. Darah" valueType={form.bloodType} valueRhesus={form.rhesus}
-                                                onChangeType={(val) => setForm(p => ({ ...p, bloodType: val }))}
-                                                onChangeRhesus={(val) => setForm(p => ({ ...p, rhesus: val }))} />
-                                            <SelectGroup label="Kondisi" name="condition" value={form.condition} onChange={handleChange} options={[
-                                                { v: 'stable', l: 'Stabil' },
-                                                { v: 'improving', l: 'Membaik' },
-                                                { v: 'urgent', l: 'Mendesak' },
-                                                { v: 'critical', l: 'Kritis' }
-                                            ]} />
-                                        </div>
+                                    <div className="space-y-4">
+                                        <CustomSelect 
+                                            label="Kondisi" 
+                                            name="condition" 
+                                            value={form.condition} 
+                                            onChange={handleChange} 
+                                            options={[
+                                                { v: 'stable', l: 'Stabil', name: 'condition' },
+                                                { v: 'improving', l: 'Membaik', name: 'condition' },
+                                                { v: 'urgent', l: 'Mendesak', name: 'condition' },
+                                                { v: 'critical', l: 'Kritis', name: 'condition' }
+                                            ]} 
+                                        />
                                         <div className="grid grid-cols-2 gap-4">
                                             <InputGroup label="BB (kg)" name="weight" type="number" value={form.weight} onChange={handleChange} placeholder="70" />
                                             <InputGroup label="TB (cm)" name="height" type="number" value={form.height} onChange={handleChange} placeholder="170" />
                                         </div>
+                                        <div className="grid grid-cols-12 gap-3">
+                                            <div className="col-span-4">
+                                                <CustomSelect 
+                                                    label="Gol. Darah" 
+                                                    value={form.bloodType} 
+                                                    onChange={(e) => setForm(p => ({ ...p, bloodType: e.target.value }))} 
+                                                    options={[
+                                                        { v: '', l: '-' },
+                                                        { v: 'A', l: 'A' },
+                                                        { v: 'B', l: 'B' },
+                                                        { v: 'AB', l: 'AB' },
+                                                        { v: 'O', l: 'O' }
+                                                    ]} 
+                                                />
+                                            </div>
+                                            <div className="col-span-8">
+                                                <CustomSelect 
+                                                    label="Rhesus" 
+                                                    value={form.rhesus} 
+                                                    onChange={(e) => setForm(p => ({ ...p, rhesus: e.target.value }))} 
+                                                    options={[
+                                                        { v: '', l: '(no rhesus)' },
+                                                        { v: '+', l: '+' },
+                                                        { v: '-', l: '-' }
+                                                    ]} 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                     </div>
                                 </FormSection>
                                 <FormSection title="Registrasi" icon="calendar_today">
                                     <div className="space-y-4">
-                                        <InputGroup label="Tgl Masuk" name="admissionDate" type="date" value={form.admissionDate} onChange={handleChange} />
-                                        <InputGroup label="Target Sembuh" name="targetDays" type="number" value={form.targetDays} onChange={handleChange} placeholder="Hari" />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <InputGroup label="Tgl Masuk" name="admissionDate" type="date" value={form.admissionDate} onChange={handleChange} />
+                                            <InputGroup label="Target" name="targetDays" type="number" value={form.targetDays} onChange={handleChange} placeholder="Hari" />
+                                        </div>
                                         {stases.length > 0 && (
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Stase</label>
-                                                <select
-                                                    name="stase_id"
-                                                    value={form.stase_id}
-                                                    onChange={handleChange}
-                                                    className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
-                                                >
-                                                    <option value="">— Tidak ada stase —</option>
-                                                    {stases.map(s => (
-                                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                                    ))}
-                                                </select>
+                                                    <CustomSelect
+                                                        label="Stase"
+                                                        name="stase_id"
+                                                        value={form.stase_id}
+                                                        onChange={handleChange}
+                                                        placeholder="— Tidak ada stase —"
+                                                        options={stases.map(s => ({ v: s.id, l: s.name, name: 'stase_id' }))}
+                                                        icon="push_pin"
+                                                    />
                                                 {form.stase_id && pinnedStaseId === form.stase_id && (
                                                     <p className="text-[10px] text-primary mt-1 ml-1 flex items-center gap-1">
                                                         <span className="material-symbols-outlined text-[12px]">push_pin</span>
@@ -318,7 +349,7 @@ export default function AddPatient() {
                                         </button>
                                     </div>
                                     <textarea name="diagnosis" value={form.diagnosis} onChange={handleChange} rows={4} placeholder="Diagnosis awal atau riwayat medis dasar..."
-                                        className="w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all" />
+                                        className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                                 </div>
                                 {showDiagnosisPicker && (
                                     <ICD10Picker
@@ -336,7 +367,7 @@ export default function AddPatient() {
                             items={form.symptoms} onRemove={(id) => removeItem('symptoms', id)}
                             renderForm={
                                 <div className="space-y-4">
-                                    <input type="text" value={symptomInput.name} onChange={e => setSymptomInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama gejala" className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
+                                    <input type="text" value={symptomInput.name} onChange={e => setSymptomInput(p => ({ ...p, name: e.target.value }))} placeholder="Nama gejala" className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keparahan</label>
                                         <div className="flex p-1 bg-white dark:bg-slate-900 rounded-xl gap-1 border border-slate-100 dark:border-slate-800">
@@ -378,7 +409,7 @@ export default function AddPatient() {
                                             ))}
                                         </div>
                                     </div>
-                                    <textarea value={examInput.findings} onChange={e => setExamInput(p => ({ ...p, findings: e.target.value }))} rows={2} placeholder="Temuan pemeriksaan..." className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 transition-all" />
+                                    <textarea value={examInput.findings} onChange={e => setExamInput(p => ({ ...p, findings: e.target.value }))} rows={2} placeholder="Temuan pemeriksaan..." className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                                     <button onClick={() => { if (!examInput.findings) return; addItem('physicalExams', examInput, setExamInput, { findings: '', system: 'umum' }) }} type="button" className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"><span className="material-symbols-outlined text-sm">add</span> Tambah Temuan</button>
                                 </div>
                             }
@@ -432,10 +463,10 @@ export default function AddPatient() {
                                             </button>
                                         </div>
                                     )}
-                                    <input type="text" value={prescInput.name} onChange={e => setPrescInput(p => ({ ...p, name: e.target.value, fornas_source: false, fornas_form: '' }))} placeholder="Nama obat" className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
+                                    <input type="text" value={prescInput.name} onChange={e => setPrescInput(p => ({ ...p, name: e.target.value, fornas_source: false, fornas_form: '' }))} placeholder="Nama obat" className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                                     <div className="flex gap-2">
-                                        <input type="text" value={prescInput.dosage} onChange={e => setPrescInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (cth. 500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm" />
-                                        <input type="text" value={prescInput.frequency} onChange={e => setPrescInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (cth. 3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm" />
+                                        <input type="text" value={prescInput.dosage} onChange={e => setPrescInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (cth. 500mg)" className="flex-1 rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
+                                        <input type="text" value={prescInput.frequency} onChange={e => setPrescInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (cth. 3x/hari)" className="flex-1 rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute</label>
@@ -480,7 +511,7 @@ export default function AddPatient() {
                             items={form.dailyReports} onRemove={(id) => removeItem('dailyReports', id)}
                             renderForm={
                                 <div className="space-y-3">
-                                    <textarea value={reportInput.notes} onChange={e => setReportInput(p => ({ ...p, notes: e.target.value }))} rows={4} placeholder="Catatan perkembangan..." className="w-full rounded-lg border-slate-200 dark:border-slate-800 text-sm" />
+                                    <textarea value={reportInput.notes} onChange={e => setReportInput(p => ({ ...p, notes: e.target.value }))} rows={4} placeholder="Catatan perkembangan..." className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                                     <button onClick={() => addItem('dailyReports', reportInput, setReportInput, { notes: '', condition: '' })} type="button" className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 font-bold py-2 rounded-lg text-sm">Tambah Catatan</button>
                                 </div>
                             }
@@ -498,8 +529,8 @@ export default function AddPatient() {
 function FormSection({ title, icon, children }) {
     return (
         <div className="space-y-4">
-            <h3 className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-[2px]">
-                <span className="material-symbols-outlined text-[18px]">{icon}</span>
+            <h3 className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em]">
+                <span className="material-symbols-outlined text-[18px] opacity-70">{icon}</span>
                 {title}
             </h3>
             {children}
@@ -510,8 +541,8 @@ function FormSection({ title, icon, children }) {
 function InputGroup({ label, ...props }) {
     return (
         <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">{label}</label>
-            <input {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1 tracking-wider">{label}</label>
+            <input {...props} className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-bold text-slate-900 transition-all py-3 px-4 placeholder:text-slate-300 placeholder:font-normal" />
         </div>
     );
 }
@@ -519,8 +550,8 @@ function InputGroup({ label, ...props }) {
 function TextAreaGroup({ label, ...props }) {
     return (
         <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">{label}</label>
-            <textarea {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all" />
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1 tracking-wider">{label}</label>
+            <textarea {...props} className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-bold text-slate-900 transition-all py-3 px-4 placeholder:text-slate-300" />
         </div>
     );
 }
@@ -538,11 +569,11 @@ function SelectGroup({ label, options, ...props }) {
 
 function VitalInput({ label, unit, ...props }) {
     return (
-        <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-            <span className="text-[9px] font-black text-slate-400 uppercase mb-2">{label}</span>
-            <div className="flex items-baseline gap-1">
-                <input {...props} className="w-12 bg-transparent border-none p-0 text-center font-black text-lg focus:ring-0" placeholder="-" />
-                <span className="text-[8px] text-slate-400 font-bold">{unit}</span>
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center group hover:border-primary/30 transition-all duration-300 hover:shadow-sm">
+            <span className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">{label}</span>
+            <div className="flex items-baseline gap-1.5">
+                <input {...props} className="w-16 bg-transparent border-none p-0 text-center font-black text-2xl text-slate-900 focus:ring-0 placeholder:text-slate-200" placeholder="-" />
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{unit}</span>
             </div>
         </div>
     );
@@ -662,7 +693,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                         <input type="text" value={labInput.testName}
                             onChange={e => setLabInput(p => ({ ...p, testName: e.target.value, labKey: 'custom' }))}
                             placeholder="Nama pemeriksaan"
-                            className="w-full rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 transition-all" />
+                            className="w-full rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                     ) : (
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parameter</label>
@@ -695,11 +726,11 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                             <input type="text" value={labInput.value}
                                 onChange={e => setLabInput(p => ({ ...p, value: e.target.value }))}
                                 placeholder={selectedRef && selectedRef.qualitative ? 'Nilai (cth: ' + (selectedRef.normalValue || 'Negatif/Positif') + ')' : 'Nilai (Hasil)'}
-                                className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3" />
+                                className="flex-1 rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300" />
                             <input type="text" value={labInput.unit}
                                 onChange={e => setLabInput(p => ({ ...p, unit: e.target.value }))}
                                 placeholder="Satuan"
-                                className="w-24 rounded-xl border-slate-200 dark:border-slate-800 text-sm py-3 shrink-0" />
+                                className="w-24 rounded-xl border border-slate-100 bg-slate-50 focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm font-medium transition-all py-3 px-4 placeholder:text-slate-300 shrink-0" />
                         </div>
                     )}
 

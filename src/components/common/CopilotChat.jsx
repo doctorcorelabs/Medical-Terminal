@@ -274,7 +274,8 @@ const CopilotChat = () => {
  2. Gunakan Markdown GFM yang estetik (Tabel, Bold, List).
  3. JANGAN membungkus seluruh jawaban dalam blok kode (\`\`\`).
  4. JANGAN mengubah data medis.
- 5. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+ 5. JANGAN membuat awalan output seperti "Tentu, berikut adalah ..." atau "Berikut adalah ...". Langsung ke jawaban.
+ 6. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),

@@ -5,7 +5,7 @@
   --color-primary: #136dec;
   --color-background-light: #f6f7f8;
   --color-background-dark: #101822;
-  --font-display: "Inter", system-ui, sans-serif;
+  --font-display: "Outfit", "Inter", system-ui, sans-serif;
 }
 
 @keyframes fadeIn {
@@ -32,7 +32,7 @@
 
 /* Base */
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Outfit', 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
