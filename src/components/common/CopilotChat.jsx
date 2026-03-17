@@ -173,7 +173,7 @@ const CopilotChat = () => {
         // JIKA Context ON -> PAKSA GPT-4.1 (Akurasi Tinggi & Bebas Typo)
         // JIKA Context OFF -> Ikut aturan (Gambar ? GPT-4.1 : GPT-5-Mini)
         const isMultiModal = attachments.length > 0;
-        const selectedModel = ((isContextEnabled && pageContext) || isMultiModal) ? 'gpt-4.1' : 'gpt-5-mini';
+        const selectedModel = ((isContextEnabled && pageContext) || isMultiModal) ? 'gpt-5-mini' : 'gpt-4.1';
 
         const userMessage = { 
             role: 'user', 
@@ -215,7 +215,7 @@ const CopilotChat = () => {
             }
 
             const activeContext = isContextEnabled && pageContext;
-            const targetModel = (activeContext || isMultiModal) ? 'gpt-4.1' : 'gpt-5-mini';
+            const targetModel = (activeContext || isMultiModal) ? 'gpt-5-mini' : 'gpt-4.1';
 
             // --- JALUR 1: ADVANCED (Hanya jika Context ON / Patient Detail) ---
             if (activeContext) {
@@ -234,55 +234,86 @@ const CopilotChat = () => {
                         : m.content
                 }));
 
-                // Tahap 1: Drafting Medis
+                // Tahap 1: Drafting Medis (Analisis Konteks)
                 const draftResponse = await fetch(COPILOT_WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
                     body: JSON.stringify({
-                        model: targetModel,
+                        model: 'gpt-5-mini', // Gunakan model reasoning untuk analisis data pasien
                         stream: false,
                         messages: [
-                            { role: 'system', content: `Analisis medis draf. Berikan info lengkap. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+                            { role: 'system', content: `Analisis medis draf. Berikan info lengkap berdasarkan konteks pasien. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
-                        ],
+                        ]
                     }),
                 });
 
                 const draftData = await draftResponse.json();
                 const draftText = draftData.choices?.[0]?.message?.content || "";
 
-                // Tahap 2: Refining (GPT-4o)
+                // Tahap 2: Refining (Penyajian Jawaban)
                 setMessages(prev => {
                     const next = [...prev];
                     next[next.length - 1].stage = 'refining';
-                    next[next.length - 1].usedModel = 'gpt-4o';
+                    next[next.length - 1].usedModel = 'gpt-4.1';
                     return next;
                 });
 
-                const refiningResponse = await fetch(COPILOT_WORKER_URL, {
+                let refiningResponse = await fetch(COPILOT_WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
                     body: JSON.stringify({
-                        model: 'gpt-4o',
-                        stream: false, // Diganti ke non-stream untuk pengujian
+                        model: 'gpt-4.1', // Mencoba GPT-4.1 terlebih dahulu
+                        stream: false,
                         messages: [
                              { role: 'system', content: `Anda adalah Master Editor Medis. Poles draf menjadi sangat profesional, baku, dan BEBAS TYPO.
  ATURAN:
- 1. LANGSUNG berikan hasil akhir tanpa kalimat pembuka (seperti "Berikut adalah...") atau penutup.
- 2. Gunakan Markdown yang estetik.
- 3. JANGAN mengubah data medis.
- 4. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+ 1. JANGAN PERNAH memberikan indentasi (spasi) di awal baris. Semua baris harus mulai dari kolom paling kiri.
+ 2. Gunakan Markdown GFM yang estetik (Tabel, Bold, List).
+ 3. JANGAN membungkus seluruh jawaban dalam blok kode (\`\`\`).
+ 4. JANGAN mengubah data medis.
+ 5. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),
                 });
 
-                if (!refiningResponse.ok) throw new Error("Gagal mempoles jawaban.");
+                // FALLBACK JIKA GPT-4.1 GAGAL
+                if (!refiningResponse.ok) {
+                    console.warn("GPT-4.1 failed, falling back to GPT-4o");
+                    setMessages(prev => {
+                        const next = [...prev];
+                        next[next.length - 1].usedModel = 'gpt-4o';
+                        return next;
+                    });
+                    
+                    refiningResponse = await fetch(COPILOT_WORKER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AI_INTERNAL_KEY}`, 'x-internal-key': AI_INTERNAL_KEY },
+                        body: JSON.stringify({
+                            model: 'gpt-4o',
+                            stream: false,
+                            messages: [
+                                { role: 'system', content: `Anda adalah Master Editor Medis (Fallback Mode). Poles draf menjadi profesional dan BEBAS TYPO.` },
+                                { role: 'user', content: `Draf:\n${draftText}` }
+                            ],
+                        }),
+                    });
+                }
+
+                if (!refiningResponse.ok) throw new Error("Gagal memperoleh jawaban akhir.");
                 
                 const refineData = await refiningResponse.json();
-                const acc = refineData.choices?.[0]?.message?.content || "";
+                const accRaw = refineData.choices?.[0]?.message?.content || "";
+                
+                // Unindent Agresif: Hapus semua spasi/tab di awal setiap baris 
+                // agar ReactMarkdown tidak menganggapnya sebagai Code Block.
+                let acc = accRaw;
+                if (typeof acc === 'string') {
+                    acc = acc.split('\n').map(line => line.trimStart()).join('\n').trim();
+                }
 
                 setMessages(prev => {
                     const next = [...prev];
@@ -319,13 +350,22 @@ const CopilotChat = () => {
                             { role: 'system', content: 'Anda adalah Medx Copilot. Jawablah secara ramah dan profesional. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.' },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
-                        ],
+                        ]
                     }),
                 });
 
                 if (!response.ok) throw new Error("Gagal mendapatkan jawaban.");
                 const data = await response.json();
-                const acc = data.choices?.[0]?.message?.content || "";
+                
+                const choice = data.choices?.[0];
+                const msg = choice?.message;
+                const accRaw = msg?.content || "";
+                
+                let acc = accRaw;
+                if (typeof acc === 'string') {
+                    // Unindent Agresif: Hapus semua spasi/tab di awal setiap baris
+                    acc = acc.split('\n').map(line => line.trimStart()).join('\n').trim();
+                }
                 
                 setMessages(prev => {
                     const next = [...prev];
@@ -448,7 +488,10 @@ const CopilotChat = () => {
                                                         <div className="table-container">
                                                             <table {...props} />
                                                         </div>
-                                                    )
+                                                    ),
+                                                    // Ensure bold and italic are rendered nicely
+                                                    strong: ({node, ...props}) => <strong className="md-bold" {...props} />,
+                                                    em: ({node, ...props}) => <em className="md-italic" {...props} />
                                                 }}
                                             >
                                                 {typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || ''}
@@ -484,7 +527,10 @@ const CopilotChat = () => {
                                 {msg.usedModel && (
                                     <div className="model-badge">
                                         <span className="material-symbols-outlined">bolt</span>
-                                        {msg.usedModel}
+                                        {msg.usedModel === 'gpt-5-mini' ? 'GPT-Research Mode' : 
+                                         msg.usedModel === 'gpt-4.1' ? 'GPT-Swift Mode' : 
+                                         msg.usedModel === 'gpt-4o' ? 'GPT-Omni Mode' : 
+                                         `GPT-${msg.usedModel.toUpperCase()}`}
                                     </div>
                                 )}
                             </div>

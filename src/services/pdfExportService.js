@@ -14,9 +14,11 @@ const DANGER = [239, 68, 68];
 // Strip Unicode symbols not supported by jsPDF default font (e.g. ↑ ↓ ✓ ⚠)
 function cleanLabel(label) {
     if (!label) return '-';
-    // eslint-disable-next-line no-control-regex
-    return label.replace(/[^\x00-\x7E\u00C0-\u024F]/g, '').trim() || label.trim();
+    // Hanya hapus karakter kontrol non-printable, biarkan spasi dan karakter standar
+    return String(label).replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim() || '-';
 }
+
+const cleanCell = (t) => cleanLabel(t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''));
 
 function fmtDate(d) {
     if (!d) return '-';
@@ -227,7 +229,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
             const remains = currentText.substring(i);
             const tooShort = doc.getTextWidth(firstLineClean.trim()) < mw * 0.6;
             
-            renderLineSegments(doc, markdownLine, x + INDENT, curY, mw, isLast || tooShort, true);
+            renderLineSegments(doc, markdownLine, x + INDENT, curY, mw, isLast || tooShort, false);
             
             curY += LH;
             currentText = remains.trim();
@@ -291,7 +293,8 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
                         body: cleanedBody,
                         theme: 'grid',
                         headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: FS - 0.5, halign: 'center' },
-                        styles: { fontSize: FS - 1, cellPadding: 2, textColor: DARK, overflow: 'linebreak', halign: 'justify' },
+                        styles: { fontSize: FS - 1, cellPadding: 2, textColor: DARK, overflow: 'linebreak', halign: 'left', minCellWidth: 20 },
+                        columnStyles: { 0: { cellWidth: 'auto', minCellWidth: 30 } },
                         alternateRowStyles: { fillColor: STRIPE },
                         margin: { left: x + INDENT, right: 14 }
                     }) + LH;
@@ -606,7 +609,7 @@ function _renderPatientToDoc(doc, patient) {
                 head: [['No', 'Nama Obat', 'Dosis', 'Sediaan', 'Frekuensi', 'Rute', 'Tanggal']],
                 body: prescriptions.map((p, i) => [
                     i + 1,
-                    p.fornas_source ? (p.name || '-') + '  \u2646' : p.name || '-',
+                    p.fornas_source ? (p.name || '-') + '  [F]' : p.name || '-',
                     p.dosage || '-',
                     p.fornas_form || '-',
                     p.frequency || '-',
@@ -622,7 +625,7 @@ function _renderPatientToDoc(doc, patient) {
             }) + 4;
             if (prescriptions.some(p => p.fornas_source)) {
                 doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-                doc.text('\u2646 Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
+                doc.text('[F] Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
             }
             if (prescriptions.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
@@ -630,7 +633,7 @@ function _renderPatientToDoc(doc, patient) {
                 doc.text('Timeline Pemberian Obat (urut waktu)', 14, y); y += 5;
                 y = renderSectionTimeline(doc, prescriptions, y, {
                     dateField: 'date',
-                    labelFn: p => `${p.fornas_source ? (p.name || '-') + ' \u2646' : p.name || '-'} ${p.dosage || ''}`.trim(),
+                    labelFn: p => `${p.fornas_source ? (p.name || '-') + ' [F]' : p.name || '-'} ${p.dosage || ''}`.trim(),
                     subLabelFn: p => [p.frequency, p.route ? (p.route || '').toUpperCase() : '', p.fornas_form || ''].filter(Boolean).join(' \u2022 ') || null,
                 }, pageWidth);
             }

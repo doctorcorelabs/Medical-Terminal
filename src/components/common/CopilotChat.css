@@ -499,14 +499,15 @@ input:checked + .context-slider:before {
 }
 
 .message-bubble {
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-radius: 18px;
-  font-size: 14.5px;
+  font-size: 14px;
   line-height: 1.6;
   text-align: justify;
   hyphens: auto;
   word-break: break-word;
   overflow-wrap: break-word;
+  color: var(--copilot-text);
 }
 
 /* --- Markdown Content styling --- */
@@ -517,38 +518,43 @@ input:checked + .context-slider:before {
 .table-container {
   width: 100%;
   overflow-x: auto;
-  margin: 12px 0;
+  margin: 20px 0;
   scrollbar-width: thin;
   border-radius: 12px;
   border: 1px solid rgba(19, 109, 236, 0.15);
-  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .markdown-content table {
-  width: auto;
-  min-width: 100%;
-  border-collapse: collapse;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   margin: 0;
   font-size: 13px;
-  display: table;
+  text-align: left !important;
 }
 
 .markdown-content th, 
 .markdown-content td {
   padding: 12px 16px;
   text-align: left;
-  border-bottom: 1px solid rgba(19, 109, 236, 0.1);
-  min-width: 120px; /* Ensure columns have breathing room */
+  border-bottom: 1px solid rgba(19, 109, 236, 0.08);
+  min-width: 120px;
 }
 
 .markdown-content th {
-  background: rgba(19, 109, 236, 0.08);
+  background: #f8fafc;
   color: var(--copilot-primary);
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.05em;
-  white-space: nowrap; /* Prevent headers from stacking vertically */
+  white-space: nowrap;
+  border-bottom: 2px solid rgba(19, 109, 236, 0.2);
+}
+
+.markdown-content tr:nth-child(even) {
+  background: rgba(19, 109, 236, 0.02);
 }
 
 .markdown-content tr:last-child td {
@@ -556,7 +562,7 @@ input:checked + .context-slider:before {
 }
 
 .markdown-content tr:hover {
-  background: rgba(19, 109, 236, 0.04);
+  background: rgba(19, 109, 236, 0.05);
 }
 
 /* Scrollbar for tables if they overflow */
@@ -580,32 +586,53 @@ input:checked + .context-slider:before {
 
 /* Code blocks handling */
 .markdown-content pre {
-  background: rgba(0, 0, 0, 0.04);
-  padding: 12px;
-  border-radius: 8px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
   overflow-x: auto;
-  margin: 10px 0;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  margin: 12px 0;
+  border: none;
 }
 
 .markdown-content code {
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.9em;
-  background: rgba(0, 0, 0, 0.04);
-  padding: 2px 4px;
-  border-radius: 4px;
+  background: rgba(19, 109, 236, 0.08);
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--copilot-primary);
+  font-weight: 600;
 }
 
 .markdown-content pre code {
   background: transparent;
   padding: 0;
   border-radius: 0;
-  white-space: pre; /* Ensure code blocks don't wrap and trigger scroll */
+  color: #1e293b;
+  font-weight: 400;
+  white-space: pre; 
+}
+
+/* Bold & Italic emphasis */
+.markdown-content strong, .md-bold {
+  color: #0f172a;
+  font-weight: 750;
+}
+
+.markdown-content em, .md-italic {
+  color: #334155;
+  font-style: italic;
+}
+
+.markdown-content td p {
+  text-align: left !important;
+  margin-bottom: 4px;
 }
 
 .message-bubble p {
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
   text-align: justify;
+  line-height: 1.6;
 }
 
 .message-bubble p:last-child {
@@ -613,14 +640,20 @@ input:checked + .context-slider:before {
 }
 
 .ai .message-bubble {
-  background: rgba(255, 255, 255, 0.3) !important;
-  border: 1px solid rgba(255, 255, 255, 0.45) !important;
-  border-top-left-radius: 18px;
-  color: #0f172a !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-  max-width: 92%;
+  background: white !important;
+  border: 1px solid rgba(19, 109, 236, 0.15) !important;
+  border-top-left-radius: 4px;
+  color: #1e293b !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  max-width: 94%;
+}
+
+.markdown-content > *:first-child {
+  margin-top: 0 !important;
+}
+
+.markdown-content > *:last-child {
+  margin-bottom: 0 !important;
 }
 
 /* --- AI Thinking & Stages --- */

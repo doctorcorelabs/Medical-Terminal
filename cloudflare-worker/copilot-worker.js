@@ -11,8 +11,9 @@ const COPILOT_CHAT_URL = 'https://api.githubcopilot.com/chat/completions';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-requested-with, x-internal-key',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PATCH, PUT, DELETE',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Max-Age': '86400',
 };
 
 
@@ -35,9 +36,14 @@ async function getCopilotToken(githubToken) {
 
 export default {
     async fetch(request, env) {
-        // Handle CORS preflight
         if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: corsHeaders });
+            return new Response(null, { 
+                status: 204, 
+                headers: {
+                    ...corsHeaders,
+                    'Access-Control-Allow-Headers': request.headers.get('Access-Control-Request-Headers') || corsHeaders['Access-Control-Allow-Headers']
+                } 
+            });
         }
 
         const url = new URL(request.url);
@@ -97,9 +103,19 @@ export default {
             // 2. Forward request to Copilot
             const body = await request.json();
             
-            // Map common models if necessary, or pass through
             const model = body.model || 'gpt-4.1';
-            const isStream = false; // Disabled globally as requested
+            const isStream = false;
+
+            // Susun body request secara dinamis
+            const copilotReqBody = {
+                messages: body.messages,
+                model: model, 
+                temperature: body.temperature ?? 0.1,
+                top_p: body.top_p ?? 1,
+                n: body.n ?? 1,
+                stream: isStream,
+                max_tokens: body.max_tokens || 12000,
+            };
 
             const copilotResponse = await fetch(COPILOT_CHAT_URL, {
                 method: 'POST',
@@ -112,25 +128,17 @@ export default {
                     'Openai-Organization': 'github-copilot',
                     'Openai-Intent': 'conversation-panel',
                 },
-                body: JSON.stringify({
-                    messages: body.messages,
-                    model: model, 
-                    temperature: body.temperature || 0.1,
-                    top_p: body.top_p || 1,
-                    n: body.n || 1,
-                    stream: isStream,
-                    max_tokens: body.max_tokens || 12000,
-                }),
+                body: JSON.stringify(copilotReqBody),
             });
 
             // 3. Return response to client
-            if (copilotResponse.ok) {
-                const responseHeaders = {
-                    ...corsHeaders,
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                };
+            const responseHeaders = {
+                ...corsHeaders,
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+            };
 
+            if (copilotResponse.ok) {
                 if (isStream) {
                     responseHeaders['Content-Type'] = 'text/event-stream';
                     return new Response(copilotResponse.body, {
@@ -141,14 +149,18 @@ export default {
                     const data = await copilotResponse.json();
                     return new Response(JSON.stringify(data), {
                         status: 200,
-                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                        headers: responseHeaders,
                     });
                 }
             } else {
-                const errorData = await copilotResponse.text();
-                return new Response(errorData, {
+                const errorText = await copilotResponse.text();
+                return new Response(JSON.stringify({ 
+                    error: "GitHub API Error", 
+                    details: errorText,
+                    status: copilotResponse.status 
+                }), {
                     status: copilotResponse.status,
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    headers: responseHeaders,
                 });
             }
 
