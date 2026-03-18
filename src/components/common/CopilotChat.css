@@ -326,12 +326,12 @@ input:checked + .context-slider:before {
   }
 
   .window-header {
-    padding: 12px 16px;
+    padding: 10px 14px;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     text-align: left;
-    gap: 8px;
+    gap: 6px;
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(19, 109, 236, 0.1);
@@ -342,51 +342,59 @@ input:checked + .context-slider:before {
     flex-direction: row;
     align-items: center;
     width: auto;
-    gap: 10px;
+    gap: 6px;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   .header-logo {
     margin-right: 0;
     margin-bottom: 0;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
 
   .header-logo .material-symbols-outlined {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .header-info {
     align-items: flex-start;
+    min-width: 0;
   }
 
   .header-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--copilot-text);
     text-align: left;
     letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .header-status {
-    font-size: 9px;
+    font-size: 8px;
+    gap: 3px;
   }
 
   .header-actions-group {
     flex-direction: row;
     align-items: center;
     width: auto;
-    gap: 8px;
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   .header-actions {
     display: flex;
-    gap: 6px;
+    gap: 4px;
   }
 
   .context-toggle-wrapper {
-    padding: 4px 8px;
-    border-radius: 10px;
+    padding: 3px 6px;
+    border-radius: 8px;
     background: rgba(19, 109, 236, 0.08);
     box-shadow: none;
     gap: 4px;
@@ -394,15 +402,15 @@ input:checked + .context-slider:before {
 
   .context-label {
     display: inline-block;
-    font-size: 8px;
+    font-size: 7px;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--copilot-text-muted);
   }
 
   .chat-action-btn {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     background: rgba(19, 109, 236, 0.06);
     box-shadow: none;
   }
@@ -411,8 +419,8 @@ input:checked + .context-slider:before {
     position: static;
     background: rgba(239, 68, 68, 0.08);
     box-shadow: none;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
   }
 
   /* Adjust chat area for the larger header */
