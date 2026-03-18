@@ -29,6 +29,7 @@
     "react-smooth": "^4.0.4",
     "reactflow": "^11.11.4",
     "recharts": "^3.8.0",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.2.1"
   },

@@ -7,6 +7,10 @@ import './CopilotChat.css';
 import { useCopilotContext } from '../../context/CopilotContext';
 import { exportCopilotResponsePDF } from '../../services/pdfExportService';
 
+import ClinicalVisualization from './ClinicalVisualization';
+
+import rehypeRaw from 'rehype-raw';
+
 const COPILOT_WORKER_URL = import.meta.env.VITE_COPILOT_WORKER_URL;
 const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
 
@@ -21,6 +25,11 @@ const CopilotChat = () => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showInfoModal, setShowInfoModal] = useState(false);
+    const [activeShortcut, setActiveShortcut] = useState(null);
+    const [showSlashMenu, setShowSlashMenu] = useState(false);
+    const [slashQuery, setSlashQuery] = useState('');
+    const [selectedIndex, setSelectedIndex] = useState(0);
     
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -160,6 +169,163 @@ const CopilotChat = () => {
         setShowConfirmModal(false);
     };
 
+    const shortcuts = [
+        { 
+            id: 'trend', 
+            label: 'Tren Vital', 
+            description: 'Tampilkan grafik tren vital vs lab',
+            examplePrompt: '/trend tunjukkan perkembangan tekanan darah pasien'
+        },
+        { 
+            id: 'radar', 
+            label: 'Radar Risiko', 
+            description: 'Analisis profil risiko dalam radar chart',
+            examplePrompt: '/radar tampilkan analisis risiko klinis pasien saat ini'
+        },
+        { 
+            id: 'heatmap', 
+            label: 'Peta Gejala', 
+            description: 'Buat heatmap keparahan gejala',
+            examplePrompt: '/heatmap buat sebaran lokasi nyeri pada tubuh pasien'
+        },
+        { 
+            id: 'gauge', 
+            label: 'Skor Kerentanan', 
+            description: 'Hitung vulnerability score (gauge)',
+            examplePrompt: '/gauge hitung tingkat kerentanan komplikasi pasien'
+        },
+        { 
+            id: 'anatomy', 
+            label: 'Fokus Tubuh', 
+            description: 'Tunjukkan fokus fisik pada peta anatomi',
+            examplePrompt: '/anatomy highlight bagian dada yang mengalami sesak'
+        },
+        { 
+            id: 'simulation', 
+            label: 'Simulasi Obat', 
+            description: 'Simulasikan konsentrasi obat',
+            examplePrompt: '/simulation simulasikan efek pemberian insulin baru'
+        },
+        { 
+            id: 'comparison', 
+            label: 'Delta Lab', 
+            description: 'Bandingkan hasil lab (delta %)',
+            examplePrompt: '/comparison bandingkan Hb hari ini dengan kemarin'
+        },
+        { 
+            id: 'timeline', 
+            label: 'Respon Obat', 
+            description: 'Timeline intervensi & respon vital',
+            examplePrompt: '/timeline tunjukkan respon detak jantung setelah obat'
+        },
+        { 
+            id: 'forecast', 
+            label: 'Prediksi', 
+            description: 'Kurva prediksi pemulihan (forecast)',
+            examplePrompt: '/forecast prediksikan masa pemulihan pasien'
+        },
+        { 
+            id: 'outliers', 
+            label: 'Outlier', 
+            description: 'Analisis outliers dalam data',
+            examplePrompt: '/outliers cari anomali pada data lab satu bulan terakhir'
+        },
+        { 
+            id: 'audit', 
+            label: 'Audit', 
+            description: 'Audit checklist klinis',
+            examplePrompt: '/audit periksa kepatuhan protokol perawatan harian'
+        },
+        { 
+            id: 'gantt', 
+            label: 'Rencana', 
+            description: 'Gantt chart rencana tindakan',
+            examplePrompt: '/gantt buat timeline rencana operasi dan pemulihan'
+        },
+        { 
+            id: 'dashboard', 
+            label: 'Dashboard', 
+            description: 'Dashboard filtering otomatis',
+            examplePrompt: '/dashboard tampilkan ringkasan metrik utama pasien'
+        }
+    ];
+
+    const filteredShortcuts = slashQuery 
+        ? shortcuts.filter(s => 
+            s.label.toLowerCase().includes(slashQuery.toLowerCase()) || 
+            s.id.toLowerCase().includes(slashQuery.toLowerCase())
+          )
+        : shortcuts;
+
+    const handleShortcutClick = (shortcut) => {
+        if (activeShortcut?.id === shortcut.id) {
+            setActiveShortcut(null);
+        } else {
+            setActiveShortcut(shortcut);
+        }
+    };
+
+    const handleSelectShortcut = (shortcut) => {
+        setShowSlashMenu(false);
+        setSlashQuery('');
+        setSelectedIndex(0);
+        
+        // Ganti '/' dan query dengan command shortcut teks (misal: /tren)
+        const lastSlashIndex = input.lastIndexOf('/');
+        if (lastSlashIndex !== -1) {
+            const beforeSlash = input.substring(0, lastSlashIndex);
+            const newInput = `${beforeSlash}/${shortcut.id} `;
+            setInput(newInput);
+            
+            // Focus kembali ke textarea agar penulisan nggabung
+            setTimeout(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                }
+            }, 0);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (showSlashMenu) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSelectedIndex(prev => (prev + 1) % filteredShortcuts.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSelectedIndex(prev => (prev - 1 + filteredShortcuts.length) % filteredShortcuts.length);
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                if (filteredShortcuts[selectedIndex]) {
+                    handleSelectShortcut(filteredShortcuts[selectedIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                setShowSlashMenu(false);
+            }
+        } else {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        }
+    };
+
+    const handleInputChange = (val) => {
+        setInput(val);
+        
+        const lastChar = val[val.length - 1];
+        const lastSlashIndex = val.lastIndexOf('/');
+        
+        if (lastSlashIndex !== -1 && lastSlashIndex >= val.lastIndexOf(' ') && isContextEnabled && pageContext) {
+            setShowSlashMenu(true);
+            const query = val.substring(lastSlashIndex + 1);
+            setSlashQuery(query);
+            setSelectedIndex(0);
+        } else {
+            setShowSlashMenu(false);
+        }
+    };
+
     const handleSend = async () => {
         if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
@@ -175,20 +341,39 @@ const CopilotChat = () => {
         const isMultiModal = attachments.length > 0;
         const selectedModel = ((isContextEnabled && pageContext) || isMultiModal) ? 'gpt-5-mini' : 'gpt-4.1';
 
+        // Shortcut Logic: Deteksi slash command di input (hanya jika di awal kalimat)
+        let finalInput = input;
+        let detectedShortcut = null;
+        
+        const trimmedInput = input.trim();
+        if (trimmedInput.startsWith('/')) {
+            const words = trimmedInput.split(' ');
+            const cmd = words[0].substring(1).toLowerCase();
+            detectedShortcut = shortcuts.find(s => s.id === cmd);
+            
+            if (detectedShortcut) {
+                const remainingText = words.slice(1).join(' ');
+                finalInput = `[INTRUKSI VISUALISASI: ${detectedShortcut.description}] ${remainingText || "Tampilkan visualisasi ini."}`;
+            }
+        }
+
         const userMessage = { 
             role: 'user', 
-            content: input || (attachments.length > 0 ? "" : ""),
+            content: finalInput,
+            displayContent: input, // Tampilkan teks asli yang diketik user
             attachments: [...attachments],
-            usedModel: selectedModel // Simpan info model yang digunakan
+            usedModel: selectedModel,
+            shortcut: detectedShortcut?.id
         };
 
         setMessages(prev => [...prev, userMessage]);
         
-        const currentInput = input;
+        const currentInput = finalInput;
         const currentAttachments = [...attachments];
         
         setInput('');
         setAttachments([]);
+        setActiveShortcut(null); 
         setIsLoading(true);
 
         try {
@@ -242,7 +427,26 @@ const CopilotChat = () => {
                         model: 'gpt-5-mini', // Gunakan model reasoning untuk analisis data pasien
                         stream: false,
                         messages: [
-                            { role: 'system', content: `Analisis medis draf. Berikan info lengkap berdasarkan konteks pasien. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+                            { role: 'system', content: `Anda adalah AI Peneliti Medis yang sangat cerdas. Analisis data pasien dengan cermat.
+TUGAS ANDA:
+1. Berikan analisis klinis mendalam.
+2. JIKA RELEVAN, sertakan VISUALISASI DATA INTERAKTIF (pilih tipe yang paling sesuai) dengan meletakkan tag XML pada BARIS BARU (beri 2x newline sebelum dan sesudah tag). List tipe yang didukung:
+   - <MedicalChart type="trend" title="Tren Vital vs Lab" data='[{"time":"08:00","vitals":70,"lab":12},...]' /> (Line chart ganda)
+   - <MedicalChart type="radar" title="Profil Risiko" data='[{"subject":"HR","A":8},...]' /> (Spider web)
+   - <MedicalChart type="heatmap" title="Peta Gejala" data='[{"name":"Nyeri","cells":[{"value":8},...]},...]' /> (Intensitas gejala)
+   - <MedicalChart type="gauge" title="Vulnerability Score" data='[{"value":75}]' /> (Meteran %)
+   - <MedicalChart type="anatomy" title="Fokus Fisik" data='["head","chest"]' /> (Highlight tubuh)
+   - <MedicalChart type="simulation" title="Kadar Obat" data='[{"time":1,"level":100},...]' /> (Area chart)
+   - <MedicalChart type="comparison" title="Delta Lab" data='[{"name":"Hb","delta":-10},...]' /> (Bar chart naik/turun)
+   - <MedicalChart type="timeline" title="Respon Obat" data='[{"time":"10:00","vital":80,"drug":"Paracetamol"},...]' /> (Tren + marker obat)
+   - <MedicalChart type="forecast" title="Prediksi Pemulihan" data='[{"day":1,"actual":60,"forecast":65},...]' /> (Garis nyata vs putus-putus)
+   - <MedicalChart type="outliers" title="Analisis Outlier" data='[{"time":"09:00","param":"HR","value":140,"outlier":true},...]' /> (Tabel highlight)
+   - <MedicalChart type="audit" title="Audit Klinis" data='[{"task":"Cek Infus","ok":true},...]' /> (Checklist)
+   - <MedicalChart type="gantt" title="Rencana Tindakan" data='[{"time":"12:00","action":"Operasi","desc":"..."},...]' /> (Timeline vertikal)
+   - <MedicalChart type="dashboard" title="Quick Filter" data='[{"label":"Harian"},{"label":"Kritis"}]' /> (Tombol filter)
+3. PENTING: Gunakan <MedicalChart /> untuk menyajikan data terstruktur yang butuh analisis visual. JANGAN menduplikasi data yang sama dalam format Tabel Markdown biasa jika sudah menggunakan tag tersebut. Pilih salah satu (tag lebih disukai).
+4. Tag <MedicalChart /> HARUS dipisahkan dari teks paragraf dengan baris kosong.
+5. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
@@ -269,13 +473,13 @@ const CopilotChat = () => {
                         stream: false,
                         messages: [
                              { role: 'system', content: `Anda adalah Master Editor Medis. Poles draf menjadi sangat profesional, baku, dan BEBAS TYPO.
- ATURAN:
- 1. JANGAN PERNAH memberikan indentasi (spasi) di awal baris. Semua baris harus mulai dari kolom paling kiri.
- 2. Gunakan Markdown GFM yang estetik (Tabel, Bold, List).
- 3. JANGAN membungkus seluruh jawaban dalam blok kode (\`\`\`).
- 4. JANGAN mengubah data medis.
- 5. JANGAN membuat awalan output seperti "Tentu, berikut adalah ..." atau "Berikut adalah ...". Langsung ke jawaban.
- 6. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+ATURAN KRUSIAL:
+1. PERTAHANKAN semua tag <MedicalChart /> secara utuh. Jangan mengubah sintaks XML-nya. Pastikan ada baris kosong SEBELUM dan SESUDAH tag tersebut.
+2. Poles teks narasi di sekitarnya agar estetik.
+3. JANGAN PERNAH memberikan indentasi (spasi) di awal baris.
+4. Gunakan Markdown GFM (Tabel, Bold, List).
+5. JANGAN membuat awalan output seperti "Tentu...". Langsung ke jawaban.
+6. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),
@@ -425,6 +629,15 @@ const CopilotChat = () => {
                     </div>
 
                     <div className="header-actions-group">
+                        {pageContext && isContextEnabled && (
+                            <button 
+                                className="chat-action-btn info-btn" 
+                                onClick={() => setShowInfoModal(true)}
+                                title="Informasi Visualisasi"
+                            >
+                                <span className="material-symbols-outlined">info</span>
+                            </button>
+                        )}
                         {pageContext && (
                             <div className="context-toggle-wrapper">
                                 <label className="context-switch">
@@ -448,6 +661,35 @@ const CopilotChat = () => {
                         </button>
                     </div>
                 </div>
+
+                {showInfoModal && (
+                    <div className="viz-info-overlay" onClick={() => setShowInfoModal(false)}>
+                        <div className="viz-info-content" onClick={e => e.stopPropagation()}>
+                            <div className="viz-info-header">
+                                <h3>Panduan Visualisasi Klinis</h3>
+                                <button className="close-info-btn" onClick={() => setShowInfoModal(false)}>
+                                    <span className="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+                            <div className="viz-info-body custom-scrollbar">
+                                <p className="info-desc">Aktifkan Context untuk menggunakan fitur analisis visual otomatis ini:</p>
+                                <div className="info-grid">
+                                    {shortcuts.map(s => (
+                                        <div key={s.id} className="info-card">
+                                            <div className="info-card-text">
+                                                <div className="info-card-title">/{s.id} — {s.label}</div>
+                                                <div className="info-card-sub">{s.description}</div>
+                                                <div className="info-card-example">
+                                                    <span>Contoh:</span> {s.examplePrompt}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="messages-area custom-scrollbar">
                     {messages.map((msg, idx) => (
@@ -484,18 +726,54 @@ const CopilotChat = () => {
                                         <div className="markdown-content">
                                             <ReactMarkdown 
                                                 remarkPlugins={[remarkGfm]}
+                                                rehypePlugins={[rehypeRaw]}
                                                 components={{
                                                     table: ({node, ...props}) => (
                                                         <div className="table-container">
                                                             <table {...props} />
                                                         </div>
                                                     ),
+                                                    p: ({node, children, ...props}) => {
+                                                        // Aggressive check for any block-level content within children
+                                                        const isBlockContent = (content) => {
+                                                            return React.Children.toArray(content).some(child => {
+                                                                if (!React.isValidElement(child)) return false;
+                                                                
+                                                                // Check tag names and custom component names
+                                                                const type = child.type;
+                                                                const name = child.props?.node?.name || (typeof type === 'string' ? type : type.name);
+                                                                
+                                                                const blockTags = ['div', 'table', 'section', 'article', 'medicalchart', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'tr', 'td'];
+                                                                if (blockTags.includes(name?.toLowerCase())) return true;
+                                                                
+                                                                // Recursively check children if it's a fragment or wrapper
+                                                                if (child.props?.children) return isBlockContent(child.props.children);
+                                                                
+                                                                return false;
+                                                            });
+                                                        };
+
+                                                        if (isBlockContent(children)) {
+                                                            return <div className="p-wrap" {...props}>{children}</div>;
+                                                        }
+                                                        return <p {...props}>{children}</p>;
+                                                    },
+                                                    // Custom component for MedicalChart tags
+                                                    medicalchart: ({node, ...props}) => {
+                                                        try {
+                                                            const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
+                                                            return <ClinicalVisualization {...props} data={chartData} />;
+                                                        } catch (e) {
+                                                            console.error("Failed to parse chart data:", e);
+                                                            return <div className="text-red-500 text-xs">Gagal memuat grafik: Data tidak valid</div>;
+                                                        }
+                                                    },
                                                     // Ensure bold and italic are rendered nicely
                                                     strong: ({node, ...props}) => <strong className="md-bold" {...props} />,
                                                     em: ({node, ...props}) => <em className="md-italic" {...props} />
                                                 }}
                                             >
-                                                {typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || ''}
+                                                {msg.displayContent || (typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '')}
                                             </ReactMarkdown>
                                         </div>
                                     )
@@ -554,8 +832,8 @@ const CopilotChat = () => {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="input-section">
-                    {attachments.length > 0 && (
+                    <div className="input-section">
+                        {attachments.length > 0 && (
                         <div className="attachment-previews">
                             {attachments.map((att, index) => (
                                 <div key={index} className="preview-item">
@@ -604,24 +882,41 @@ const CopilotChat = () => {
                     </div>
 
                     <div className="input-wrapper-v2">
-                        <textarea 
-                            ref={textareaRef}
-                            className="chat-textarea"
-                            placeholder="Tanya apapun atau kirim gambar..."
-                            rows="1"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                        />
+                        {showSlashMenu && filteredShortcuts.length > 0 && (
+                            <div className="slash-menu">
+                                <div className="slash-menu-header">Pilih Visualisasi</div>
+                                <div className="slash-menu-list">
+                                    {filteredShortcuts.map((shortcut, index) => (
+                                        <div 
+                                            key={shortcut.id}
+                                            className={`slash-menu-item ${index === selectedIndex ? 'active' : ''}`}
+                                            onClick={() => handleSelectShortcut(shortcut)}
+                                            onMouseEnter={() => setSelectedIndex(index)}
+                                        >
+                                            <div className="item-info">
+                                                <span className="item-name">/{shortcut.id}</span>
+                                                <span className="item-desc">{shortcut.label}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="input-main-flow">
+                            <textarea 
+                                ref={textareaRef}
+                                className="chat-textarea"
+                                placeholder="Tanya apapun atau kirim gambar..."
+                                rows="1"
+                                value={input}
+                                onChange={(e) => handleInputChange(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            />
+                        </div>
                         <button 
                             className="send-button-v2" 
                             onClick={handleSend} 
-                            disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                            disabled={isLoading || (!input.trim() && attachments.length === 0 && !activeShortcut)}
                         >
                             <span className="material-symbols-outlined">send</span>
                         </button>

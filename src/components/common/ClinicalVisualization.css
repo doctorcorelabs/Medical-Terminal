@@ -1,0 +1,181 @@
+/* src/components/common/ClinicalVisualization.css */
+
+.clinical-viz-container {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(19, 109, 236, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+    overflow: hidden;
+    animation: viz-fade-in 0.5s ease-out;
+}
+
+@keyframes viz-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.viz-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(19, 109, 236, 0.05);
+}
+
+.viz-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.viz-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--copilot-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.viz-icon {
+    font-size: 18px !important;
+    color: var(--copilot-primary);
+}
+
+.viz-content {
+    width: 100%;
+    min-height: 220px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    display: block;
+    padding: 10px 0 15px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(19, 109, 236, 0.2) transparent;
+}
+
+.viz-canvas-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0 40px;
+    min-width: max-content;
+}
+
+.viz-canvas-wrapper > div {
+    min-width: 500px;
+}
+
+/* Custom Scrollbar for Viz Content */
+.viz-content::-webkit-scrollbar {
+    height: 4px;
+}
+
+.viz-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.viz-content::-webkit-scrollbar-thumb {
+    background: rgba(19, 109, 236, 0.2);
+    border-radius: 10px;
+}
+
+.viz-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(19, 109, 236, 0.4);
+}
+
+.table-flow-container {
+    width: 100%;
+    overflow-x: auto;
+}
+
+/* Gauge Specifics */
+.gauge-container {
+    position: relative;
+    width: 200px;
+    height: 120px;
+}
+
+.gauge-value {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.gauge-num {
+    font-size: 24px;
+    font-weight: 900;
+    color: #1e293b;
+    display: block;
+}
+
+.gauge-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+/* Heatmap Specifics */
+.heatmap-grid {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+}
+
+.heatmap-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.1);
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* Anatomy Highlight */
+.anatomy-svg {
+    max-width: 180px;
+    height: auto;
+}
+
+.body-part {
+    fill: #e2e8f0;
+    stroke: #fff;
+    stroke-width: 1;
+    transition: fill 0.3s;
+}
+
+.body-part.highlighted {
+    fill: #136dec;
+    filter: drop-shadow(0 0 5px rgba(19, 109, 236, 0.5));
+}
+
+/* Table overrides for Audit/Outliers */
+.viz-table {
+    width: 100%;
+    font-size: 12px;
+}
+
+.viz-table th {
+    text-align: left;
+    padding: 8px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.viz-table td {
+    padding: 8px;
+    border-top: 1px solid rgba(0,0,0,0.03);
+}
+
+.outlier-row {
+    background: rgba(239, 68, 68, 0.05);
+    color: #ef4444;
+}
