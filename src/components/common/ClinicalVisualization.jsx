@@ -7,24 +7,63 @@ import {
 } from 'recharts';
 import './ClinicalVisualization.css';
 
-const ClinicalVisualization = ({ type, data, title, icon = 'analytics' }) => {
+const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId }) => {
     
     const renderChart = () => {
         const height = type === 'radar' ? 380 : 250;
-        const width = type === 'radar' ? 600 : '100%';
+        const scrollableTypes = ['trend', 'simulation', 'timeline', 'forecast'];
+        const width = (type === 'radar' || scrollableTypes.includes(type)) ? (type === 'radar' ? 600 : 800) : '100%';
 
         switch(type) {
             case 'trend': // Lab vs Vitals
                 return (
-                    <ResponsiveContainer width={width} height={height}>
-                        <LineChart data={data} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                    <ResponsiveContainer width={width} height={height + 50}>
+                        <LineChart data={data} margin={{ top: 20, right: 20, left: 5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                            <XAxis dataKey="time" fontSize={10} tickMargin={10} axisLine={false} tickLine={false} />
-                            <YAxis yAxisId="left" fontSize={10} axisLine={false} tickLine={false} />
-                            <YAxis yAxisId="right" orientation="right" fontSize={10} axisLine={false} tickLine={false} />
+                            <XAxis 
+                                dataKey="time" 
+                                fontSize={10} 
+                                tickMargin={10} 
+                                axisLine={false} 
+                                tickLine={false}
+                                padding={{ left: 40, right: 40 }}
+                            />
+                            <YAxis 
+                                yAxisId="left" 
+                                fontSize={10} 
+                                axisLine={false} 
+                                tickLine={false} 
+                                width={40}
+                            />
+                            <YAxis 
+                                yAxisId="right" 
+                                orientation="right" 
+                                fontSize={10} 
+                                axisLine={false} 
+                                tickLine={false} 
+                                width={40}
+                            />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Line yAxisId="left" type="monotone" dataKey="vitals" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#136dec' }} activeDot={{ r: 6 }} />
-                            <Line yAxisId="right" type="monotone" dataKey="lab" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                            <Line 
+                                yAxisId="left" 
+                                type="monotone" 
+                                dataKey="vitals" 
+                                stroke="#136dec" 
+                                strokeWidth={2.5} 
+                                dot={{ r: 3.5, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} 
+                                activeDot={{ r: 5 }} 
+                                connectNulls
+                            />
+                            <Line 
+                                yAxisId="right" 
+                                type="monotone" 
+                                dataKey="lab" 
+                                stroke="#10b981" 
+                                strokeWidth={2.5} 
+                                dot={{ r: 3.5, fill: '#fff', stroke: '#10b981', strokeWidth: 2 }} 
+                                activeDot={{ r: 5 }} 
+                                connectNulls
+                            />
                         </LineChart>
                     </ResponsiveContainer>
                 );
@@ -100,30 +139,32 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics' }) => {
 
             case 'simulation': // Drug Concentration
                 return (
-                    <ResponsiveContainer width={width} height={height}>
-                        <AreaChart data={data} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                    <ResponsiveContainer width={width} height={height + 50}>
+                        <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                             <defs>
                                 <linearGradient id="colorConc" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#136dec" stopOpacity={0.3}/>
                                     <stop offset="95%" stopColor="#136dec" stopOpacity={0}/>
                                 </linearGradient>
                             </defs>
-                            <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} />
-                            <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                            <Tooltip />
-                            <Area type="monotone" dataKey="level" stroke="#136dec" fillOpacity={1} fill="url(#colorConc)" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                            <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 30, right: 30 }} />
+                            <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Area type="monotone" dataKey="level" stroke="#136dec" strokeWidth={3} fillOpacity={1} fill="url(#colorConc)" />
                         </AreaChart>
                     </ResponsiveContainer>
                 );
 
             case 'comparison': // Lab Comparison % Delta
                 return (
-                    <ResponsiveContainer width={width} height={height}>
-                        <BarChart data={data} layout="vertical" margin={{ top: 20, right: 30, left: 40, bottom: 20 }}>
-                            <XAxis type="number" fontSize={10} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-                            <YAxis dataKey="name" type="category" width={100} fontSize={10} axisLine={false} tickLine={false} />
-                            <Tooltip />
-                            <Bar dataKey="delta" radius={[0, 4, 4, 0]}>
+                    <ResponsiveContainer width="100%" height={height}>
+                        <BarChart data={data} layout="vertical" margin={{ top: 10, right: 40, left: 0, bottom: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
+                            <XAxis type="number" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} domain={['auto', 'auto']} />
+                            <YAxis dataKey="name" type="category" width={100} fontSize={10} axisLine={false} tickLine={false} tickMargin={5} />
+                            <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Bar dataKey="delta" radius={[0, 4, 4, 0]} barSize={20}>
                                 {data.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.delta > 0 ? '#ef4444' : '#10b981'} />
                                 ))}
@@ -134,13 +175,13 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics' }) => {
 
             case 'timeline': // Drug-Response Timeline
                 return (
-                    <ResponsiveContainer width={width} height={height}>
-                        <LineChart data={data} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                    <ResponsiveContainer width={width} height={height + 50}>
+                        <LineChart data={data} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                            <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} />
-                            <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={{ r: 4 }} />
+                            <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
+                            <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} activeDot={{ r: 6 }} />
                             <Scatter yAxisId="left" data={data.filter(d => d.drug)} name="Obat" shape="star" fill="#ef4444" />
                         </LineChart>
                     </ResponsiveContainer>
@@ -148,14 +189,14 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics' }) => {
 
             case 'forecast': // Recovery Forecast
                 return (
-                    <ResponsiveContainer width={width} height={height}>
-                        <LineChart data={data} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
+                    <ResponsiveContainer width={width} height={height + 50}>
+                        <LineChart data={data} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                            <XAxis dataKey="day" fontSize={10} axisLine={false} tickLine={false} />
-                            <YAxis fontSize={10} axisLine={false} tickLine={false} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="actual" stroke="#136dec" strokeWidth={3} />
-                            <Line type="monotone" dataKey="forecast" stroke="#136dec" strokeDasharray="5 5" strokeOpacity={0.5} />
+                            <XAxis dataKey="day" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
+                            <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Line type="monotone" dataKey="actual" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} />
+                            <Line type="monotone" dataKey="forecast" stroke="#136dec" strokeDasharray="5 5" strokeOpacity={0.5} dot={false} />
                         </LineChart>
                     </ResponsiveContainer>
                 );
@@ -233,7 +274,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics' }) => {
     };
 
     return (
-        <div className="clinical-viz-container">
+        <div className="clinical-viz-container" id={vizId}>
             <div className="viz-header">
                 <div className="viz-header-left">
                     <span className="material-symbols-outlined viz-icon">{icon}</span>

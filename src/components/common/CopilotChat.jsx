@@ -8,6 +8,7 @@ import { useCopilotContext } from '../../context/CopilotContext';
 import { exportCopilotResponsePDF } from '../../services/pdfExportService';
 
 import ClinicalVisualization from './ClinicalVisualization';
+import html2canvas from 'html2canvas';
 
 import rehypeRaw from 'rehype-raw';
 
@@ -587,9 +588,52 @@ ATURAN KRUSIAL:
                 return next;
             });
 
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleExportPDF = async (msg, msgIdx) => {
+        try {
+            setIsLoading(true); // Show some loading state if needed, or just handle silently
+            const rawContent = typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '';
+            const chartImages = {};
+            
+            // Find all visualization containers within this specific message
+            // We use the message index to scope the search
+            const messageRows = document.querySelectorAll('.message-row.ai');
+            // Note: msgIdx might not match 1:1 if there are welcome messages or filtered views, 
+            // but in the map it should be correct for the current render.
+            
+            // Better: find by IDs that we'll generate in the markdown components
+            const chartTags = rawContent.match(/<MedicalChart[^>]*\/>/gi) || [];
+            
+            for (let i = 0; i < chartTags.length; i++) {
+                // Find correctly by message index data attribute
+                const messageRow = document.querySelector(`.message-row[data-msg-index="${msgIdx}"]`);
+                if (messageRow) {
+                    const vizContainers = messageRow.querySelectorAll('.clinical-viz-container');
+                    if (vizContainers[i]) {
+                        const container = vizContainers[i];
+                        const canvas = await html2canvas(container, {
+                            backgroundColor: '#ffffff', // Use white background for PDF consistency
+                            scale: 2,
+                            logging: false,
+                            useCORS: true,
+                            allowTaint: true
+                        });
+                        const imgData = canvas.toDataURL('image/png');
+                        chartImages[`chart-${i}`] = imgData;
+                    }
+                }
+            }
+            
+            exportCopilotResponsePDF(rawContent, patientData, chartImages);
         } catch (error) {
-            console.error('Copilot Error:', error);
-            setMessages(prev => [...prev, { role: 'ai', content: `**Error:** ${error.message}` }]);
+            console.error('Failed to export PDF with charts:', error);
+            // Fallback to regular export if capture fails
+            const rawContent = typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '';
+            exportCopilotResponsePDF(rawContent, patientData);
         } finally {
             setIsLoading(false);
         }
@@ -693,7 +737,7 @@ ATURAN KRUSIAL:
 
                 <div className="messages-area custom-scrollbar">
                     {messages.map((msg, idx) => (
-                        <div key={idx} className={`message-row ${msg.role}`}>
+                        <div key={idx} className={`message-row ${msg.role}`} data-msg-index={idx}>
                             {msg.role === 'ai' && (
                                 <div className="ai-avatar">
                                     <span className="material-symbols-outlined">terminal</span>
@@ -762,6 +806,8 @@ ATURAN KRUSIAL:
                                                     medicalchart: ({node, ...props}) => {
                                                         try {
                                                             const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
+                                                            // Provide a stable index-based ID for capture
+                                                            // This index is local to the markdown being rendered
                                                             return <ClinicalVisualization {...props} data={chartData} />;
                                                         } catch (e) {
                                                             console.error("Failed to parse chart data:", e);
@@ -795,7 +841,7 @@ ATURAN KRUSIAL:
                                 {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
                                     <button 
                                         className="export-pdf-mini-btn" 
-                                        onClick={() => exportCopilotResponsePDF(typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '', patientData)}
+                                        onClick={() => handleExportPDF(msg, idx)}
                                         title="Export jawaban ini ke PDF"
                                     >
                                         <span className="material-symbols-outlined">picture_as_pdf</span>

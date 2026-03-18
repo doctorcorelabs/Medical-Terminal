@@ -129,11 +129,12 @@ function tbl(doc, opts) {
  * - Inline bold prefix detection (e.g. **Label:** rest of text)
  * - Automatic page breaks
  */
-function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
+function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageBottomY = 280) {
     const LH = 4.2;      // line height mm
     const FS = 8.5;       // base font size
     const INDENT = 2;     // extra left indent for body text
     const mw = maxWidth;
+    let chartCounter = 0;
 
     function renderLineSegments(doc, line, curX, curY, mw, isLastLine, doJustify) {
         const segments = [];
@@ -305,6 +306,37 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, pageBottomY = 280) {
                     }) + LH;
                 }
             }
+            continue;
+        }
+
+        // Custom MedicalChart tag detection for embedding captured images
+        if (trimmed.toLowerCase().includes('<medicalchart')) {
+            y = flushBuffer(y);
+            const chartDataUrl = chartImages[`chart-${chartCounter}`];
+            
+            if (chartDataUrl) {
+                // Determine dimensions
+                const imgWidth = mw;
+                // Standard chart height in PDF (approx 4:3 or similar)
+                const imgHeight = 55; // Fixed height for consistency in PDF
+                
+                if (y + imgHeight > pageBottomY) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                try {
+                    doc.addImage(chartDataUrl, 'PNG', x + INDENT, y, imgWidth, imgHeight, undefined, 'FAST');
+                    y += imgHeight + LH;
+                } catch (imgErr) {
+                    console.error('Error adding chart image to PDF:', imgErr);
+                    doc.setFont('helvetica', 'italic');
+                    doc.text('[Gagal memuat visualisasi]', x + INDENT, y);
+                    y += LH;
+                }
+            }
+            
+            chartCounter++;
             continue;
         }
 
@@ -988,7 +1020,7 @@ function _renderPatientToDoc(doc, patient) {
 // ================================================================
 // EXPORT COPILOT RESPONSE TO PDF
 // ================================================================
-export function exportCopilotResponsePDF(content, patient = null) {
+export function exportCopilotResponsePDF(content, patient = null, chartImages = {}) {
     try {
         console.log('[PDF Export] Exporting Copilot response to PDF...');
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1021,7 +1053,8 @@ export function exportCopilotResponsePDF(content, patient = null) {
 
         // ===== CONTENT =====
         // Since renderMarkdownPDF is already available and custom-tuned for this project's style
-        y = renderMarkdownPDF(doc, content, 14, y, pageWidth - 28);
+        // Pass chartImages to renderer
+        y = renderMarkdownPDF(doc, content, 14, y, pageWidth - 28, chartImages);
         
         addFooters(doc);
         
