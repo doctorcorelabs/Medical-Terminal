@@ -116,7 +116,7 @@
 
 /* --- Header --- */
 .window-header {
-  padding: 24px 28px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -131,12 +131,12 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .header-logo {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   background: var(--copilot-primary-light);
   color: var(--copilot-primary);
   border-radius: 8px;
@@ -147,7 +147,7 @@
 }
 
 .header-logo .material-symbols-outlined {
-  font-size: 24px;
+  font-size: 20px;
   font-variation-settings: 'FILL' 1;
 }
 
@@ -179,16 +179,16 @@
 .header-actions-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .context-toggle-wrapper {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: rgba(19, 109, 236, 0.05);
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 4px 8px;
+  border-radius: 10px;
   border: 1px solid rgba(19, 109, 236, 0.1);
   transition: all 0.3s ease;
 }
@@ -198,9 +198,9 @@
 }
 
 .context-label {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--copilot-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -326,91 +326,106 @@ input:checked + .context-slider:before {
   }
 
   .window-header {
-    padding: 24px 16px;
-    flex-direction: column;
+    padding: 12px 16px;
+    flex-direction: row;
     align-items: center;
-    text-align: center;
-    gap: 12px;
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(12px);
+    justify-content: space-between;
+    text-align: left;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(19, 109, 236, 0.1);
+    height: auto;
   }
 
   .header-left {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    width: 100%;
+    width: auto;
+    gap: 10px;
   }
 
   .header-logo {
     margin-right: 0;
-    margin-bottom: 8px;
-    width: 40px;
-    height: 40px;
+    margin-bottom: 0;
+    width: 32px;
+    height: 32px;
+  }
+
+  .header-logo .material-symbols-outlined {
+    font-size: 20px;
   }
 
   .header-info {
-    align-items: center;
+    align-items: flex-start;
   }
 
   .header-name {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--copilot-primary);
-    text-align: center;
-    letter-spacing: -0.02em;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--copilot-text);
+    text-align: left;
+    letter-spacing: -0.01em;
+  }
+
+  .header-status {
+    font-size: 9px;
   }
 
   .header-actions-group {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    width: 100%;
-    gap: 12px;
+    width: auto;
+    gap: 8px;
   }
 
   .header-actions {
-    display: none; /* Removed based on new structure */
+    display: flex;
+    gap: 6px;
   }
 
   .context-toggle-wrapper {
-    padding: 8px 14px;
-    border-radius: 30px;
+    padding: 4px 8px;
+    border-radius: 10px;
     background: rgba(19, 109, 236, 0.08);
-    box-shadow: 0 2px 8px rgba(19, 109, 236, 0.1);
+    box-shadow: none;
+    gap: 4px;
   }
 
   .context-label {
     display: inline-block;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 8px;
+    font-weight: 700;
     text-transform: uppercase;
-    color: var(--copilot-primary);
+    color: var(--copilot-text-muted);
   }
 
   .chat-action-btn {
-    width: 38px;
-    height: 38px;
-    background: white;
-    box-shadow: 0 2px 8px rgba(19, 109, 236, 0.1);
+    width: 30px;
+    height: 30px;
+    background: rgba(19, 109, 236, 0.06);
+    box-shadow: none;
   }
 
   .close-window-btn {
-    position: absolute;
-    top: 20px;
-    right: 16px;
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: static;
+    background: rgba(239, 68, 68, 0.08);
+    box-shadow: none;
+    width: 30px;
+    height: 30px;
   }
 
   /* Adjust chat area for the larger header */
   .messages-area {
-    height: calc(100% - 180px);
+    height: calc(100% - 100px);
+    padding: 16px 16px 20px;
+    gap: 16px;
   }
 
   .message-bubble {
-    font-size: 14.5px;
-    max-width: 95%;
-    padding: 12px 18px;
+    font-size: 14px;
+    max-width: 90%;
+    padding: 10px 14px;
   }
 
   .ai-avatar {
@@ -455,10 +470,10 @@ input:checked + .context-slider:before {
 .messages-area {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 24px 32px;
+  padding: 16px 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   background: transparent;
 }
 
