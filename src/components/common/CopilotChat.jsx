@@ -23,20 +23,6 @@ const CHART_CAPTURE_REASON = {
     CAPTURE_ERROR: 'capture-error',
 };
 
-const MAX_EXPORT_CACHE_ITEMS = 24;
-
-const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-const simpleHash = (value) => {
-    const input = String(value || '');
-    let hash = 0;
-    for (let i = 0; i < input.length; i++) {
-        hash = ((hash << 5) - hash) + input.charCodeAt(i);
-        hash |= 0;
-    }
-    return Math.abs(hash).toString(36);
-};
-
 const getMessageRawText = (msg) => {
     if (!msg) return '';
 
@@ -82,43 +68,9 @@ const CopilotChat = () => {
     const [showSlashMenu, setShowSlashMenu] = useState(false);
     const [slashQuery, setSlashQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [activeExports, setActiveExports] = useState({});
     
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
-    const exportLockRef = useRef(new Set());
-    const exportCacheRef = useRef(new Map());
-
-    const getMessageExportKey = (msg, msgIdx) => {
-        const raw = getMessageRawText(msg);
-        const patientKey = patientData?.id || patientData?.name || 'none';
-        return `${msgIdx}:${patientKey}:${raw.length}:${simpleHash(raw.slice(0, 1024))}`;
-    };
-
-    const setExportActive = (key, active) => {
-        setActiveExports((prev) => {
-            if (active) {
-                if (prev[key]) return prev;
-                return { ...prev, [key]: true };
-            }
-            if (!prev[key]) return prev;
-            const next = { ...prev };
-            delete next[key];
-            return next;
-        });
-    };
-
-    const putExportCache = (key, payload) => {
-        const cache = exportCacheRef.current;
-        if (cache.has(key)) {
-            cache.delete(key);
-        }
-        cache.set(key, payload);
-        while (cache.size > MAX_EXPORT_CACHE_ITEMS) {
-            const firstKey = cache.keys().next().value;
-            cache.delete(firstKey);
-        }
-    };
 
     // Load PDF.js from CDN
     useEffect(() => {
@@ -723,7 +675,7 @@ ATURAN KRUSIAL:
         };
     };
 
-    const waitForChartReady = async (container, { timeoutMs = 3200, pollMs = 90, stableCycles = 2 } = {}) => {
+    const waitForChartReady = async (container, { timeoutMs = 5000, pollMs = 120, stableCycles = 2 } = {}) => {
         const start = Date.now();
         let stableCount = 0;
         let previousSignature = null;
@@ -1387,24 +1339,9 @@ ATURAN KRUSIAL:
     };
 
     const handleExportPDF = async (msg, msgIdx, triggerEl = null) => {
-        const exportKey = getMessageExportKey(msg, msgIdx);
-        if (exportLockRef.current.has(exportKey)) {
-            console.info('[PDF Export] export request ignored because already in progress', { msgIdx });
-            return;
-        }
-
-        exportLockRef.current.add(exportKey);
-        setExportActive(exportKey, true);
-
         try {
             const exportStart = performance.now();
             const rawContent = getMessageRawText(msg);
-
-            if (!rawContent || rawContent.trim().length === 0) {
-                alert('Tidak ada konten jawaban AI yang bisa diekspor.');
-                return;
-            }
-
             const chartImages = {};
             const captureDiagnostics = [];
             const captureTiming = [];
@@ -1415,25 +1352,6 @@ ATURAN KRUSIAL:
             const chartSegments = parsedCharts.charts;
             if (parsedCharts.malformed.length > 0) {
                 console.warn(`[PDF Export] malformed MedicalChart tags: ${parsedCharts.malformed.length}`);
-            }
-
-            if (chartSegments.length === 0) {
-                console.info('[PDF Export] no chart tags detected, using immediate text export', {
-                    messageIndex: msgIdx,
-                    totalMs: Math.round(performance.now() - exportStart),
-                });
-                exportCopilotResponsePDF(rawContent, patientData, chartImages, captureDiagnostics);
-                return;
-            }
-
-            const cached = exportCacheRef.current.get(exportKey);
-            if (cached && cached.chartCount === chartSegments.length) {
-                console.info('[PDF Export] reusing cached chart captures', {
-                    messageIndex: msgIdx,
-                    chartCount: chartSegments.length,
-                });
-                exportCopilotResponsePDF(rawContent, patientData, cached.chartImages, cached.captureDiagnostics || []);
-                return;
             }
 
             console.log(`[PDF Export] Found ${chartSegments.length} chart tags in markdown for message ${msgIdx}`);
@@ -1504,8 +1422,6 @@ ATURAN KRUSIAL:
                             status: 'success',
                         });
                     } else {
-                        const fallbackPlaceholder = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><rect width="100%" height="100%" fill="#ffffff"/><rect x="30" y="30" width="1140" height="640" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/><text x="60" y="90" fill="#1d4ed8" font-size="36" font-family="Arial">Visualisasi Tidak Tersedia</text><text x="60" y="145" fill="#475569" font-size="24" font-family="Arial">Capture gagal, fallback placeholder digunakan.</text></svg>')}`;
-                        chartImages[chartKey] = fallbackPlaceholder;
                         captureDiagnostics.push({
                             reasonCode: readiness.ready ? CHART_CAPTURE_REASON.CAPTURE_ERROR : CHART_CAPTURE_REASON.NOT_READY,
                             chartKey,
@@ -1515,8 +1431,6 @@ ATURAN KRUSIAL:
                         });
                     }
                 }
-
-                await nextTick();
             }
 
             if (captureDiagnostics.length > 0) {
@@ -1532,13 +1446,6 @@ ATURAN KRUSIAL:
                 fallbackCount: captureDiagnostics.length,
                 totalCaptureMs: Math.round(performance.now() - exportStart),
             });
-
-            putExportCache(exportKey, {
-                chartImages: { ...chartImages },
-                captureDiagnostics: Array.isArray(captureDiagnostics) ? [...captureDiagnostics] : [],
-                chartCount: chartSegments.length,
-                createdAt: Date.now(),
-            });
             
             exportCopilotResponsePDF(rawContent, patientData, chartImages, captureDiagnostics);
         } catch (error) {
@@ -1546,9 +1453,6 @@ ATURAN KRUSIAL:
             // Fallback to regular export if capture fails
             const rawContent = getMessageRawText(msg);
             exportCopilotResponsePDF(rawContent, patientData);
-        } finally {
-            exportLockRef.current.delete(exportKey);
-            setExportActive(exportKey, false);
         }
     };
 
@@ -1763,21 +1667,14 @@ ATURAN KRUSIAL:
                                 )}
 
                                 {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
-                                    (() => {
-                                        const exportKey = getMessageExportKey(msg, idx);
-                                        const isExportingThisMessage = Boolean(activeExports[exportKey]);
-                                        return (
                                     <button 
                                         className="export-pdf-mini-btn" 
-                                        disabled={isExportingThisMessage}
                                         onClick={(e) => handleExportPDF(msg, idx, e.currentTarget)}
                                         title="Export jawaban ini ke PDF"
                                     >
                                         <span className="material-symbols-outlined">picture_as_pdf</span>
-                                        <span>{isExportingThisMessage ? 'Mengekspor...' : 'Simpan PDF'}</span>
+                                        <span>Simpan PDF</span>
                                     </button>
-                                        );
-                                    })()
                                 )}
 
                                 {msg.usedModel && (

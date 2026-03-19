@@ -115,34 +115,6 @@ function tbl(doc, opts) {
     return res?.finalY ?? doc.lastAutoTable?.finalY ?? opts.startY + 20;
 }
 
-function renderBatchedTable(doc, opts, { chunkSize = 70, chunkGap = 3 } = {}) {
-    const rows = Array.isArray(opts.body) ? opts.body : [];
-    if (rows.length <= chunkSize) {
-        return tbl(doc, opts);
-    }
-
-    let y = opts.startY;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-        if (y > 260) {
-            doc.addPage();
-            y = 20;
-        }
-
-        const chunk = rows.slice(i, i + chunkSize);
-        y = tbl(doc, {
-            ...opts,
-            startY: y,
-            body: chunk,
-        });
-
-        if ((i + chunkSize) < rows.length) {
-            y += chunkGap;
-        }
-    }
-
-    return y;
-}
-
 /**
  * Render markdown text to PDF with:
  * - MANUAL justified alignment for paragraphs (word-spacing calculation)
@@ -415,7 +387,7 @@ function _renderPatientToDoc(doc, patient) {
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Keluhan Utama:', 14, y + 2);
             doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK);
-            const lines = doc.splitTextToSize(cleanLabel(sanitizePdfText(patient.chiefComplaint)), pageWidth - 28);
+            const lines = doc.splitTextToSize(patient.chiefComplaint, pageWidth - 28);
             doc.text(lines, 14, y + 7);
             y += 7 + lines.length * 4 + 2;
         }
@@ -423,7 +395,7 @@ function _renderPatientToDoc(doc, patient) {
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Riwayat Medis:', 14, y + 2);
             doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK);
-            const lines = doc.splitTextToSize(cleanLabel(sanitizePdfText(patient.medicalHistory)), pageWidth - 28);
+            const lines = doc.splitTextToSize(patient.medicalHistory, pageWidth - 28);
             doc.text(lines, 14, y + 7);
             y += 7 + lines.length * 4 + 4;
         }
@@ -456,7 +428,7 @@ function _renderPatientToDoc(doc, patient) {
         // Full vital signs history table
         if (vitalSigns.length > 0) {
             const sortedVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
-            y = renderBatchedTable(doc, {
+            y = tbl(doc, {
                 startY: y,
                 head: [['Waktu', 'Detak Jantung', 'Tekanan Darah', 'Suhu', 'Frek. Napas', 'SpO2']],
                 body: sortedVS.map(vs => [
@@ -473,7 +445,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 38 } },
                 margin: { left: 14, right: 14 },
-            }, { chunkSize: 75 }) + 6;
+            }) + 6;
         } else {
             doc.setFontSize(8); doc.setTextColor(...MUTED); doc.setFont('helvetica', 'italic');
             doc.text('Belum ada riwayat pencatatan vital signs.', 14, y); y += 8;
@@ -483,7 +455,7 @@ function _renderPatientToDoc(doc, patient) {
         const symptoms = patient.symptoms || [];
         y = sectionTitle(doc, `3. Gejala (${symptoms.length})`, y, pageWidth);
         if (symptoms.length > 0) {
-            y = renderBatchedTable(doc, {
+            y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Nama Gejala', 'Keparahan', 'Catatan', 'Tanggal']],
                 body: symptoms.map((s, i) => [i + 1, s.name || '-', severityLabel(s.severity), s.notes || '-', fmtDateTime(s.recordedAt)]),
@@ -502,7 +474,7 @@ function _renderPatientToDoc(doc, patient) {
                         data.cell.styles.fontStyle = 'bold';
                     }
                 },
-            }, { chunkSize: 70 }) + 6;
+            }) + 6;
         } else {
             doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Tidak ada data gejala.', 14, y); y += 8;
@@ -512,7 +484,7 @@ function _renderPatientToDoc(doc, patient) {
         const physicals = patient.physicalExams || [];
         y = sectionTitle(doc, `4. Pemeriksaan Fisik (${physicals.length})`, y, pageWidth);
         if (physicals.length > 0) {
-            y = renderBatchedTable(doc, {
+            y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Sistem', 'Temuan', 'Tanggal']],
                 body: physicals.map((e, i) => [i + 1, (e.system || '-').toUpperCase(), e.findings || '-', fmtDateTime(e.date)]),
@@ -522,7 +494,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 25, fontStyle: 'bold' }, 3: { cellWidth: 35 } },
                 margin: { left: 14, right: 14 },
-            }, { chunkSize: 70 }) + 6;
+            }) + 6;
             if (physicals.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -542,7 +514,7 @@ function _renderPatientToDoc(doc, patient) {
         const labs = patient.supportingExams || [];
         y = sectionTitle(doc, `5. Hasil Laboratorium (${labs.length})`, y, pageWidth);
         if (labs.length > 0) {
-            y = renderBatchedTable(doc, {
+            y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Pemeriksaan', 'Nilai', 'Satuan', 'Status', 'Tanggal']],
                 body: labs.map((e, i) => [i + 1, e.testName || '-', e.value || '-', e.unit || '-', cleanLabel(e.result?.label), fmtDateTime(e.date)]),
@@ -561,7 +533,7 @@ function _renderPatientToDoc(doc, patient) {
                         data.cell.styles.fontStyle = 'bold';
                     }
                 },
-            }, { chunkSize: 70 }) + 6;
+            }) + 6;
             if (labs.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -582,7 +554,7 @@ function _renderPatientToDoc(doc, patient) {
         const prescriptions = patient.prescriptions || [];
         y = sectionTitle(doc, `6. Resep Obat (${prescriptions.length})`, y, pageWidth);
         if (prescriptions.length > 0) {
-            y = renderBatchedTable(doc, {
+            y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Nama Obat', 'Dosis', 'Sediaan', 'Frekuensi', 'Rute', 'Tanggal']],
                 body: prescriptions.map((p, i) => [
@@ -600,7 +572,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20 }, 3: { cellWidth: 22 }, 4: { cellWidth: 25 }, 5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }, 6: { cellWidth: 30 } },
                 margin: { left: 14, right: 14 },
-            }, { chunkSize: 70 }) + 4;
+            }) + 4;
             if (prescriptions.some(p => p.fornas_source)) {
                 doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
                 doc.text('[F] Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
@@ -624,7 +596,7 @@ function _renderPatientToDoc(doc, patient) {
         const reports = patient.dailyReports || [];
         y = sectionTitle(doc, `7. Laporan Harian (${reports.length})`, y, pageWidth);
         if (reports.length > 0) {
-            y = renderBatchedTable(doc, {
+            y = tbl(doc, {
                 startY: y,
                 head: [['No', 'Tanggal', 'Catatan', 'Kondisi']],
                 body: [...reports].sort((a, b) => new Date(b.date) - new Date(a.date)).map((r, i) => [i + 1, fmtDateTime(r.date), r.notes || '-', conditionLabel(r.condition)]),
@@ -634,7 +606,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 35 }, 3: { cellWidth: 22, halign: 'center' } },
                 margin: { left: 14, right: 14 },
-            }, { chunkSize: 70 }) + 6;
+            }) + 6;
             if (reports.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -914,34 +886,19 @@ function _renderPatientToDoc(doc, patient) {
             }
 
             // Fill polygon with semi-transparency using triangles
-            const supportsGState = typeof doc.setGState === 'function' && typeof doc.GState === 'function';
-            if (supportsGState) {
-                doc.setGState(new doc.GState({ opacity: 0.2 }));
-                doc.setFillColor(19, 109, 236);
-                if (dataPoints.length >= 3) {
-                    for (let i = 1; i < dataPoints.length - 1; i++) {
-                        doc.triangle(
-                            dataPoints[0].x, dataPoints[0].y,
-                            dataPoints[i].x, dataPoints[i].y,
-                            dataPoints[i + 1].x, dataPoints[i + 1].y,
-                            'F'
-                        );
-                    }
-                }
-                doc.setGState(new doc.GState({ opacity: 1 }));
-            } else {
-                doc.setFillColor(191, 219, 254);
-                if (dataPoints.length >= 3) {
-                    for (let i = 1; i < dataPoints.length - 1; i++) {
-                        doc.triangle(
-                            dataPoints[0].x, dataPoints[0].y,
-                            dataPoints[i].x, dataPoints[i].y,
-                            dataPoints[i + 1].x, dataPoints[i + 1].y,
-                            'F'
-                        );
-                    }
+            doc.setGState(new doc.GState({ opacity: 0.2 }));
+            doc.setFillColor(19, 109, 236);
+            if (dataPoints.length >= 3) {
+                for (let i = 1; i < dataPoints.length - 1; i++) {
+                    doc.triangle(
+                        dataPoints[0].x, dataPoints[0].y,
+                        dataPoints[i].x, dataPoints[i].y,
+                        dataPoints[i + 1].x, dataPoints[i + 1].y,
+                        'F'
+                    );
                 }
             }
+            doc.setGState(new doc.GState({ opacity: 1 }));
 
             // Outline
             doc.setDrawColor(19, 109, 236);
@@ -1056,29 +1013,18 @@ export function exportCopilotResponsePDF(content, patient = null, chartImages = 
 // ================================================================
 // EXPORT SINGLE PATIENT PDF
 // ================================================================
-export async function exportPatientPDF(patient) {
+export function exportPatientPDF(patient) {
     try {
-        if (!patient || typeof patient !== 'object') {
-            throw new Error('Data pasien tidak valid.');
-        }
-
-        const exportStart = Date.now();
         console.log('[PDF Export] Starting PDF generation for:', patient?.name);
-        await new Promise((resolve) => setTimeout(resolve, 0));
         const doc = new jsPDF('p', 'mm', 'a4');
         _renderPatientToDoc(doc, patient);
         addFooters(doc);
         const safeName = (patient.name || 'pasien').replace(/[^a-zA-Z0-9]/g, '_');
         doc.save(`Laporan_Medis_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
-        console.log('[PDF Export] PDF generated successfully', {
-            pageCount: doc.internal.getNumberOfPages(),
-            renderDurationMs: Date.now() - exportStart,
-        });
-        return true;
+        console.log('[PDF Export] PDF generated successfully');
     } catch (err) {
         console.error('[PDF Export] Error generating PDF:', err);
         alert('Gagal membuat PDF: ' + err.message);
-        return false;
     }
 }
 
