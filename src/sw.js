@@ -17,7 +17,7 @@
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { NetworkFirst, CacheFirst, NetworkOnly } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 // IDB helpers — canonical schema lives in idbQueue.js (bundled by Vite injectManifest)
@@ -40,9 +40,19 @@ registerRoute(
 
 // ── Runtime caching ──────────────────────────────────────────────
 
-// Supabase REST/Auth/Functions — NetworkFirst
+// Supabase Auth — NEVER cache (session/refresh must be live)
 registerRoute(
-    ({ url }) => url.hostname.includes('supabase.co') && /\/(rest|auth|functions)/.test(url.pathname),
+    ({ url }) =>
+        url.hostname.includes('supabase.co')
+        && /\/auth\//.test(url.pathname),
+    new NetworkOnly()
+);
+
+// Supabase REST/Functions — NetworkFirst
+registerRoute(
+    ({ url }) =>
+        url.hostname.includes('supabase.co')
+        && /\/(rest|functions)\//.test(url.pathname),
     new NetworkFirst({
         cacheName: 'medx-supabase-api',
         networkTimeoutSeconds: 5,
