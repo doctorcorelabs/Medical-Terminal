@@ -46,9 +46,9 @@
 
 .viz-content {
     width: 100%;
-    min-height: 220px;
+    min-height: 180px;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
     display: block;
     padding: 10px 0 15px;
     scrollbar-width: thin;
@@ -127,16 +127,76 @@
     width: 100%;
 }
 
+.heatmap-compact-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.heatmap-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.heatmap-compact-grid {
+    display: grid;
+    gap: 6px;
+    align-items: center;
+}
+
+.heatmap-head-cell {
+    font-size: 10px;
+    font-weight: 800;
+    text-align: center;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.heatmap-row-title {
+    text-align: left;
+    padding-left: 4px;
+}
+
+.heatmap-row-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.25;
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    padding-right: 8px;
+}
+
 .heatmap-cell {
-    aspect-ratio: 1;
+    min-height: 36px;
     border-radius: 4px;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
 }
 
 .heatmap-cell:hover {
-    transform: scale(1.1);
+    transform: scale(1.04);
     z-index: 10;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.heatmap-truncate-note {
+    font-size: 10px;
+    color: #64748b;
+    font-style: italic;
 }
 
 /* Anatomy Highlight */
@@ -178,4 +238,175 @@
 .outlier-row {
     background: rgba(239, 68, 68, 0.05);
     color: #ef4444;
+}
+
+.viz-empty-state {
+    width: 100%;
+    border: 1px dashed rgba(100, 116, 139, 0.35);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 12px;
+    color: #64748b;
+    text-align: center;
+    background: rgba(248, 250, 252, 0.8);
+}
+
+.viz-audit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] {
+    background: #ffffff !important;
+    border: 1px solid #bfdbfe !important;
+    box-shadow: none !important;
+    animation: none !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-header {
+    border-bottom-color: #dbeafe !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-content,
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-canvas-wrapper {
+    background: #ffffff !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .outlier-row {
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-gantt-item {
+    border-left-color: #60a5fa !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-dashboard-btn:not(.is-active) {
+    background: #dbeafe !important;
+    border-color: #93c5fd !important;
+    color: #1d4ed8 !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .heatmap-cell {
+    box-shadow: none !important;
+}
+
+.viz-audit-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.viz-audit-icon {
+    font-size: 18px !important;
+}
+
+.viz-audit-icon.is-ok {
+    color: #16a34a;
+}
+
+.viz-audit-icon.is-error {
+    color: #dc2626;
+}
+
+.viz-audit-task {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.viz-audit-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 800;
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
+.viz-gantt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    padding: 4px;
+}
+
+.viz-gantt-item {
+    position: relative;
+    padding-left: 24px;
+    border-left: 2px solid rgba(19, 109, 236, 0.25);
+}
+
+.viz-gantt-dot {
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #136dec;
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 3px rgba(19, 109, 236, 0.25);
+}
+
+.viz-gantt-time {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #136dec;
+    margin-bottom: 2px;
+}
+
+.viz-gantt-action {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 2px;
+}
+
+.viz-gantt-desc {
+    font-size: 11px;
+    color: #64748b;
+    font-style: italic;
+    line-height: 1.35;
+}
+
+.viz-dashboard-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px;
+}
+
+.viz-dashboard-btn {
+    border: 1px solid rgba(19, 109, 236, 0.22);
+    background: rgba(19, 109, 236, 0.1);
+    color: #136dec;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.viz-dashboard-btn:hover {
+    background: rgba(19, 109, 236, 0.18);
+}
+
+.viz-dashboard-btn.is-active {
+    background: #136dec;
+    color: #ffffff;
+    border-color: #136dec;
 }

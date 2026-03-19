@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:unit": "node --test src/utils/scheduleImport.test.js src/utils/scheduleSync.test.js src/utils/scheduleNotifications.test.js"
+    "test:copilot-pdf-smoke": "node test-reports/run-copilot-pdf-smoke-tests.mjs",
+    "test:unit": "node --test src/utils/scheduleImport.test.js src/utils/scheduleSync.test.js src/utils/scheduleNotifications.test.js src/utils/medicalChartParser.test.js src/utils/pdfMarkdownChartSegmentation.test.js src/services/pdfExportService.test.js"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.0.4",

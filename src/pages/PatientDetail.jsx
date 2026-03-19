@@ -107,6 +107,19 @@ ${aiText || 'Belum ada evaluasi AI'}`;
     const [labInput, setLabInput] = useState({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() });
     const [prescInput, setPrescInput] = useState({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO(), fornas_source: false, fornas_form: '', fornas_category: '' });
     const [reportInput, setReportInput] = useState({ notes: '', condition: '', date: getNowLocalISO() });
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+    const handleExportPatientPdf = async () => {
+        if (!patient || isExportingPdf) return;
+        setIsExportingPdf(true);
+        try {
+            // Allow button state to render before heavy PDF work starts.
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            await exportPatientPDF(patient);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
 
     if (!patient) {
         return (
@@ -175,11 +188,12 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                     </button>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{patient.name}</h1>
                     <KondisiBadge kondisi={patient.condition} />
-                    <button onClick={() => exportPatientPDF(patient)}
-                        className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold shrink-0"
+                    <button onClick={handleExportPatientPdf}
+                        disabled={isExportingPdf}
+                        className={`ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg border transition-colors text-sm font-semibold shrink-0 ${isExportingPdf ? 'bg-red-100 dark:bg-red-900/30 text-red-400 dark:text-red-500 border-red-100 dark:border-red-900 cursor-not-allowed opacity-70' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40'}`}
                         title="Export laporan medis ke PDF">
                         <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
-                        <span className="hidden sm:inline">Export PDF</span>
+                        <span className="hidden sm:inline">{isExportingPdf ? 'Mengekspor...' : 'Export PDF'}</span>
                     </button>
                 </div>
                 <nav className="flex text-sm text-slate-500 gap-2 ml-12">

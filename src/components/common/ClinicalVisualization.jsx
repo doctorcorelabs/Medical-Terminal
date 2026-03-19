@@ -7,7 +7,53 @@ import {
 } from 'recharts';
 import './ClinicalVisualization.css';
 
-const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId }) => {
+const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, exportChartKey, exportChartType }) => {
+    const [activeDashboardFilter, setActiveDashboardFilter] = useState(null);
+
+    const safeArray = Array.isArray(data) ? data : [];
+
+    const normalizeHeatmapRows = (rows) => {
+        if (!Array.isArray(rows)) return [];
+        const normalized = rows
+            .map((row) => {
+                if (!row || typeof row !== 'object') return null;
+                const cells = Array.isArray(row.cells)
+                    ? row.cells
+                        .map((cell) => {
+                            const value = Number(cell?.value);
+                            if (!Number.isFinite(value)) return null;
+                            return {
+                                value: Math.max(0, Math.min(10, value)),
+                                label: cell?.label || cell?.time || cell?.name || null,
+                            };
+                        })
+                        .filter(Boolean)
+                    : [];
+                if (cells.length === 0) return null;
+                return {
+                    name: row.name || row.label || 'Item',
+                    cells,
+                };
+            })
+            .filter(Boolean);
+        return normalized;
+    };
+
+    const normalizeOutlierRows = (rows) => {
+        if (!Array.isArray(rows)) return [];
+        return rows
+            .map((entry) => {
+                if (!entry || typeof entry !== 'object') return null;
+                const value = Number(entry.value);
+                return {
+                    time: entry.time || '-',
+                    param: entry.param || '-',
+                    value: Number.isFinite(value) ? value : entry.value || '-',
+                    outlier: Boolean(entry.outlier),
+                };
+            })
+            .filter(Boolean);
+    };
     
     const renderChart = () => {
         const height = type === 'radar' ? 380 : 250;
@@ -82,18 +128,67 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId })
                 );
 
             case 'heatmap': // Symptom Heatmap
+                const heatmapRows = normalizeHeatmapRows(safeArray);
+                if (heatmapRows.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data heatmap belum tersedia atau format tidak valid.
+                        </div>
+                    );
+                }
+
+                const limitedRows = heatmapRows.slice(0, 8);
+                const maxColumns = Math.min(12, Math.max(1, ...limitedRows.map((r) => r.cells.length)));
+                const columnLabels = new Array(maxColumns).fill(0).map((_, idx) => {
+                    for (const row of limitedRows) {
+                        const label = row.cells[idx]?.label;
+                        if (label) return String(label).slice(0, 8);
+                    }
+                    return `T${idx + 1}`;
+                });
+
                 return (
-                    <div className="heatmap-grid" style={{ gridTemplateColumns: `repeat(${data[0]?.cells?.length || 1}, 1fr)` }}>
-                        {data.map((row, i) => (
-                            row.cells.map((cell, j) => (
-                                <div 
-                                    key={`${i}-${j}`} 
-                                    className="heatmap-cell" 
-                                    style={{ backgroundColor: `rgba(19, 109, 236, ${cell.value / 10})` }}
-                                    title={`${row.name}: ${cell.value}`}
-                                />
-                            ))
-                        ))}
+                    <div className="heatmap-compact-wrap">
+                        <div className="heatmap-legend">
+                            <span>0 = rendah</span>
+                            <span>10 = tinggi</span>
+                        </div>
+                        <div
+                            className="heatmap-compact-grid"
+                            style={{ gridTemplateColumns: `220px repeat(${maxColumns}, minmax(42px, 52px))` }}
+                        >
+                            <div className="heatmap-head-cell heatmap-row-title">Parameter</div>
+                            {columnLabels.map((label, idx) => (
+                                <div key={`head-${idx}`} className="heatmap-head-cell">{label}</div>
+                            ))}
+
+                            {limitedRows.map((row, rowIdx) => (
+                                <React.Fragment key={`row-${rowIdx}`}>
+                                    <div className="heatmap-row-name" title={row.name}>{row.name}</div>
+                                    {new Array(maxColumns).fill(0).map((_, colIdx) => {
+                                        const cell = row.cells[colIdx];
+                                        const val = Number(cell?.value);
+                                        const safeVal = Number.isFinite(val) ? val : 0;
+                                        return (
+                                            <div
+                                                key={`cell-${rowIdx}-${colIdx}`}
+                                                className="heatmap-cell"
+                                                style={{ backgroundColor: `rgba(19, 109, 236, ${Math.max(0.35, safeVal / 10)})` }}
+                                                title={`${row.name}: ${Number.isFinite(val) ? val : '-'}`}
+                                            >
+                                                {Number.isFinite(val) ? val.toFixed(0) : '-'}
+                                            </div>
+                                        );
+                                    })}
+                                </React.Fragment>
+                            ))}
+                        </div>
+
+                        {(heatmapRows.length > limitedRows.length || Math.max(...heatmapRows.map((r) => r.cells.length)) > maxColumns) && (
+                            <div className="heatmap-truncate-note">
+                                Tampilan dipadatkan untuk keterbacaan. Data lengkap tetap tersimpan pada respons.
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -203,6 +298,14 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId })
 
             case 'outlier':
             case 'outliers': // Analisis Outlier Table
+                const outlierRows = normalizeOutlierRows(safeArray);
+                if (outlierRows.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data outlier belum tersedia atau format tidak valid.
+                        </div>
+                    );
+                }
                 return (
                     <div className="table-flow-container">
                         <table className="viz-table">
@@ -210,7 +313,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId })
                                 <tr><th>Waktu</th><th>Param</th><th>Nilai</th><th>Status</th></tr>
                             </thead>
                             <tbody>
-                                {data && Array.isArray(data) && data.map((d, i) => (
+                                {outlierRows.map((d, i) => (
                                     <tr key={i} className={d.outlier ? 'outlier-row' : ''}>
                                         <td>{d.time}</td>
                                         <td>{d.param}</td>
@@ -224,15 +327,22 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId })
                 );
 
             case 'audit': // Clinical Audit Checklist
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data audit belum tersedia.
+                        </div>
+                    );
+                }
                 return (
-                    <div className="space-y-2 w-full">
-                        {data && Array.isArray(data) && data.map((item, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 bg-white/50 rounded-xl border border-slate-100 shadow-sm">
-                                <span className={`material-symbols-outlined text-lg ${item.ok ? 'text-green-500' : 'text-red-500'}`}>
+                    <div className="viz-audit-list">
+                        {safeArray.map((item, i) => (
+                            <div key={i} className="viz-audit-item">
+                                <span className={`material-symbols-outlined viz-audit-icon ${item.ok ? 'is-ok' : 'is-error'}`}>
                                     {item.ok ? 'check_circle' : 'error'}
                                 </span>
-                                <span className="text-xs font-bold text-slate-700">{item.task}</span>
-                                {!item.ok && <span className="ml-auto text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-black">MISSING</span>}
+                                <span className="viz-audit-task">{item.task}</span>
+                                {!item.ok && <span className="viz-audit-badge">MISSING</span>}
                             </div>
                         ))}
                     </div>
@@ -240,24 +350,43 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId })
 
             case 'plan':
             case 'gantt': // Action Gantt
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Timeline tindakan belum tersedia.
+                        </div>
+                    );
+                }
                 return (
-                    <div className="space-y-4 w-full p-2">
-                        {data && Array.isArray(data) && data.map((item, i) => (
-                            <div key={i} className="relative pl-6 border-l-2 border-primary/20">
-                                <div className="absolute -left-[6px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm"></div>
-                                <div className="text-[10px] font-black text-primary uppercase tracking-wider">{item.time}</div>
-                                <div className="text-xs font-bold text-slate-800 mb-0.5">{item.action}</div>
-                                <div className="text-[10px] text-slate-500 italic leading-snug">{item.desc}</div>
+                    <div className="viz-gantt-list">
+                        {safeArray.map((item, i) => (
+                            <div key={i} className="viz-gantt-item">
+                                <div className="viz-gantt-dot"></div>
+                                <div className="viz-gantt-time">{item.time}</div>
+                                <div className="viz-gantt-action">{item.action}</div>
+                                <div className="viz-gantt-desc">{item.desc}</div>
                             </div>
                         ))}
                     </div>
                 );
 
             case 'dashboard': // Smart Filtering Dashboard
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data quick filter belum tersedia.
+                        </div>
+                    );
+                }
                 return (
-                    <div className="flex flex-wrap gap-2 p-1">
-                        {data.map((btn, i) => (
-                            <button key={i} className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/10 rounded-xl text-[10px] font-black transition-all active:scale-95">
+                    <div className="viz-dashboard-list">
+                        {safeArray.map((btn, i) => (
+                            <button
+                                key={i}
+                                type="button"
+                                onClick={() => setActiveDashboardFilter(btn.label || `filter-${i}`)}
+                                className={`viz-dashboard-btn ${activeDashboardFilter === (btn.label || `filter-${i}`) ? 'is-active' : ''}`}
+                            >
                                 {btn.label}
                             </button>
                         ))}
@@ -274,7 +403,12 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId })
     };
 
     return (
-        <div className="clinical-viz-container" id={vizId}>
+        <div
+            className="clinical-viz-container"
+            id={vizId}
+            data-export-chart-key={exportChartKey || ''}
+            data-export-chart-type={exportChartType || type || ''}
+        >
             <div className="viz-header">
                 <div className="viz-header-left">
                     <span className="material-symbols-outlined viz-icon">{icon}</span>

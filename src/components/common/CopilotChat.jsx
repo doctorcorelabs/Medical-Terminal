@@ -6,6 +6,7 @@ import './CopilotChat.css';
 
 import { useCopilotContext } from '../../context/CopilotContext';
 import { exportCopilotResponsePDF } from '../../services/pdfExportService';
+import { parseMedicalChartSegments } from '../../utils/medicalChartParser';
 
 import ClinicalVisualization from './ClinicalVisualization';
 import html2canvas from 'html2canvas';
@@ -14,6 +15,56 @@ import rehypeRaw from 'rehype-raw';
 
 const COPILOT_WORKER_URL = import.meta.env.VITE_COPILOT_WORKER_URL;
 const AI_INTERNAL_KEY = import.meta.env.VITE_OPS_INTERNAL_KEY;
+
+const CHART_CAPTURE_REASON = {
+    MISSING_MESSAGE_ROW: 'missing-message-row',
+    MISSING_CONTAINER: 'missing-container',
+    NOT_READY: 'not-ready-timeout',
+    CAPTURE_ERROR: 'capture-error',
+};
+
+const MAX_EXPORT_CACHE_ITEMS = 24;
+
+const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const simpleHash = (value) => {
+    const input = String(value || '');
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+        hash = ((hash << 5) - hash) + input.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash).toString(36);
+};
+
+const getMessageRawText = (msg) => {
+    if (!msg) return '';
+
+    if (typeof msg.content === 'string') {
+        return msg.content;
+    }
+
+    if (Array.isArray(msg.content)) {
+        const textChunks = msg.content
+            .filter((chunk) => chunk && typeof chunk === 'object' && chunk.type === 'text')
+            .map((chunk) => (typeof chunk.text === 'string' ? chunk.text : ''))
+            .filter(Boolean);
+
+        if (textChunks.length > 0) {
+            return textChunks.join('\n\n');
+        }
+    }
+
+    if (typeof msg.displayContent === 'string' && msg.displayContent.trim().length > 0) {
+        return msg.displayContent;
+    }
+
+    if (msg.content && typeof msg.content === 'object' && typeof msg.content.text === 'string') {
+        return msg.content.text;
+    }
+
+    return '';
+};
 
 
 const CopilotChat = () => {
@@ -31,9 +82,43 @@ const CopilotChat = () => {
     const [showSlashMenu, setShowSlashMenu] = useState(false);
     const [slashQuery, setSlashQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [activeExports, setActiveExports] = useState({});
     
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
+    const exportLockRef = useRef(new Set());
+    const exportCacheRef = useRef(new Map());
+
+    const getMessageExportKey = (msg, msgIdx) => {
+        const raw = getMessageRawText(msg);
+        const patientKey = patientData?.id || patientData?.name || 'none';
+        return `${msgIdx}:${patientKey}:${raw.length}:${simpleHash(raw.slice(0, 1024))}`;
+    };
+
+    const setExportActive = (key, active) => {
+        setActiveExports((prev) => {
+            if (active) {
+                if (prev[key]) return prev;
+                return { ...prev, [key]: true };
+            }
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    };
+
+    const putExportCache = (key, payload) => {
+        const cache = exportCacheRef.current;
+        if (cache.has(key)) {
+            cache.delete(key);
+        }
+        cache.set(key, payload);
+        while (cache.size > MAX_EXPORT_CACHE_ITEMS) {
+            const firstKey = cache.keys().next().value;
+            cache.delete(firstKey);
+        }
+    };
 
     // Load PDF.js from CDN
     useEffect(() => {
@@ -447,7 +532,13 @@ TUGAS ANDA:
    - <MedicalChart type="dashboard" title="Quick Filter" data='[{"label":"Harian"},{"label":"Kritis"}]' /> (Tombol filter)
 3. PENTING: Gunakan <MedicalChart /> untuk menyajikan data terstruktur yang butuh analisis visual. JANGAN menduplikasi data yang sama dalam format Tabel Markdown biasa jika sudah menggunakan tag tersebut. Pilih salah satu (tag lebih disukai).
 4. Tag <MedicalChart /> HARUS dipisahkan dari teks paragraf dengan baris kosong.
-5. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+5. BATASI output agar ringkas dan efisien dibaca:
+    - Narasi utama maksimal 8 bullet atau 3 paragraf singkat.
+    - Jangan mengulang data yang sudah ada di tag <MedicalChart />.
+    - Untuk type="outliers": maksimal 24 baris data.
+    - Untuk type="heatmap": maksimal 8 baris x 12 kolom.
+    - Untuk type="gantt": maksimal 10 item timeline.
+6. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
@@ -480,7 +571,8 @@ ATURAN KRUSIAL:
 3. JANGAN PERNAH memberikan indentasi (spasi) di awal baris.
 4. Gunakan Markdown GFM (Tabel, Bold, List).
 5. JANGAN membuat awalan output seperti "Tentu...". Langsung ke jawaban.
-6. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+6. Ringkas output: hindari narasi panjang berulang bila visualisasi sudah ada.
+7. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),
@@ -593,49 +685,870 @@ ATURAN KRUSIAL:
         }
     };
 
-    const handleExportPDF = async (msg, msgIdx) => {
-        try {
-            setIsLoading(true); // Show some loading state if needed, or just handle silently
-            const rawContent = typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '';
-            const chartImages = {};
-            
-            // Find all visualization containers within this specific message
-            // We use the message index to scope the search
-            const messageRows = document.querySelectorAll('.message-row.ai');
-            // Note: msgIdx might not match 1:1 if there are welcome messages or filtered views, 
-            // but in the map it should be correct for the current render.
-            
-            // Better: find by IDs that we'll generate in the markdown components
-            const chartTags = rawContent.match(/<MedicalChart[^>]*\/>/gi) || [];
-            
-            for (let i = 0; i < chartTags.length; i++) {
-                // Find correctly by message index data attribute
-                const messageRow = document.querySelector(`.message-row[data-msg-index="${msgIdx}"]`);
-                if (messageRow) {
-                    const vizContainers = messageRow.querySelectorAll('.clinical-viz-container');
-                    if (vizContainers[i]) {
-                        const container = vizContainers[i];
-                        const canvas = await html2canvas(container, {
-                            backgroundColor: '#ffffff', // Use white background for PDF consistency
-                            scale: 2,
-                            logging: false,
-                            useCORS: true,
-                            allowTaint: true
-                        });
-                        const imgData = canvas.toDataURL('image/png');
-                        chartImages[`chart-${i}`] = imgData;
+    const inferChartDimensions = (container) => {
+        const rect = container.getBoundingClientRect();
+        const vizContent = container.querySelector('.viz-content');
+        const svg = container.querySelector('svg');
+        const canvas = container.querySelector('canvas');
+
+        const svgWidth = svg ? Number(svg.getAttribute('width')) || Number(svg.viewBox?.baseVal?.width) || 0 : 0;
+        const svgHeight = svg ? Number(svg.getAttribute('height')) || Number(svg.viewBox?.baseVal?.height) || 0 : 0;
+        const canvasWidth = canvas?.width || 0;
+        const canvasHeight = canvas?.height || 0;
+
+        const width = Math.max(
+            vizContent?.scrollWidth || 0,
+            container.scrollWidth || 0,
+            container.offsetWidth || 0,
+            rect.width || 0,
+            svgWidth,
+            canvasWidth,
+            800,
+        );
+
+        const height = Math.max(
+            container.scrollHeight || 0,
+            container.offsetHeight || 0,
+            vizContent?.scrollHeight || 0,
+            rect.height || 0,
+            svgHeight + 64,
+            canvasHeight + 64,
+            220,
+        );
+
+        return {
+            width: Math.round(width),
+            height: Math.round(height),
+            hasRenderableNode: Boolean(svg || canvas || container.querySelector('.recharts-wrapper') || container.querySelector('table')),
+        };
+    };
+
+    const waitForChartReady = async (container, { timeoutMs = 3200, pollMs = 90, stableCycles = 2 } = {}) => {
+        const start = Date.now();
+        let stableCount = 0;
+        let previousSignature = null;
+        let lastMetrics = { width: 0, height: 0, hasRenderableNode: false, childElementCount: 0 };
+
+        while ((Date.now() - start) < timeoutMs) {
+            const dims = inferChartDimensions(container);
+            const width = dims.width;
+            const height = dims.height;
+            const hasRenderableNode = dims.hasRenderableNode;
+            const childElementCount = container.querySelectorAll('*').length;
+            lastMetrics = { width, height, hasRenderableNode, childElementCount };
+
+            if (width > 0 && height > 0 && (hasRenderableNode || childElementCount > 5)) {
+                const signature = `${width}x${height}:${hasRenderableNode ? 'r' : 'n'}`;
+                stableCount = signature === previousSignature ? stableCount + 1 : 1;
+                previousSignature = signature;
+
+                if (stableCount >= stableCycles) {
+                    return { ready: true, width, height, hasRenderableNode, timedOut: false };
+                }
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, pollMs));
+        }
+
+        return {
+            ready: false,
+            width: lastMetrics.width,
+            height: lastMetrics.height,
+            hasRenderableNode: lastMetrics.hasRenderableNode,
+            childElementCount: lastMetrics.childElementCount,
+            timedOut: true,
+        };
+    };
+
+    const captureChartContainer = async (container, expectedChartKey = null) => {
+        const chartKey = expectedChartKey || container.getAttribute('data-export-chart-key') || 'unknown';
+
+        const getErrorMessage = (err) => {
+            if (!err) return 'unknown-error';
+            if (typeof err === 'string') return err;
+            return err.message || err.name || 'unknown-error';
+        };
+
+        const rgbaToSolidRgb = (rgbaValue, minAlpha = 0.72) => {
+            if (typeof rgbaValue !== 'string') return null;
+            const match = rgbaValue.trim().match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9]*\.?[0-9]+))?\s*\)$/i);
+            if (!match) return null;
+
+            const r = Math.max(0, Math.min(255, Number(match[1])));
+            const g = Math.max(0, Math.min(255, Number(match[2])));
+            const b = Math.max(0, Math.min(255, Number(match[3])));
+            const alphaRaw = Number(match[4]);
+            const alpha = Number.isFinite(alphaRaw) ? Math.max(0, Math.min(1, alphaRaw)) : 1;
+            const boostedAlpha = Math.max(minAlpha, alpha);
+
+            const solidR = Math.round(255 - ((255 - r) * boostedAlpha));
+            const solidG = Math.round(255 - ((255 - g) * boostedAlpha));
+            const solidB = Math.round(255 - ((255 - b) * boostedAlpha));
+            return `rgb(${solidR}, ${solidG}, ${solidB})`;
+        };
+
+        const normalizeOpacityAttribute = (node, attrName, minValue) => {
+            const raw = node.getAttribute(attrName);
+            if (raw == null) return;
+            const numeric = Number(raw);
+            if (!Number.isFinite(numeric)) return;
+            const bounded = Math.max(minValue, Math.min(1, numeric));
+            node.setAttribute(attrName, String(bounded));
+        };
+
+        const normalizeSvgForPdf = (svgRoot) => {
+            if (!svgRoot) return;
+
+            svgRoot.style.background = '#ffffff';
+
+            svgRoot.querySelectorAll('.recharts-cartesian-grid line, .recharts-cartesian-grid path').forEach((node) => {
+                node.setAttribute('stroke', '#cbd5e1');
+                node.setAttribute('stroke-opacity', '1');
+            });
+
+            svgRoot.querySelectorAll('.recharts-polar-grid-angle line, .recharts-polar-grid-concentric circle, .recharts-polar-grid-concentric polygon').forEach((node) => {
+                node.setAttribute('stroke', '#cbd5e1');
+                node.setAttribute('stroke-opacity', '1');
+            });
+
+            svgRoot.querySelectorAll('.recharts-radar-polygon').forEach((node) => {
+                node.setAttribute('fill-opacity', '0.78');
+                node.setAttribute('stroke-opacity', '1');
+            });
+
+            svgRoot.querySelectorAll('line[stroke-dasharray], path[stroke-dasharray]').forEach((node) => {
+                normalizeOpacityAttribute(node, 'stroke-opacity', 0.86);
+                normalizeOpacityAttribute(node, 'opacity', 0.86);
+            });
+
+            svgRoot.querySelectorAll('*').forEach((node) => {
+                normalizeOpacityAttribute(node, 'fill-opacity', 0.55);
+                normalizeOpacityAttribute(node, 'stroke-opacity', 0.8);
+                normalizeOpacityAttribute(node, 'stop-opacity', 0.45);
+                normalizeOpacityAttribute(node, 'opacity', 0.8);
+
+                ['fill', 'stroke', 'stop-color'].forEach((attrName) => {
+                    const raw = node.getAttribute(attrName);
+                    if (!raw) return;
+                    const solid = rgbaToSolidRgb(raw, 0.72);
+                    if (solid) {
+                        node.setAttribute(attrName, solid);
+                    }
+                });
+            });
+        };
+
+        const normalizeContainerForPdf = (rootNode) => {
+            if (!rootNode) return;
+
+            rootNode.setAttribute('data-export-render-intent', 'pdf');
+            rootNode.style.background = '#ffffff';
+            rootNode.style.opacity = '1';
+            rootNode.style.boxShadow = 'none';
+
+            const scroller = rootNode.querySelector('.viz-content');
+            if (scroller) {
+                scroller.style.overflow = 'visible';
+                scroller.style.background = '#ffffff';
+            }
+
+            rootNode.querySelectorAll('.heatmap-cell').forEach((cell) => {
+                const raw = cell.style.backgroundColor;
+                const solid = rgbaToSolidRgb(raw, 0.82) || '#3b82f6';
+                cell.style.backgroundColor = solid;
+                cell.style.border = '1px solid #bfdbfe';
+                cell.style.color = '#0f172a';
+            });
+
+            rootNode.querySelectorAll('.outlier-row').forEach((row) => {
+                row.style.background = '#fee2e2';
+                row.style.color = '#b91c1c';
+            });
+
+            rootNode.querySelectorAll('.viz-gantt-item').forEach((item) => {
+                item.style.borderLeftColor = '#60a5fa';
+            });
+
+            rootNode.querySelectorAll('.viz-dashboard-btn:not(.is-active)').forEach((btn) => {
+                btn.style.background = '#dbeafe';
+                btn.style.borderColor = '#93c5fd';
+                btn.style.color = '#1d4ed8';
+            });
+
+            rootNode.querySelectorAll('.body-part.highlighted').forEach((part) => {
+                part.style.filter = 'none';
+                part.style.fill = '#136dec';
+            });
+
+            rootNode.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
+        };
+
+        const isCanvasMostlyBlank = (canvas) => {
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return true;
+
+            const width = canvas.width;
+            const height = canvas.height;
+            if (width < 2 || height < 2) return true;
+
+            // Focus on lower area where chart body should exist (exclude mostly header zone).
+            const startY = Math.floor(height * 0.25);
+            const endY = Math.max(startY + 1, Math.floor(height * 0.95));
+            const startX = Math.floor(width * 0.05);
+            const endX = Math.max(startX + 1, Math.floor(width * 0.95));
+
+            const stepX = Math.max(1, Math.floor((endX - startX) / 24));
+            const stepY = Math.max(1, Math.floor((endY - startY) / 20));
+
+            let colored = 0;
+            let total = 0;
+
+            for (let y = startY; y < endY; y += stepY) {
+                for (let x = startX; x < endX; x += stepX) {
+                    const p = ctx.getImageData(x, y, 1, 1).data;
+                    total += 1;
+                    const alpha = p[3];
+                    const isNearWhite = p[0] > 245 && p[1] > 245 && p[2] > 245;
+                    if (alpha > 10 && !isNearWhite) {
+                        colored += 1;
                     }
                 }
             }
+
+            const ratio = total > 0 ? (colored / total) : 0;
+            // Thin-line charts can occupy very small pixel ratio on large white backgrounds.
+            return colored <= 2 && ratio < 0.0005;
+        };
+
+        const captureFromChartSvg = async () => {
+            const svgNode =
+                container.querySelector('.recharts-wrapper svg') ||
+                container.querySelector('svg.recharts-surface') ||
+                container.querySelector('svg');
+
+            if (!svgNode) {
+                throw new Error('svg-node-not-found');
+            }
+
+            const rect = svgNode.getBoundingClientRect();
+            const viewBox = svgNode.viewBox?.baseVal;
+            const width = Math.max(
+                Math.round(rect.width || 0),
+                Math.round(viewBox?.width || 0),
+                600,
+            );
+            const height = Math.max(
+                Math.round(rect.height || 0),
+                Math.round(viewBox?.height || 0),
+                260,
+            );
+
+            const svgClone = svgNode.cloneNode(true);
+            svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+            svgClone.setAttribute('width', String(width));
+            svgClone.setAttribute('height', String(height));
+            normalizeSvgForPdf(svgClone);
+
+            const serialized = new XMLSerializer().serializeToString(svgClone);
+            const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+
+            try {
+                const image = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error('svg-image-load-failed'));
+                    img.src = url;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width * 2;
+                canvas.height = height * 2;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('svg-canvas-context-missing');
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                if (isCanvasMostlyBlank(canvas)) {
+                    throw new Error('svg-capture-blank');
+                }
+
+                const imgData = canvas.toDataURL('image/png');
+                if (!imgData || !imgData.startsWith('data:image/png;base64,')) {
+                    throw new Error('svg-invalid-image-data');
+                }
+
+                return imgData;
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        };
+
+        const captureElement = async (target, { width, height, label, useOffscreenClone = false }) => {
+            if (!target) {
+                throw new Error(`capture-target-missing:${label}`);
+            }
+
+            const safeWidth = Math.max(320, Math.round(width || target.scrollWidth || target.offsetWidth || 0));
+            const safeHeight = Math.max(180, Math.round(height || target.scrollHeight || target.offsetHeight || 0));
+
+            let captureTarget = target;
+            let sandbox = null;
+
+            if (useOffscreenClone) {
+                sandbox = document.createElement('div');
+                sandbox.style.position = 'fixed';
+                sandbox.style.left = '-100000px';
+                sandbox.style.top = '0';
+                sandbox.style.width = `${safeWidth}px`;
+                sandbox.style.height = `${safeHeight}px`;
+                sandbox.style.overflow = 'visible';
+                sandbox.style.background = '#ffffff';
+                sandbox.style.zIndex = '-1';
+
+                const cloned = target.cloneNode(true);
+                cloned.style.width = `${safeWidth}px`;
+                cloned.style.minHeight = `${safeHeight}px`;
+                cloned.style.display = 'block';
+
+                const clonedScroller = cloned.querySelector('.viz-content');
+                if (clonedScroller) {
+                    clonedScroller.style.overflow = 'visible';
+                    clonedScroller.style.width = `${safeWidth}px`;
+                }
+
+                const clonedContainer = cloned.querySelector('.clinical-viz-container') || cloned;
+                clonedContainer.style.background = '#ffffff';
+                clonedContainer.style.opacity = '1';
+                clonedContainer.style.boxShadow = 'none';
+                normalizeContainerForPdf(clonedContainer);
+
+                sandbox.appendChild(cloned);
+                document.body.appendChild(sandbox);
+                captureTarget = cloned;
+
+                // Let browser finalize layout for cloned chart before capture.
+                await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            }
+
+            try {
+                const canvas = await html2canvas(captureTarget, {
+                    backgroundColor: '#ffffff',
+                    scale: 3,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true,
+                    width: safeWidth,
+                    height: safeHeight,
+                    windowWidth: safeWidth,
+                    scrollX: 0,
+                    scrollY: 0,
+                    onclone: (clonedDoc) => {
+                        const selector = `[data-export-chart-key="${chartKey}"]`;
+                        const clonedContainer = clonedDoc.querySelector(selector) || clonedDoc.querySelector('.clinical-viz-container');
+                        if (clonedContainer) {
+                            clonedContainer.style.background = '#ffffff';
+                            clonedContainer.style.opacity = '1';
+                            clonedContainer.style.boxShadow = 'none';
+                            normalizeContainerForPdf(clonedContainer);
+                            const scroller = clonedContainer.querySelector('.viz-content');
+                            if (scroller) {
+                                scroller.style.overflow = 'visible';
+                                scroller.style.width = `${safeWidth}px`;
+                            }
+                        }
+                    }
+                });
+
+                if (isCanvasMostlyBlank(canvas)) {
+                    throw new Error(`blank-capture:${label}`);
+                }
+
+                const imgData = canvas.toDataURL('image/png');
+                if (!imgData || !imgData.startsWith('data:image/png;base64,')) {
+                    throw new Error(`invalid-image-data:${label}`);
+                }
+                return imgData;
+            } finally {
+                if (sandbox && sandbox.parentNode) {
+                    sandbox.parentNode.removeChild(sandbox);
+                }
+            }
+        };
+
+        const dims = inferChartDimensions(container);
+        const vizContent = container.querySelector('.viz-content');
+        const vizCanvasWrapper = container.querySelector('.viz-canvas-wrapper');
+        const rechartsWrapper = container.querySelector('.recharts-wrapper');
+
+        const originalWidth = container.style.width;
+        const originalPosition = container.style.position;
+        const originalMinHeight = container.style.minHeight;
+        const originalDisplay = container.style.display;
+
+        container.style.width = `${dims.width}px`;
+        container.style.position = 'relative';
+        container.style.minHeight = `${dims.height}px`;
+        container.style.display = 'block';
+
+        const strategies = [
+            { target: container, width: dims.width, height: dims.height, label: 'container-direct', useOffscreenClone: false },
+            { target: vizContent || container, width: dims.width, height: dims.height, label: 'viz-content-direct', useOffscreenClone: false },
+            { target: vizCanvasWrapper || rechartsWrapper || vizContent || container, width: dims.width, height: dims.height, label: 'chart-node-direct', useOffscreenClone: false },
+            { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
+            { target: container, width: dims.width, height: dims.height, label: 'container-offscreen-clone', useOffscreenClone: true },
+        ];
+
+        let lastError = null;
+        try {
+            for (const strategy of strategies) {
+                try {
+                    if (typeof strategy.customRun === 'function') {
+                        return await strategy.customRun();
+                    }
+                    return await captureElement(strategy.target, strategy);
+                } catch (err) {
+                    lastError = err;
+                    console.warn('[PDF Export] capture strategy failed', {
+                        chartKey,
+                        strategy: strategy.label,
+                        error: getErrorMessage(err),
+                    });
+                }
+            }
+        } finally {
+            container.style.width = originalWidth;
+            container.style.position = originalPosition;
+            container.style.minHeight = originalMinHeight;
+            container.style.display = originalDisplay;
+        }
+
+        throw lastError || new Error('capture-all-strategies-failed');
+    };
+
+    const buildStaticChartFallbackImage = (chartSegment) => {
+        const type = String(chartSegment?.attributes?.type || 'unknown').toLowerCase();
+        const title = chartSegment?.attributes?.title || `Visualisasi ${type}`;
+        const rawData = chartSegment?.attributes?.data;
+
+        let parsedData = [];
+        try {
+            parsedData = typeof rawData === 'string' ? JSON.parse(rawData) : (Array.isArray(rawData) ? rawData : []);
+        } catch {
+            parsedData = [];
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1600;
+        canvas.height = 900;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return null;
+        }
+
+        const drawHeader = () => {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#dbe7ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+            ctx.fillStyle = '#136dec';
+            ctx.font = 'bold 34px Arial';
+            ctx.fillText(String(title).toUpperCase(), 48, 84);
+
+            ctx.strokeStyle = '#e5edf9';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(42, 106);
+            ctx.lineTo(canvas.width - 42, 106);
+            ctx.stroke();
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '22px Arial';
+            ctx.fillText(`Jenis: ${type}`, 48, 148);
+        };
+
+        const drawOutliers = () => {
+            const rows = Array.isArray(parsedData) ? parsedData.slice(0, 16) : [];
+            const startY = 190;
+            const colX = [48, 340, 760, 1120];
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('Waktu', colX[0], startY);
+            ctx.fillText('Parameter', colX[1], startY);
+            ctx.fillText('Nilai', colX[2], startY);
+            ctx.fillText('Status', colX[3], startY);
+
+            let y = startY + 34;
+            rows.forEach((row, idx) => {
+                if (idx % 2 === 0) {
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillRect(40, y - 22, canvas.width - 80, 34);
+                }
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '20px Arial';
+                ctx.fillText(String(row?.time || '-'), colX[0], y);
+                ctx.fillText(String(row?.param || '-'), colX[1], y);
+                ctx.fillText(String(row?.value ?? '-'), colX[2], y);
+                ctx.fillStyle = row?.outlier ? '#dc2626' : '#16a34a';
+                ctx.fillText(row?.outlier ? 'Outlier' : 'Normal', colX[3], y);
+                y += 36;
+            });
+        };
+
+        const drawAudit = () => {
+            const rows = Array.isArray(parsedData) ? parsedData.slice(0, 18) : [];
+            let y = 190;
+            rows.forEach((row) => {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1;
+                ctx.fillRect(48, y - 24, canvas.width - 96, 46);
+                ctx.strokeRect(48, y - 24, canvas.width - 96, 46);
+
+                ctx.fillStyle = row?.ok ? '#16a34a' : '#dc2626';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(row?.ok ? 'OK' : 'MISSING', 70, y + 6);
+
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '20px Arial';
+                ctx.fillText(String(row?.task || '-'), 240, y + 6);
+                y += 52;
+            });
+        };
+
+        const drawGantt = () => {
+            const rows = Array.isArray(parsedData) ? parsedData.slice(0, 10) : [];
+            let y = 190;
+
+            ctx.strokeStyle = '#93c5fd';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(74, y - 18);
+            ctx.lineTo(74, y + rows.length * 66);
+            ctx.stroke();
+
+            rows.forEach((row) => {
+                ctx.fillStyle = '#136dec';
+                ctx.beginPath();
+                ctx.arc(74, y - 4, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#136dec';
+                ctx.font = 'bold 17px Arial';
+                ctx.fillText(String(row?.time || '-'), 98, y - 8);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 22px Arial';
+                ctx.fillText(String(row?.action || '-'), 98, y + 20);
+
+                ctx.fillStyle = '#475569';
+                ctx.font = '18px Arial';
+                ctx.fillText(String(row?.desc || '-'), 98, y + 44);
+                y += 66;
+            });
+        };
+
+        const drawHeatmap = () => {
+            const rows = Array.isArray(parsedData) ? parsedData : [];
+            const safeRows = rows
+                .map((row) => ({
+                    name: row?.name || row?.label || '-',
+                    cells: Array.isArray(row?.cells) ? row.cells : [],
+                }))
+                .filter((row) => row.cells.length > 0)
+                .slice(0, 8);
+
+            const maxCols = Math.max(1, Math.min(12, ...safeRows.map((row) => row.cells.length)));
+            const paramWidth = 250; // width untuk parameter names
+            const cellW = Math.floor((canvas.width - paramWidth - 40) / maxCols);
+            const cellH = 52;
+            let y = 145;
+
+            // Draw legend at top
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('0 = rendah', 48, y);
+            ctx.fillText('10 = tinggi', canvas.width - 180, y);
+
+            y += 30;
+
+            // Draw column headers
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('Parameter', 48, y);
+            const headers = new Array(maxCols).fill(0).map((_, idx) => {
+                for (const row of safeRows) {
+                    const label = row.cells[idx]?.label;
+                    if (label) return String(label).slice(0, 8);
+                }
+                return `T${idx + 1}`;
+            });
+            headers.forEach((header, idx) => {
+                const textW = ctx.measureText(header).width;
+                ctx.fillText(header, paramWidth + 20 + (idx * cellW) + (cellW / 2) - (textW / 2), y);
+            });
+
+            y += 28;
+
+            // Draw data rows with cells and values
+            safeRows.forEach((row) => {
+                // Draw parameter name with proper clipping if too long
+                ctx.fillStyle = '#334155';
+                ctx.font = '14px Arial';
+                const paramName = row.name.length > 42 ? row.name.slice(0, 42) + '...' : row.name;
+                ctx.fillText(paramName, 48, y + 30);
+
+                // Draw cells with values
+                row.cells.slice(0, maxCols).forEach((cell, cIdx) => {
+                    const value = Number(cell?.value);
+                    const safeVal = Number.isFinite(value) ? Math.max(0, Math.min(10, value)) : 0;
+                    const intensity = safeVal / 10;
+                    const red = Math.round(219 - (200 * intensity));
+                    const green = Math.round(234 - (124 * intensity));
+                    const blue = Math.round(254 - (18 * intensity));
+                    
+                    // Draw colored cell
+                    ctx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+                    ctx.fillRect(paramWidth + 20 + (cIdx * cellW), y, cellW - 8, cellH - 8);
+
+                    // Draw cell value
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = 'bold 16px Arial';
+                    const valueText = Number.isFinite(value) ? value.toFixed(0) : '-';
+                    const valW = ctx.measureText(valueText).width;
+                    ctx.fillText(valueText, paramWidth + 20 + (cIdx * cellW) + (cellW / 2) - (valW / 2) - 4, y + 30);
+                });
+                y += cellH;
+            });
+
+            // Draw truncation note if applicable
+            const hasMoreRows = rows.length > safeRows.length;
+            const hasMoreCols = Math.max(...safeRows.map((r) => r.cells.length)) > maxCols;
+            if (hasMoreRows || hasMoreCols) {
+                y += 12;
+                ctx.fillStyle = '#64748b';
+                ctx.font = 'italic 12px Arial';
+                ctx.fillText('Tampilan dipadatkan untuk keterbacaan. Data lengkap tetap tersimpan pada respons.', 48, y);
+            }
+        };
+
+        const drawDashboard = () => {
+            const rows = Array.isArray(parsedData) ? parsedData.slice(0, 14) : [];
+            let x = 48;
+            let y = 220;
+            rows.forEach((row, idx) => {
+                const label = String(row?.label || `Filter ${idx + 1}`);
+                const width = Math.max(140, Math.min(320, ctx.measureText(label).width + 42));
+
+                if (x + width > canvas.width - 48) {
+                    x = 48;
+                    y += 66;
+                }
+
+                ctx.fillStyle = idx === 0 ? '#136dec' : '#e0ecff';
+                ctx.fillRect(x, y, width, 46);
+                ctx.strokeStyle = '#136dec';
+                ctx.strokeRect(x, y, width, 46);
+                ctx.fillStyle = idx === 0 ? '#ffffff' : '#136dec';
+                ctx.font = 'bold 18px Arial';
+                ctx.fillText(label, x + 16, y + 30);
+                x += width + 14;
+            });
+        };
+
+        drawHeader();
+
+        if (type === 'outlier' || type === 'outliers') drawOutliers();
+        else if (type === 'audit') drawAudit();
+        else if (type === 'gantt' || type === 'plan') drawGantt();
+        else if (type === 'heatmap') drawHeatmap();
+        else if (type === 'dashboard') drawDashboard();
+        else {
+            ctx.fillStyle = '#475569';
+            ctx.font = '24px Arial';
+            ctx.fillText('Visualisasi tersedia namun tidak dapat dirender dari DOM. Ditampilkan fallback statis.', 48, 240);
+            ctx.font = '20px Arial';
+            ctx.fillText(`Type: ${type}`, 48, 280);
+        }
+
+        const out = canvas.toDataURL('image/png');
+        if (!out || !out.startsWith('data:image/png;base64,')) {
+            return null;
+        }
+        return out;
+    };
+
+    const handleExportPDF = async (msg, msgIdx, triggerEl = null) => {
+        const exportKey = getMessageExportKey(msg, msgIdx);
+        if (exportLockRef.current.has(exportKey)) {
+            console.info('[PDF Export] export request ignored because already in progress', { msgIdx });
+            return;
+        }
+
+        exportLockRef.current.add(exportKey);
+        setExportActive(exportKey, true);
+
+        try {
+            const exportStart = performance.now();
+            const rawContent = getMessageRawText(msg);
+
+            if (!rawContent || rawContent.trim().length === 0) {
+                alert('Tidak ada konten jawaban AI yang bisa diekspor.');
+                return;
+            }
+
+            const chartImages = {};
+            const captureDiagnostics = [];
+            const captureTiming = [];
             
-            exportCopilotResponsePDF(rawContent, patientData, chartImages);
+            // Find all visualization containers within this specific message
+            // We use the message index to scope the search
+            const parsedCharts = parseMedicalChartSegments(rawContent);
+            const chartSegments = parsedCharts.charts;
+            if (parsedCharts.malformed.length > 0) {
+                console.warn(`[PDF Export] malformed MedicalChart tags: ${parsedCharts.malformed.length}`);
+            }
+
+            if (chartSegments.length === 0) {
+                console.info('[PDF Export] no chart tags detected, using immediate text export', {
+                    messageIndex: msgIdx,
+                    totalMs: Math.round(performance.now() - exportStart),
+                });
+                exportCopilotResponsePDF(rawContent, patientData, chartImages, captureDiagnostics);
+                return;
+            }
+
+            const cached = exportCacheRef.current.get(exportKey);
+            if (cached && cached.chartCount === chartSegments.length) {
+                console.info('[PDF Export] reusing cached chart captures', {
+                    messageIndex: msgIdx,
+                    chartCount: chartSegments.length,
+                });
+                exportCopilotResponsePDF(rawContent, patientData, cached.chartImages, cached.captureDiagnostics || []);
+                return;
+            }
+
+            console.log(`[PDF Export] Found ${chartSegments.length} chart tags in markdown for message ${msgIdx}`);
+            const messageRowFromTrigger = triggerEl?.closest?.('.message-row');
+            const messageRow = messageRowFromTrigger || document.querySelector(`.message-row[data-msg-index="${msgIdx}"]`);
+            if (!messageRow) {
+                captureDiagnostics.push({ reasonCode: CHART_CAPTURE_REASON.MISSING_MESSAGE_ROW, msgIdx });
+            }
+
+            const vizContainers = messageRow ? Array.from(messageRow.querySelectorAll('.clinical-viz-container')) : [];
+            console.log(`[PDF Export] Found ${vizContainers.length} viz containers in DOM for message ${msgIdx}`);
+
+            for (let i = 0; i < chartSegments.length; i++) {
+                const chartKey = `chart-${i}`;
+                const containerByKey = messageRow?.querySelector(`.clinical-viz-container[data-export-chart-key="${chartKey}"]`);
+                const container = containerByKey || vizContainers[i];
+
+                if (!container) {
+                    captureDiagnostics.push({ reasonCode: CHART_CAPTURE_REASON.MISSING_CONTAINER, chartKey, msgIdx });
+                    continue;
+                }
+
+                const readiness = await waitForChartReady(container);
+                if (!readiness.ready) {
+                    console.warn('[PDF Export] chart readiness timeout, capture will still be attempted', {
+                        chartKey,
+                        msgIdx,
+                        width: readiness.width,
+                        height: readiness.height,
+                        hasRenderableNode: readiness.hasRenderableNode,
+                    });
+                }
+
+                let captured = false;
+                let lastError = null;
+                for (let attempt = 1; attempt <= 2 && !captured; attempt++) {
+                    const attemptStart = performance.now();
+                    try {
+                        chartImages[chartKey] = await captureChartContainer(container, chartKey);
+                        captureTiming.push({
+                            chartKey,
+                            attempt,
+                            durationMs: Math.round(performance.now() - attemptStart),
+                            status: 'success',
+                        });
+                        captured = true;
+                    } catch (captureErr) {
+                        lastError = captureErr;
+                        captureTiming.push({
+                            chartKey,
+                            attempt,
+                            durationMs: Math.round(performance.now() - attemptStart),
+                            status: 'error',
+                            error: captureErr?.message || 'unknown-error',
+                        });
+                        await new Promise((resolve) => setTimeout(resolve, 180));
+                    }
+                }
+
+                if (!captured) {
+                    const staticFallbackImage = buildStaticChartFallbackImage(chartSegments[i]);
+                    if (staticFallbackImage) {
+                        chartImages[chartKey] = staticFallbackImage;
+                        captureTiming.push({
+                            chartKey,
+                            attempt: 'static-fallback',
+                            durationMs: 0,
+                            status: 'success',
+                        });
+                    } else {
+                        const fallbackPlaceholder = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><rect width="100%" height="100%" fill="#ffffff"/><rect x="30" y="30" width="1140" height="640" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/><text x="60" y="90" fill="#1d4ed8" font-size="36" font-family="Arial">Visualisasi Tidak Tersedia</text><text x="60" y="145" fill="#475569" font-size="24" font-family="Arial">Capture gagal, fallback placeholder digunakan.</text></svg>')}`;
+                        chartImages[chartKey] = fallbackPlaceholder;
+                        captureDiagnostics.push({
+                            reasonCode: readiness.ready ? CHART_CAPTURE_REASON.CAPTURE_ERROR : CHART_CAPTURE_REASON.NOT_READY,
+                            chartKey,
+                            chartType: chartSegments[i]?.attributes?.type || 'unknown',
+                            msgIdx,
+                            error: lastError?.message || 'unknown-error',
+                        });
+                    }
+                }
+
+                await nextTick();
+            }
+
+            if (captureDiagnostics.length > 0) {
+                console.warn('[PDF Export] capture diagnostics', captureDiagnostics);
+            }
+
+            console.info('[PDF Export] capture timing', captureTiming);
+            console.info('[PDF Export] capture summary', {
+                messageIndex: msgIdx,
+                rowSource: messageRowFromTrigger ? 'trigger' : 'query',
+                chartTagsFound: chartSegments.length,
+                chartCaptured: Object.keys(chartImages).length,
+                fallbackCount: captureDiagnostics.length,
+                totalCaptureMs: Math.round(performance.now() - exportStart),
+            });
+
+            putExportCache(exportKey, {
+                chartImages: { ...chartImages },
+                captureDiagnostics: Array.isArray(captureDiagnostics) ? [...captureDiagnostics] : [],
+                chartCount: chartSegments.length,
+                createdAt: Date.now(),
+            });
+            
+            exportCopilotResponsePDF(rawContent, patientData, chartImages, captureDiagnostics);
         } catch (error) {
             console.error('Failed to export PDF with charts:', error);
             // Fallback to regular export if capture fails
-            const rawContent = typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '';
+            const rawContent = getMessageRawText(msg);
             exportCopilotResponsePDF(rawContent, patientData);
         } finally {
-            setIsLoading(false);
+            exportLockRef.current.delete(exportKey);
+            setExportActive(exportKey, false);
         }
     };
 
@@ -768,6 +1681,9 @@ ATURAN KRUSIAL:
                                 ) : (
                                     (msg.content !== undefined && (msg.content !== '' || msg.role === 'user' || msg.stage === 'ready' || msg.stage === 'completed')) && (
                                         <div className="markdown-content">
+                                            {(() => {
+                                                let chartRenderCounter = 0;
+                                                return (
                                             <ReactMarkdown 
                                                 remarkPlugins={[remarkGfm]}
                                                 rehypePlugins={[rehypeRaw]}
@@ -806,9 +1722,15 @@ ATURAN KRUSIAL:
                                                     medicalchart: ({node, ...props}) => {
                                                         try {
                                                             const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
-                                                            // Provide a stable index-based ID for capture
-                                                            // This index is local to the markdown being rendered
-                                                            return <ClinicalVisualization {...props} data={chartData} />;
+                                                            const chartKey = `chart-${chartRenderCounter++}`;
+                                                            return (
+                                                                <ClinicalVisualization
+                                                                    {...props}
+                                                                    data={chartData}
+                                                                    exportChartKey={chartKey}
+                                                                    exportChartType={props.type || 'unknown'}
+                                                                />
+                                                            );
                                                         } catch (e) {
                                                             console.error("Failed to parse chart data:", e);
                                                             return <div className="text-red-500 text-xs">Gagal memuat grafik: Data tidak valid</div>;
@@ -821,6 +1743,8 @@ ATURAN KRUSIAL:
                                             >
                                                 {msg.displayContent || (typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '')}
                                             </ReactMarkdown>
+                                                );
+                                            })()}
                                         </div>
                                     )
                                 )}
@@ -839,14 +1763,21 @@ ATURAN KRUSIAL:
                                 )}
 
                                 {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
+                                    (() => {
+                                        const exportKey = getMessageExportKey(msg, idx);
+                                        const isExportingThisMessage = Boolean(activeExports[exportKey]);
+                                        return (
                                     <button 
                                         className="export-pdf-mini-btn" 
-                                        onClick={() => handleExportPDF(msg, idx)}
+                                        disabled={isExportingThisMessage}
+                                        onClick={(e) => handleExportPDF(msg, idx, e.currentTarget)}
                                         title="Export jawaban ini ke PDF"
                                     >
                                         <span className="material-symbols-outlined">picture_as_pdf</span>
-                                        <span>Simpan PDF</span>
+                                        <span>{isExportingThisMessage ? 'Mengekspor...' : 'Simpan PDF'}</span>
                                     </button>
+                                        );
+                                    })()
                                 )}
 
                                 {msg.usedModel && (

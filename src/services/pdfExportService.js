@@ -1,6 +1,8 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { parseAIDiagnoses } from './dataService';
+import { buildPdfMarkdownFromSegments, CHART_MARKER_PREFIX } from '../utils/pdfMarkdownChartSegmentation';
+import { cleanLabel, sanitizePdfText } from '../utils/pdfTextSanitizer';
 
 const PRIMARY = [37, 99, 235];
 const DARK = [30, 41, 59];
@@ -11,19 +13,11 @@ const SUCCESS = [34, 197, 94];
 const WARNING = [245, 158, 11];
 const DANGER = [239, 68, 68];
 
-// Strip Unicode symbols not supported by jsPDF default font (e.g. ↑ ↓ ✓ ⚠)
-// Strip Unicode symbols not supported by jsPDF default font (termasuk karakter spasi aneh)
-function cleanLabel(label) {
-    if (!label) return '-';
-    // Hapus karakter kontrol dan karakter non-ASCII yang sering merusak font helvetica standar
-    // Gunakan filter yang lebih ketat untuk spasi: hanya spasi standar (0x20) yang dibiarkan
-    return String(label)
-        .replace(/[\x00-\x1F\x7F-\x9F]/g, "") 
-        .replace(/[^\x20-\x7E\xA0-\xFF]/g, " ") // Konversi karakter luar Latin-1 dasar ke spasi agar aman
-        .trim() || '-';
-}
-
 const cleanCell = (t) => cleanLabel(t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''));
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function fmtDate(d) {
     if (!d) return '-';
@@ -121,6 +115,34 @@ function tbl(doc, opts) {
     return res?.finalY ?? doc.lastAutoTable?.finalY ?? opts.startY + 20;
 }
 
+function renderBatchedTable(doc, opts, { chunkSize = 70, chunkGap = 3 } = {}) {
+    const rows = Array.isArray(opts.body) ? opts.body : [];
+    if (rows.length <= chunkSize) {
+        return tbl(doc, opts);
+    }
+
+    let y = opts.startY;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+        if (y > 260) {
+            doc.addPage();
+            y = 20;
+        }
+
+        const chunk = rows.slice(i, i + chunkSize);
+        y = tbl(doc, {
+            ...opts,
+            startY: y,
+            body: chunk,
+        });
+
+        if ((i + chunkSize) < rows.length) {
+            y += chunkGap;
+        }
+    }
+
+    return y;
+}
+
 /**
  * Render markdown text to PDF with:
  * - MANUAL justified alignment for paragraphs (word-spacing calculation)
@@ -129,121 +151,94 @@ function tbl(doc, opts) {
  * - Inline bold prefix detection (e.g. **Label:** rest of text)
  * - Automatic page breaks
  */
-function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageBottomY = 280) {
+function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageBottomY = 280, chartDiagnosticsByKey = {}) {
     const LH = 4.2;      // line height mm
     const FS = 8.5;       // base font size
     const INDENT = 2;     // extra left indent for body text
     const mw = maxWidth;
-    let chartCounter = 0;
+    const chartMarkerRegex = new RegExp(`^${escapeRegExp(CHART_MARKER_PREFIX)}(\\d+)$`);
 
-    function renderLineSegments(doc, line, curX, curY, mw, isLastLine, doJustify) {
-        const segments = [];
-        let remaining = line.trim();
-        
-        while (remaining.length > 0) {
-            const boldMatch = remaining.match(/^(\*\*)(.*?)(\*\*)/);
-            const italicMatch = remaining.match(/^(\*)(.*?)(\*)/);
-            
-            if (boldMatch) {
-                segments.push({ text: boldMatch[2], style: 'bold' });
-                remaining = remaining.substring(boldMatch[0].length);
-            } else if (italicMatch) {
-                segments.push({ text: italicMatch[2], style: 'italic' });
-                remaining = remaining.substring(italicMatch[0].length);
-            } else {
-                const nextMarker = remaining.search(/\*\*|\*/);
-                if (nextMarker === -1) {
-                    segments.push({ text: remaining, style: 'normal' });
-                    remaining = '';
-                } else {
-                    if (nextMarker > 0) {
-                        segments.push({ text: remaining.substring(0, nextMarker), style: 'normal' });
-                    }
-                    remaining = remaining.substring(nextMarker);
-                }
+    const { normalizedText } = buildPdfMarkdownFromSegments(rawText);
+
+    const renderFallback = (curY, message) => {
+        if (curY > pageBottomY) {
+            doc.addPage();
+            curY = 20;
+        }
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(...MUTED);
+        doc.text(cleanLabel(message), x + INDENT, curY);
+        doc.setTextColor(...DARK);
+        return curY + LH;
+    };
+
+    const renderChartByKey = (chartKey, curY) => {
+        const chartDataUrl = chartImages[chartKey];
+
+        if (!chartDataUrl) {
+            const reason = chartDiagnosticsByKey[chartKey]?.reasonCode || 'missing-image';
+            return renderFallback(curY, `[Visualisasi: Data Gambar Tidak Tersedia | ${chartKey} | ${reason}]`);
+        }
+
+        try {
+            const imgProperties = doc.getImageProperties(chartDataUrl);
+            const safeWidth = Math.max(1, Number(imgProperties.width) || 1);
+            const safeHeight = Math.max(1, Number(imgProperties.height) || 1);
+            const scale = Math.min(mw / safeWidth, 122 / safeHeight);
+            const imgWidth = safeWidth * scale;
+            const imgHeight = safeHeight * scale;
+
+            if (curY + imgHeight > pageBottomY) {
+                doc.addPage();
+                curY = 20;
             }
+
+            const imgX = x + INDENT + ((mw - imgWidth) / 2);
+            doc.addImage(chartDataUrl, 'PNG', imgX, curY, imgWidth, imgHeight, undefined, 'SLOW');
+            return curY + imgHeight + LH;
+        } catch (imgErr) {
+            console.error('Error adding chart image to PDF:', imgErr);
+            const reason = chartDiagnosticsByKey[chartKey]?.reasonCode || 'image-invalid';
+            return renderFallback(curY, `[Gagal memproses gambar grafik | ${chartKey} | ${reason}]`);
+        }
+    };
+
+    function renderWrappedPlainText(curY, text, startX, width, { addPageGap = true } = {}) {
+        const cleanText = sanitizePdfText(
+            String(text ?? '').replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''),
+            { collapseWhitespace: true, trim: true }
+        );
+
+        if (!cleanText) {
+            return curY;
         }
 
-        const cleanLine = segments.map(s => s.text).join('');
-        const lineWords = cleanLine.split(/\s+/).filter(w => w.length > 0);
-        
-        if (lineWords.length <= 1 || isLastLine || !doJustify) {
-            let wx = curX;
-            segments.forEach(s => {
-                doc.setFont('helvetica', s.style === 'bold' ? 'bold' : s.style === 'italic' ? 'italic' : 'normal');
-                // Langsung gambar teks segmen tanpa dipisah per kata jika tidak menjustifikasi
-                // Ini mencegah masalah akumulasi lebar yang membuat spasi aneh
-                doc.text(s.text, wx, curY);
-                wx += doc.getTextWidth(s.text);
-            });
-            return;
+        const wrapped = doc.splitTextToSize(cleanText, width);
+        wrapped.forEach((line) => {
+            if (curY > pageBottomY) { doc.addPage(); curY = 20; }
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(FS);
+            doc.setTextColor(...DARK);
+            doc.text(cleanLabel(line), startX, curY);
+            curY += LH;
+        });
+
+        if (addPageGap) {
+            curY += LH * 0.1;
         }
 
-        const totalWordWidth = lineWords.reduce((sum, w) => sum + doc.getTextWidth(w), 0);
-        const totalSpace = mw - totalWordWidth;
-        const spacePerGap = totalSpace / (lineWords.length - 1);
-        
-        let wx = curX;
-        const wordStyler = [];
-        segments.forEach(s => {
-            const ws = s.text.split(/(\s+)/);
-            ws.forEach(part => {
-                if (part.trim().length > 0) {
-                    wordStyler.push({ text: part, style: s.style });
-                }
-            });
-        });
-
-        wordStyler.forEach((ws, idx) => {
-            doc.setFont('helvetica', ws.style === 'bold' ? 'bold' : ws.style === 'italic' ? 'italic' : 'normal');
-            doc.text(ws.text, wx, curY);
-            wx += doc.getTextWidth(ws.text) + (idx < wordStyler.length - 1 ? spacePerGap : 0);
-        });
+        return curY;
     }
 
     function flushBuffer(curY) {
         if (paragraphBuffer.length === 0) return curY;
         const joined = paragraphBuffer.join(' ');
         paragraphBuffer = [];
-        
-        const cleanJoined = joined.replace(/\*\*/g, '').replace(/\*/g, '');
-        const wrapped = doc.splitTextToSize(cleanJoined, mw);
-        
-        let currentText = joined;
-        wrapped.forEach((firstLineClean, idx) => {
-            if (curY > pageBottomY) { doc.addPage(); curY = 20; }
-            
-            let markdownLine = '';
-            let cleanCount = 0;
-            let i = 0;
-            while (cleanCount < firstLineClean.length && i < currentText.length) {
-                if (currentText.substring(i, i + 2) === '**') {
-                    markdownLine += '**';
-                    i += 2;
-                } else if (currentText[i] === '*') {
-                    markdownLine += '*';
-                    i++;
-                } else {
-                    markdownLine += currentText[i];
-                    cleanCount++;
-                    i++;
-                }
-            }
-            
-            const isLast = idx === wrapped.length - 1;
-            const remains = currentText.substring(i);
-            const tooShort = doc.getTextWidth(firstLineClean.trim()) < mw * 0.6;
-            
-            renderLineSegments(doc, markdownLine, x + INDENT, curY, mw, isLast || tooShort, false);
-            
-            curY += LH;
-            currentText = remains.trim();
-        });
-        
-        return curY;
+
+        return renderWrappedPlainText(curY, joined, x + INDENT, mw, { addPageGap: false });
     }
 
-    const rawLines = rawText.split('\n');
+    const rawLines = normalizedText.split('\n');
     let paragraphBuffer = [];
 
     for (let i = 0; i < rawLines.length; i++) {
@@ -309,34 +304,11 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
             continue;
         }
 
-        // Custom MedicalChart tag detection for embedding captured images
-        if (trimmed.toLowerCase().includes('<medicalchart')) {
+        const chartMarkerMatch = trimmed.match(chartMarkerRegex);
+        if (chartMarkerMatch) {
             y = flushBuffer(y);
-            const chartDataUrl = chartImages[`chart-${chartCounter}`];
-            
-            if (chartDataUrl) {
-                // Determine dimensions
-                const imgWidth = mw;
-                // Standard chart height in PDF (approx 4:3 or similar)
-                const imgHeight = 55; // Fixed height for consistency in PDF
-                
-                if (y + imgHeight > pageBottomY) {
-                    doc.addPage();
-                    y = 20;
-                }
-                
-                try {
-                    doc.addImage(chartDataUrl, 'PNG', x + INDENT, y, imgWidth, imgHeight, undefined, 'FAST');
-                    y += imgHeight + LH;
-                } catch (imgErr) {
-                    console.error('Error adding chart image to PDF:', imgErr);
-                    doc.setFont('helvetica', 'italic');
-                    doc.text('[Gagal memuat visualisasi]', x + INDENT, y);
-                    y += LH;
-                }
-            }
-            
-            chartCounter++;
+            const chartKey = `chart-${Number(chartMarkerMatch[1])}`;
+            y = renderChartByKey(chartKey, y);
             continue;
         }
 
@@ -348,10 +320,10 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(FS);
             doc.setTextColor(...DARK);
-            const wrapped = doc.splitTextToSize(cleanTitle, mw);
+            const wrapped = doc.splitTextToSize(cleanLabel(cleanTitle), mw);
             wrapped.forEach(l => {
                 if (y > pageBottomY) { doc.addPage(); y = 20; }
-                doc.text(l.trim(), x + INDENT, y);
+                doc.text(cleanLabel(l), x + INDENT, y);
                 y += LH;
             });
             continue;
@@ -374,36 +346,18 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
             y = flushBuffer(y);
             const bullet = listMatch[1];
             const content = listMatch[2];
-            const cleanContent = content.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, '');
             
-            // Render bullet separately
             if (y > pageBottomY) { doc.addPage(); y = 20; }
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(FS);
             doc.setTextColor(...DARK);
-            doc.text(bullet, x + INDENT, y);
+            doc.text(cleanLabel(bullet), x + INDENT, y);
             
             const bulletW = doc.getTextWidth(bullet);
-            const wrapped = doc.splitTextToSize(cleanContent, mw - bulletW);
-            
-            wrapped.forEach((l, idx) => {
-                const isLast = idx === wrapped.length - 1;
-                const tooShort = doc.getTextWidth(l.trim()) < (mw - bulletW) * 0.6;
-                
-                // Re-insert markdown markers for formatting if possible? 
-                // For simplicity, let's just render the wrapped lines justified
-                // but since we lost markdown markers during splitTextToSize, 
-                // we'll just use the regular justifyLine logic here or call renderLineSegments
-                
-                // Construct the markdown line for this segment (simplified: just the clean text)
-                // If we want to keep markers, we'd need a more complex mapper.
-                // Let's at least justify it.
-                
-                if (idx > 0 && y > pageBottomY) { doc.addPage(); y = 20; }
-                
-                doc.text(l.trim(), x + INDENT + bulletW, y);
-                y += LH;
-            });
+            const contentX = x + INDENT + bulletW;
+            const contentWidth = mw - bulletW;
+
+            y = renderWrappedPlainText(y, content, contentX, contentWidth, { addPageGap: false });
             continue;
         }
 
@@ -461,7 +415,7 @@ function _renderPatientToDoc(doc, patient) {
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Keluhan Utama:', 14, y + 2);
             doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK);
-            const lines = doc.splitTextToSize(patient.chiefComplaint, pageWidth - 28);
+            const lines = doc.splitTextToSize(cleanLabel(sanitizePdfText(patient.chiefComplaint)), pageWidth - 28);
             doc.text(lines, 14, y + 7);
             y += 7 + lines.length * 4 + 2;
         }
@@ -469,7 +423,7 @@ function _renderPatientToDoc(doc, patient) {
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Riwayat Medis:', 14, y + 2);
             doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK);
-            const lines = doc.splitTextToSize(patient.medicalHistory, pageWidth - 28);
+            const lines = doc.splitTextToSize(cleanLabel(sanitizePdfText(patient.medicalHistory)), pageWidth - 28);
             doc.text(lines, 14, y + 7);
             y += 7 + lines.length * 4 + 4;
         }
@@ -502,7 +456,7 @@ function _renderPatientToDoc(doc, patient) {
         // Full vital signs history table
         if (vitalSigns.length > 0) {
             const sortedVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
-            y = tbl(doc, {
+            y = renderBatchedTable(doc, {
                 startY: y,
                 head: [['Waktu', 'Detak Jantung', 'Tekanan Darah', 'Suhu', 'Frek. Napas', 'SpO2']],
                 body: sortedVS.map(vs => [
@@ -519,7 +473,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 38 } },
                 margin: { left: 14, right: 14 },
-            }) + 6;
+            }, { chunkSize: 75 }) + 6;
         } else {
             doc.setFontSize(8); doc.setTextColor(...MUTED); doc.setFont('helvetica', 'italic');
             doc.text('Belum ada riwayat pencatatan vital signs.', 14, y); y += 8;
@@ -529,7 +483,7 @@ function _renderPatientToDoc(doc, patient) {
         const symptoms = patient.symptoms || [];
         y = sectionTitle(doc, `3. Gejala (${symptoms.length})`, y, pageWidth);
         if (symptoms.length > 0) {
-            y = tbl(doc, {
+            y = renderBatchedTable(doc, {
                 startY: y,
                 head: [['No', 'Nama Gejala', 'Keparahan', 'Catatan', 'Tanggal']],
                 body: symptoms.map((s, i) => [i + 1, s.name || '-', severityLabel(s.severity), s.notes || '-', fmtDateTime(s.recordedAt)]),
@@ -548,7 +502,7 @@ function _renderPatientToDoc(doc, patient) {
                         data.cell.styles.fontStyle = 'bold';
                     }
                 },
-            }) + 6;
+            }, { chunkSize: 70 }) + 6;
         } else {
             doc.setFontSize(9); doc.setTextColor(...MUTED);
             doc.text('Tidak ada data gejala.', 14, y); y += 8;
@@ -558,7 +512,7 @@ function _renderPatientToDoc(doc, patient) {
         const physicals = patient.physicalExams || [];
         y = sectionTitle(doc, `4. Pemeriksaan Fisik (${physicals.length})`, y, pageWidth);
         if (physicals.length > 0) {
-            y = tbl(doc, {
+            y = renderBatchedTable(doc, {
                 startY: y,
                 head: [['No', 'Sistem', 'Temuan', 'Tanggal']],
                 body: physicals.map((e, i) => [i + 1, (e.system || '-').toUpperCase(), e.findings || '-', fmtDateTime(e.date)]),
@@ -568,7 +522,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 25, fontStyle: 'bold' }, 3: { cellWidth: 35 } },
                 margin: { left: 14, right: 14 },
-            }) + 6;
+            }, { chunkSize: 70 }) + 6;
             if (physicals.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -588,7 +542,7 @@ function _renderPatientToDoc(doc, patient) {
         const labs = patient.supportingExams || [];
         y = sectionTitle(doc, `5. Hasil Laboratorium (${labs.length})`, y, pageWidth);
         if (labs.length > 0) {
-            y = tbl(doc, {
+            y = renderBatchedTable(doc, {
                 startY: y,
                 head: [['No', 'Pemeriksaan', 'Nilai', 'Satuan', 'Status', 'Tanggal']],
                 body: labs.map((e, i) => [i + 1, e.testName || '-', e.value || '-', e.unit || '-', cleanLabel(e.result?.label), fmtDateTime(e.date)]),
@@ -607,7 +561,7 @@ function _renderPatientToDoc(doc, patient) {
                         data.cell.styles.fontStyle = 'bold';
                     }
                 },
-            }) + 6;
+            }, { chunkSize: 70 }) + 6;
             if (labs.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -628,7 +582,7 @@ function _renderPatientToDoc(doc, patient) {
         const prescriptions = patient.prescriptions || [];
         y = sectionTitle(doc, `6. Resep Obat (${prescriptions.length})`, y, pageWidth);
         if (prescriptions.length > 0) {
-            y = tbl(doc, {
+            y = renderBatchedTable(doc, {
                 startY: y,
                 head: [['No', 'Nama Obat', 'Dosis', 'Sediaan', 'Frekuensi', 'Rute', 'Tanggal']],
                 body: prescriptions.map((p, i) => [
@@ -646,7 +600,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20 }, 3: { cellWidth: 22 }, 4: { cellWidth: 25 }, 5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }, 6: { cellWidth: 30 } },
                 margin: { left: 14, right: 14 },
-            }) + 4;
+            }, { chunkSize: 70 }) + 4;
             if (prescriptions.some(p => p.fornas_source)) {
                 doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
                 doc.text('[F] Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
@@ -670,7 +624,7 @@ function _renderPatientToDoc(doc, patient) {
         const reports = patient.dailyReports || [];
         y = sectionTitle(doc, `7. Laporan Harian (${reports.length})`, y, pageWidth);
         if (reports.length > 0) {
-            y = tbl(doc, {
+            y = renderBatchedTable(doc, {
                 startY: y,
                 head: [['No', 'Tanggal', 'Catatan', 'Kondisi']],
                 body: [...reports].sort((a, b) => new Date(b.date) - new Date(a.date)).map((r, i) => [i + 1, fmtDateTime(r.date), r.notes || '-', conditionLabel(r.condition)]),
@@ -680,7 +634,7 @@ function _renderPatientToDoc(doc, patient) {
                 alternateRowStyles: { fillColor: STRIPE },
                 columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 35 }, 3: { cellWidth: 22, halign: 'center' } },
                 margin: { left: 14, right: 14 },
-            }) + 6;
+            }, { chunkSize: 70 }) + 6;
             if (reports.length > 1) {
                 if (y > 230) { doc.addPage(); y = 20; }
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
@@ -960,19 +914,34 @@ function _renderPatientToDoc(doc, patient) {
             }
 
             // Fill polygon with semi-transparency using triangles
-            doc.setGState(new doc.GState({ opacity: 0.2 }));
-            doc.setFillColor(19, 109, 236);
-            if (dataPoints.length >= 3) {
-                for (let i = 1; i < dataPoints.length - 1; i++) {
-                    doc.triangle(
-                        dataPoints[0].x, dataPoints[0].y,
-                        dataPoints[i].x, dataPoints[i].y,
-                        dataPoints[i + 1].x, dataPoints[i + 1].y,
-                        'F'
-                    );
+            const supportsGState = typeof doc.setGState === 'function' && typeof doc.GState === 'function';
+            if (supportsGState) {
+                doc.setGState(new doc.GState({ opacity: 0.2 }));
+                doc.setFillColor(19, 109, 236);
+                if (dataPoints.length >= 3) {
+                    for (let i = 1; i < dataPoints.length - 1; i++) {
+                        doc.triangle(
+                            dataPoints[0].x, dataPoints[0].y,
+                            dataPoints[i].x, dataPoints[i].y,
+                            dataPoints[i + 1].x, dataPoints[i + 1].y,
+                            'F'
+                        );
+                    }
+                }
+                doc.setGState(new doc.GState({ opacity: 1 }));
+            } else {
+                doc.setFillColor(191, 219, 254);
+                if (dataPoints.length >= 3) {
+                    for (let i = 1; i < dataPoints.length - 1; i++) {
+                        doc.triangle(
+                            dataPoints[0].x, dataPoints[0].y,
+                            dataPoints[i].x, dataPoints[i].y,
+                            dataPoints[i + 1].x, dataPoints[i + 1].y,
+                            'F'
+                        );
+                    }
                 }
             }
-            doc.setGState(new doc.GState({ opacity: 1 }));
 
             // Outline
             doc.setDrawColor(19, 109, 236);
@@ -1020,12 +989,21 @@ function _renderPatientToDoc(doc, patient) {
 // ================================================================
 // EXPORT COPILOT RESPONSE TO PDF
 // ================================================================
-export function exportCopilotResponsePDF(content, patient = null, chartImages = {}) {
+export function exportCopilotResponsePDF(content, patient = null, chartImages = {}, chartDiagnostics = []) {
     try {
+        const exportStart = Date.now();
         console.log('[PDF Export] Exporting Copilot response to PDF...');
         const doc = new jsPDF('p', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         let y = 14;
+        const chartDiagnosticsByKey = Array.isArray(chartDiagnostics)
+            ? chartDiagnostics.reduce((acc, item) => {
+                if (item?.chartKey) {
+                    acc[item.chartKey] = item;
+                }
+                return acc;
+            }, {})
+            : {};
 
         // ===== HEADER =====
         doc.setFillColor(...PRIMARY);
@@ -1054,7 +1032,15 @@ export function exportCopilotResponsePDF(content, patient = null, chartImages = 
         // ===== CONTENT =====
         // Since renderMarkdownPDF is already available and custom-tuned for this project's style
         // Pass chartImages to renderer
-        y = renderMarkdownPDF(doc, content, 14, y, pageWidth - 28, chartImages);
+        y = renderMarkdownPDF(doc, content, 14, y, pageWidth - 28, chartImages, 280, chartDiagnosticsByKey);
+
+        const chartKeys = Object.keys(chartImages || {}).filter((k) => k.startsWith('chart-'));
+        console.info('[PDF Export] render summary', {
+            chartImagesCount: chartKeys.length,
+            diagnosticsCount: Array.isArray(chartDiagnostics) ? chartDiagnostics.length : 0,
+            pageCount: doc.internal.getNumberOfPages(),
+            renderDurationMs: Date.now() - exportStart,
+        });
         
         addFooters(doc);
         
@@ -1070,18 +1056,29 @@ export function exportCopilotResponsePDF(content, patient = null, chartImages = 
 // ================================================================
 // EXPORT SINGLE PATIENT PDF
 // ================================================================
-export function exportPatientPDF(patient) {
+export async function exportPatientPDF(patient) {
     try {
+        if (!patient || typeof patient !== 'object') {
+            throw new Error('Data pasien tidak valid.');
+        }
+
+        const exportStart = Date.now();
         console.log('[PDF Export] Starting PDF generation for:', patient?.name);
+        await new Promise((resolve) => setTimeout(resolve, 0));
         const doc = new jsPDF('p', 'mm', 'a4');
         _renderPatientToDoc(doc, patient);
         addFooters(doc);
         const safeName = (patient.name || 'pasien').replace(/[^a-zA-Z0-9]/g, '_');
         doc.save(`Laporan_Medis_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
-        console.log('[PDF Export] PDF generated successfully');
+        console.log('[PDF Export] PDF generated successfully', {
+            pageCount: doc.internal.getNumberOfPages(),
+            renderDurationMs: Date.now() - exportStart,
+        });
+        return true;
     } catch (err) {
         console.error('[PDF Export] Error generating PDF:', err);
         alert('Gagal membuat PDF: ' + err.message);
+        return false;
     }
 }
 
