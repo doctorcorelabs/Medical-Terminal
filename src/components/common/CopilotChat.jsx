@@ -1,5 +1,5 @@
 /* src/components/common/CopilotChat.jsx */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './CopilotChat.css';
@@ -21,6 +21,24 @@ const CHART_CAPTURE_REASON = {
     MISSING_CONTAINER: 'missing-container',
     NOT_READY: 'not-ready-timeout',
     CAPTURE_ERROR: 'capture-error',
+};
+
+const COPILOT_PDF_PERF = {
+    waitTimeoutMs: 800,
+    waitPollMs: 80,
+    waitStableCycles: 1,
+    captureScale: 2,
+    maxCaptureWidth: 1200,
+    maxCaptureHeight: 700,
+    maxRetries: 1,
+    retryDelayMs: 100,
+    fallbackCanvasWidth: 1400,
+    fallbackCanvasHeight: 800,
+    svgRenderScale: 2,
+    // Set to true to bypass DOM capture entirely and render charts from raw
+    // MedicalChart data directly in jsPDF (requires renderCopilotChartToPdf
+    // helper in pdfExportService). Currently unused - reserved for future use.
+    vectorMode: false,
 };
 
 const getMessageRawText = (msg) => {
@@ -51,6 +69,141 @@ const getMessageRawText = (msg) => {
 
     return '';
 };
+
+
+const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, isContextEnabled, onExportPDF }) {
+    return (
+        <div className={`message-row ${msg.role}`} data-msg-index={idx}>
+            {msg.role === 'ai' && (
+                <div className="ai-avatar">
+                    <span className="material-symbols-outlined">terminal</span>
+                </div>
+            )}
+            <div className="message-bubble">
+                {msg.role === 'ai' && (msg.stage === 'thinking' || msg.stage === 'refining') && (
+                    <div className="thinking-container">
+                        <div className={`stage-pill ${msg.stage === 'thinking' ? 'active' : 'completed'}`}>
+                            <div className="stage-dot"></div>
+                            <span className="stage-text">Menganalisis Konteks...</span>
+                        </div>
+                        {msg.stage === 'refining' && (
+                            <div className="stage-pill active">
+                                <div className="stage-dot"></div>
+                                <span className="stage-text">Menyajikan Jawaban...</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {msg.role === 'ai' && msg.isStreaming && !msg.content ? (
+                    <div className="skeleton-loader">
+                        <div className="skeleton-line"></div>
+                        <div className="skeleton-line"></div>
+                        <div className="skeleton-line"></div>
+                    </div>
+                ) : (
+                    (msg.content !== undefined && (msg.content !== '' || msg.role === 'user' || msg.stage === 'ready' || msg.stage === 'completed')) && (
+                        <div className="markdown-content">
+                            {(() => {
+                                let chartRenderCounter = 0;
+                                return (
+                                    <ReactMarkdown 
+                                        remarkPlugins={[remarkGfm]}
+                                        rehypePlugins={[rehypeRaw]}
+                                        components={{
+                                            table: ({node, ...props}) => (
+                                                <div className="table-container">
+                                                    <table {...props} />
+                                                </div>
+                                            ),
+                                            p: ({node, children, ...props}) => {
+                                                const isBlockContent = (content) => {
+                                                    return React.Children.toArray(content).some(child => {
+                                                        if (!React.isValidElement(child)) return false;
+
+                                                        const type = child.type;
+                                                        const name = child.props?.node?.name || (typeof type === 'string' ? type : type.name);
+
+                                                        const blockTags = ['div', 'table', 'section', 'article', 'medicalchart', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'tr', 'td'];
+                                                        if (blockTags.includes(name?.toLowerCase())) return true;
+
+                                                        if (child.props?.children) return isBlockContent(child.props.children);
+
+                                                        return false;
+                                                    });
+                                                };
+
+                                                if (isBlockContent(children)) {
+                                                    return <div className="p-wrap" {...props}>{children}</div>;
+                                                }
+                                                return <p {...props}>{children}</p>;
+                                            },
+                                            medicalchart: ({node, ...props}) => {
+                                                try {
+                                                    const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
+                                                    const chartKey = `chart-${chartRenderCounter++}`;
+                                                    return (
+                                                        <ClinicalVisualization
+                                                            {...props}
+                                                            data={chartData}
+                                                            exportChartKey={chartKey}
+                                                            exportChartType={props.type || 'unknown'}
+                                                        />
+                                                    );
+                                                } catch (e) {
+                                                    console.error("Failed to parse chart data:", e);
+                                                    return <div className="text-red-500 text-xs">Gagal memuat grafik: Data tidak valid</div>;
+                                                }
+                                            },
+                                            strong: ({node, ...props}) => <strong className="md-bold" {...props} />,
+                                            em: ({node, ...props}) => <em className="md-italic" {...props} />
+                                        }}
+                                    >
+                                        {msg.displayContent || (typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '')}
+                                    </ReactMarkdown>
+                                );
+                            })()}
+                        </div>
+                    )
+                )}
+
+                {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="message-attachments">
+                        {msg.attachments.map((att, i) => (
+                            <div key={i} className="msg-attachment-tag">
+                                <span className="material-symbols-outlined">
+                                    {att.isImage ? 'image' : 'description'}
+                                </span>
+                                {att.name}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
+                    <button 
+                        className="export-pdf-mini-btn" 
+                        onClick={(e) => onExportPDF(msg, idx, e.currentTarget)}
+                        title="Export jawaban ini ke PDF"
+                    >
+                        <span className="material-symbols-outlined">picture_as_pdf</span>
+                        <span>Simpan PDF</span>
+                    </button>
+                )}
+
+                {msg.usedModel && (
+                    <div className="model-badge">
+                        <span className="material-symbols-outlined">bolt</span>
+                        {msg.usedModel === 'gpt-5-mini' ? 'GPT-Research Mode' : 
+                            msg.usedModel === 'gpt-4.1' ? 'GPT-Swift Mode' : 
+                            msg.usedModel === 'gpt-4o' ? 'GPT-Omni Mode' : 
+                            `GPT-${msg.usedModel.toUpperCase()}`}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+});
 
 
 const CopilotChat = () => {
@@ -503,10 +656,13 @@ TUGAS ANDA:
 
                 // Tahap 2: Refining (Penyajian Jawaban)
                 setMessages(prev => {
-                    const next = [...prev];
-                    next[next.length - 1].stage = 'refining';
-                    next[next.length - 1].usedModel = 'gpt-4.1';
-                    return next;
+                    if (prev.length === 0) return prev;
+                    const lastIndex = prev.length - 1;
+                    return prev.map((m, idx) =>
+                        idx === lastIndex
+                            ? { ...m, stage: 'refining', usedModel: 'gpt-4.1' }
+                            : m
+                    );
                 });
 
                 let refiningResponse = await fetch(COPILOT_WORKER_URL, {
@@ -534,9 +690,13 @@ ATURAN KRUSIAL:
                 if (!refiningResponse.ok) {
                     console.warn("GPT-4.1 failed, falling back to GPT-4o");
                     setMessages(prev => {
-                        const next = [...prev];
-                        next[next.length - 1].usedModel = 'gpt-4o';
-                        return next;
+                        if (prev.length === 0) return prev;
+                        const lastIndex = prev.length - 1;
+                        return prev.map((m, idx) =>
+                            idx === lastIndex
+                                ? { ...m, usedModel: 'gpt-4o' }
+                                : m
+                        );
                     });
                     
                     refiningResponse = await fetch(COPILOT_WORKER_URL, {
@@ -566,11 +726,13 @@ ATURAN KRUSIAL:
                 }
 
                 setMessages(prev => {
-                    const next = [...prev];
-                    const lastMsg = next[next.length - 1];
-                    lastMsg.stage = 'ready';
-                    lastMsg.content = acc;
-                    return next;
+                    if (prev.length === 0) return prev;
+                    const lastIndex = prev.length - 1;
+                    return prev.map((m, idx) =>
+                        idx === lastIndex
+                            ? { ...m, stage: 'ready', content: acc }
+                            : m
+                    );
                 });
             } 
             // --- JALUR 2: BASIC (Jika Context OFF / Gambar saja / Halaman Lain) ---
@@ -618,18 +780,25 @@ ATURAN KRUSIAL:
                 }
                 
                 setMessages(prev => {
-                    const next = [...prev];
-                    next[next.length - 1].content = acc;
-                    return next;
+                    if (prev.length === 0) return prev;
+                    const lastIndex = prev.length - 1;
+                    return prev.map((m, idx) =>
+                        idx === lastIndex
+                            ? { ...m, content: acc }
+                            : m
+                    );
                 });
             }
 
             // Finalisasi
             setMessages(prev => {
-                const next = [...prev];
-                next[next.length - 1].isStreaming = false;
-                next[next.length - 1].stage = 'completed';
-                return next;
+                if (prev.length === 0) return prev;
+                const lastIndex = prev.length - 1;
+                return prev.map((m, idx) =>
+                    idx === lastIndex
+                        ? { ...m, isStreaming: false, stage: 'completed' }
+                        : m
+                );
             });
 
         } finally {
@@ -675,7 +844,16 @@ ATURAN KRUSIAL:
         };
     };
 
-    const waitForChartReady = async (container, { timeoutMs = 5000, pollMs = 120, stableCycles = 2 } = {}) => {
+    const waitForChartReady = async (container, {
+        timeoutMs = COPILOT_PDF_PERF.waitTimeoutMs,
+        pollMs = COPILOT_PDF_PERF.waitPollMs,
+        stableCycles = COPILOT_PDF_PERF.waitStableCycles,
+    } = {}) => {
+        const initialDims = inferChartDimensions(container);
+        if (initialDims.width > 0 && initialDims.height > 0 && initialDims.hasRenderableNode) {
+            return { ready: true, width: initialDims.width, height: initialDims.height, hasRenderableNode: true, timedOut: false };
+        }
+
         const start = Date.now();
         let stableCount = 0;
         let previousSignature = null;
@@ -915,8 +1093,8 @@ ATURAN KRUSIAL:
                 });
 
                 const canvas = document.createElement('canvas');
-                canvas.width = width * 2;
-                canvas.height = height * 2;
+                canvas.width = width * COPILOT_PDF_PERF.svgRenderScale;
+                canvas.height = height * COPILOT_PDF_PERF.svgRenderScale;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) {
                     throw new Error('svg-canvas-context-missing');
@@ -946,8 +1124,8 @@ ATURAN KRUSIAL:
                 throw new Error(`capture-target-missing:${label}`);
             }
 
-            const safeWidth = Math.max(320, Math.round(width || target.scrollWidth || target.offsetWidth || 0));
-            const safeHeight = Math.max(180, Math.round(height || target.scrollHeight || target.offsetHeight || 0));
+            const safeWidth = Math.min(COPILOT_PDF_PERF.maxCaptureWidth, Math.max(320, Math.round(width || target.scrollWidth || target.offsetWidth || 0)));
+            const safeHeight = Math.min(COPILOT_PDF_PERF.maxCaptureHeight, Math.max(180, Math.round(height || target.scrollHeight || target.offsetHeight || 0)));
 
             let captureTarget = target;
             let sandbox = null;
@@ -991,7 +1169,7 @@ ATURAN KRUSIAL:
             try {
                 const canvas = await html2canvas(captureTarget, {
                     backgroundColor: '#ffffff',
-                    scale: 3,
+                    scale: COPILOT_PDF_PERF.captureScale,
                     logging: false,
                     useCORS: true,
                     allowTaint: true,
@@ -1050,10 +1228,8 @@ ATURAN KRUSIAL:
 
         const strategies = [
             { target: container, width: dims.width, height: dims.height, label: 'container-direct', useOffscreenClone: false },
-            { target: vizContent || container, width: dims.width, height: dims.height, label: 'viz-content-direct', useOffscreenClone: false },
             { target: vizCanvasWrapper || rechartsWrapper || vizContent || container, width: dims.width, height: dims.height, label: 'chart-node-direct', useOffscreenClone: false },
             { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
-            { target: container, width: dims.width, height: dims.height, label: 'container-offscreen-clone', useOffscreenClone: true },
         ];
 
         let lastError = null;
@@ -1096,8 +1272,8 @@ ATURAN KRUSIAL:
         }
 
         const canvas = document.createElement('canvas');
-        canvas.width = 1600;
-        canvas.height = 900;
+        canvas.width = COPILOT_PDF_PERF.fallbackCanvasWidth;
+        canvas.height = COPILOT_PDF_PERF.fallbackCanvasHeight;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
             return null;
@@ -1338,7 +1514,7 @@ ATURAN KRUSIAL:
         return out;
     };
 
-    const handleExportPDF = async (msg, msgIdx, triggerEl = null) => {
+    const handleExportPDF = useCallback(async (msg, msgIdx, triggerEl = null) => {
         try {
             const exportStart = performance.now();
             const rawContent = getMessageRawText(msg);
@@ -1387,7 +1563,7 @@ ATURAN KRUSIAL:
 
                 let captured = false;
                 let lastError = null;
-                for (let attempt = 1; attempt <= 2 && !captured; attempt++) {
+                for (let attempt = 1; attempt <= COPILOT_PDF_PERF.maxRetries && !captured; attempt++) {
                     const attemptStart = performance.now();
                     try {
                         chartImages[chartKey] = await captureChartContainer(container, chartKey);
@@ -1407,7 +1583,7 @@ ATURAN KRUSIAL:
                             status: 'error',
                             error: captureErr?.message || 'unknown-error',
                         });
-                        await new Promise((resolve) => setTimeout(resolve, 180));
+                        await new Promise((resolve) => setTimeout(resolve, COPILOT_PDF_PERF.retryDelayMs));
                     }
                 }
 
@@ -1454,7 +1630,7 @@ ATURAN KRUSIAL:
             const rawContent = getMessageRawText(msg);
             exportCopilotResponsePDF(rawContent, patientData);
         }
-    };
+    }, [patientData, isContextEnabled]);
 
     return (
         <div className={`copilot-container ${isOpen ? 'is-open' : ''}`}>
@@ -1554,140 +1730,14 @@ ATURAN KRUSIAL:
 
                 <div className="messages-area custom-scrollbar">
                     {messages.map((msg, idx) => (
-                        <div key={idx} className={`message-row ${msg.role}`} data-msg-index={idx}>
-                            {msg.role === 'ai' && (
-                                <div className="ai-avatar">
-                                    <span className="material-symbols-outlined">terminal</span>
-                                </div>
-                            )}
-                            <div className="message-bubble">
-                                {msg.role === 'ai' && (msg.stage === 'thinking' || msg.stage === 'refining') && (
-                                    <div className="thinking-container">
-                                        <div className={`stage-pill ${msg.stage === 'thinking' ? 'active' : 'completed'}`}>
-                                            <div className="stage-dot"></div>
-                                            <span className="stage-text">Menganalisis Konteks...</span>
-                                        </div>
-                                        {msg.stage === 'refining' && (
-                                            <div className="stage-pill active">
-                                                <div className="stage-dot"></div>
-                                                <span className="stage-text">Menyajikan Jawaban...</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                                
-                                {msg.role === 'ai' && msg.isStreaming && !msg.content ? (
-                                    <div className="skeleton-loader">
-                                        <div className="skeleton-line"></div>
-                                        <div className="skeleton-line"></div>
-                                        <div className="skeleton-line"></div>
-                                    </div>
-                                ) : (
-                                    (msg.content !== undefined && (msg.content !== '' || msg.role === 'user' || msg.stage === 'ready' || msg.stage === 'completed')) && (
-                                        <div className="markdown-content">
-                                            {(() => {
-                                                let chartRenderCounter = 0;
-                                                return (
-                                            <ReactMarkdown 
-                                                remarkPlugins={[remarkGfm]}
-                                                rehypePlugins={[rehypeRaw]}
-                                                components={{
-                                                    table: ({node, ...props}) => (
-                                                        <div className="table-container">
-                                                            <table {...props} />
-                                                        </div>
-                                                    ),
-                                                    p: ({node, children, ...props}) => {
-                                                        // Aggressive check for any block-level content within children
-                                                        const isBlockContent = (content) => {
-                                                            return React.Children.toArray(content).some(child => {
-                                                                if (!React.isValidElement(child)) return false;
-                                                                
-                                                                // Check tag names and custom component names
-                                                                const type = child.type;
-                                                                const name = child.props?.node?.name || (typeof type === 'string' ? type : type.name);
-                                                                
-                                                                const blockTags = ['div', 'table', 'section', 'article', 'medicalchart', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'tr', 'td'];
-                                                                if (blockTags.includes(name?.toLowerCase())) return true;
-                                                                
-                                                                // Recursively check children if it's a fragment or wrapper
-                                                                if (child.props?.children) return isBlockContent(child.props.children);
-                                                                
-                                                                return false;
-                                                            });
-                                                        };
-
-                                                        if (isBlockContent(children)) {
-                                                            return <div className="p-wrap" {...props}>{children}</div>;
-                                                        }
-                                                        return <p {...props}>{children}</p>;
-                                                    },
-                                                    // Custom component for MedicalChart tags
-                                                    medicalchart: ({node, ...props}) => {
-                                                        try {
-                                                            const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
-                                                            const chartKey = `chart-${chartRenderCounter++}`;
-                                                            return (
-                                                                <ClinicalVisualization
-                                                                    {...props}
-                                                                    data={chartData}
-                                                                    exportChartKey={chartKey}
-                                                                    exportChartType={props.type || 'unknown'}
-                                                                />
-                                                            );
-                                                        } catch (e) {
-                                                            console.error("Failed to parse chart data:", e);
-                                                            return <div className="text-red-500 text-xs">Gagal memuat grafik: Data tidak valid</div>;
-                                                        }
-                                                    },
-                                                    // Ensure bold and italic are rendered nicely
-                                                    strong: ({node, ...props}) => <strong className="md-bold" {...props} />,
-                                                    em: ({node, ...props}) => <em className="md-italic" {...props} />
-                                                }}
-                                            >
-                                                {msg.displayContent || (typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '')}
-                                            </ReactMarkdown>
-                                                );
-                                            })()}
-                                        </div>
-                                    )
-                                )}
-                                
-                                {msg.attachments && msg.attachments.length > 0 && (
-                                    <div className="message-attachments">
-                                        {msg.attachments.map((att, i) => (
-                                            <div key={i} className="msg-attachment-tag">
-                                                <span className="material-symbols-outlined">
-                                                    {att.isImage ? 'image' : 'description'}
-                                                </span>
-                                                {att.name}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
-                                    <button 
-                                        className="export-pdf-mini-btn" 
-                                        onClick={(e) => handleExportPDF(msg, idx, e.currentTarget)}
-                                        title="Export jawaban ini ke PDF"
-                                    >
-                                        <span className="material-symbols-outlined">picture_as_pdf</span>
-                                        <span>Simpan PDF</span>
-                                    </button>
-                                )}
-
-                                {msg.usedModel && (
-                                    <div className="model-badge">
-                                        <span className="material-symbols-outlined">bolt</span>
-                                        {msg.usedModel === 'gpt-5-mini' ? 'GPT-Research Mode' : 
-                                         msg.usedModel === 'gpt-4.1' ? 'GPT-Swift Mode' : 
-                                         msg.usedModel === 'gpt-4o' ? 'GPT-Omni Mode' : 
-                                         `GPT-${msg.usedModel.toUpperCase()}`}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <MessageRow
+                            key={idx}
+                            msg={msg}
+                            idx={idx}
+                            patientData={patientData}
+                            isContextEnabled={isContextEnabled}
+                            onExportPDF={handleExportPDF}
+                        />
                     ))}
                     {isLoading && !messages.some(m => m.isStreaming) && (
                         <div className="message-row ai">

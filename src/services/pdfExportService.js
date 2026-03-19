@@ -166,7 +166,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
             }
 
             const imgX = x + INDENT + ((mw - imgWidth) / 2);
-            doc.addImage(chartDataUrl, 'PNG', imgX, curY, imgWidth, imgHeight, undefined, 'SLOW');
+            doc.addImage(chartDataUrl, 'PNG', imgX, curY, imgWidth, imgHeight, undefined, 'FAST');
             return curY + imgHeight + LH;
         } catch (imgErr) {
             console.error('Error adding chart image to PDF:', imgErr);
