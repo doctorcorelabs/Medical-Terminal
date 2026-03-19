@@ -7,6 +7,14 @@ export function buildPdfMarkdownFromSegments(rawText) {
 
     const normalizedText = parsed.segments.map((segment) => {
         if (segment.type === 'chart') {
+            const attrs = segment.attributes || {};
+            const rawType = (attrs.type || '').toString().trim().toLowerCase();
+
+            // Jika tipe kosong, treat seolah tidak ada chart sama sekali
+            if (!rawType) {
+                return '';
+            }
+
             return `\n${CHART_MARKER_PREFIX}${segment.chartIndex}\n`;
         }
 

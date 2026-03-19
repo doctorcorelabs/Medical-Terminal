@@ -140,14 +140,23 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, isCon
                                             },
                                             medicalchart: ({node, ...props}) => {
                                                 try {
+                                                    const rawType = (props.type || '').toString().trim().toLowerCase();
                                                     const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
+                                                    const isEmptyData = !chartData || (Array.isArray(chartData) && chartData.length === 0);
+
+                                                    if (!rawType || isEmptyData) {
+                                                        // Jika tipe kosong atau data tidak ada, jangan render kontainer visualisasi sama sekali.
+                                                        return null;
+                                                    }
+
                                                     const chartKey = `chart-${chartRenderCounter++}`;
                                                     return (
                                                         <ClinicalVisualization
                                                             {...props}
+                                                            type={rawType}
                                                             data={chartData}
                                                             exportChartKey={chartKey}
-                                                            exportChartType={props.type || 'unknown'}
+                                                            exportChartType={rawType}
                                                         />
                                                     );
                                                 } catch (e) {
@@ -759,7 +768,7 @@ ATURAN KRUSIAL:
                         model: targetModel,
                         stream: false,
                         messages: [
-                            { role: 'system', content: 'Anda adalah Medx Copilot. Jawablah secara ramah dan profesional. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.' },
+                            { role: 'system', content: 'Anda adalah Medx AI Agent. Anda adalah expert dunia kedokteran dan Anda adalah dokter senior. Jawablah secara ramah dan profesional. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.' },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
                         ]
