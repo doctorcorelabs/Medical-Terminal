@@ -104,6 +104,7 @@ export async function syncToSupabase(userId) {
             .from('user_patients')
             .select('patients_data, updated_at')
             .eq('user_id', userId)
+            .limit(1)
             .maybeSingle();
 
         const serverPatients = Array.isArray(serverRow?.patients_data) ? serverRow.patients_data : [];
@@ -157,6 +158,7 @@ export async function fetchFromSupabase(userId) {
             .from('user_patients')
             .select('patients_data, updated_at')
             .eq('user_id', userId)
+            .limit(1)
             .maybeSingle();
 
         if (data) {
@@ -218,6 +220,7 @@ export async function syncStasesToSupabase(userId) {
             .from('user_stases')
             .select('stases_data, pinned_stase_id, updated_at')
             .eq('user_id', userId)
+            .limit(1)
             .maybeSingle();
 
         const serverStases = Array.isArray(serverRow?.stases_data) ? serverRow.stases_data : [];
@@ -262,6 +265,7 @@ export async function fetchStasesFromSupabase(userId) {
             .from('user_stases')
             .select('stases_data, pinned_stase_id, updated_at')
             .eq('user_id', userId)
+            .limit(1)
             .maybeSingle();
 
         if (data) {
@@ -781,6 +785,7 @@ export async function syncSchedulesToSupabase(userId) {
             .from('user_schedules')
             .select('schedules_data, updated_at')
             .eq('user_id', userId)
+            .limit(1)
             .maybeSingle();
 
         // 2. Perform reconciled merge
@@ -815,6 +820,7 @@ export async function fetchSchedulesFromSupabase(userId) {
             .from('user_schedules')
             .select('schedules_data, updated_at')
             .eq('user_id', userId)
+            .limit(1)
             .maybeSingle();
 
         const serverSchedules = Array.isArray(data?.schedules_data)

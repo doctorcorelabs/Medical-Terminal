@@ -32,10 +32,11 @@ export function AuthProvider({ children }) {
                 .from('profiles')
                 .select('id, user_id, username, full_name, role, subscription_expires_at, created_at')
                 .eq('user_id', userId)
-                .single();
-            if (!error && data) {
-                setProfile(data);
-                localStorage.setItem('medterminal_profile_cache', JSON.stringify(data));
+                .limit(1);
+            if (!error && data && data.length > 0) {
+                const profileData = data[0];
+                setProfile(profileData);
+                localStorage.setItem('medterminal_profile_cache', JSON.stringify(profileData));
             }
         } catch (_err) {
             // profile fetch failure is non-fatal

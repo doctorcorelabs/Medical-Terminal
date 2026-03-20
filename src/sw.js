@@ -131,7 +131,7 @@ async function fetchServerRow(supabaseUrl, supabaseKey, table, userId, accessTok
     try {
         const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
         const res = await fetch(
-            `${supabaseUrl}/rest/v1/${table}?user_id=eq.${userId}&select=*&t=${Date.now()}`,
+            `${supabaseUrl}/rest/v1/${table}?user_id=eq.${userId}&select=*&limit=1&t=${Date.now()}`,
             {
                 headers: {
                     'apikey': supabaseKey,
@@ -314,7 +314,7 @@ async function flushGroup(group) {
                 'apikey': supabaseKey,
                 'Authorization': authHeader,
                 'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates',
+                'Prefer': 'resolution=merge-duplicates,return=minimal',
             },
             body: JSON.stringify(body),
         });
