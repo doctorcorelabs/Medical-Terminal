@@ -3,21 +3,83 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
+import { generateReceiptPDF } from '../services/receiptService';
 
 export default function Subscription() {
     const navigate = useNavigate();
-    const { profile, isSpecialist, isIntern } = useAuth();
+    const { user, profile, isSpecialist, isIntern } = useAuth();
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [receiptData, setReceiptData] = useState(null);
+    const [verifying, setVerifying] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('success')) {
-            setShowSuccess(true);
+            handleSuccessRedirect();
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }, []);
+    }, [profile]);
+
+    const handleSuccessRedirect = async () => {
+        if (!profile?.id) return;
+        setVerifying(true);
+        
+        let attempts = 0;
+        const maxAttempts = 5;
+        let isDownloaded = false;
+        
+        const fetchTransaction = async () => {
+            const { data, error } = await supabase
+                .from('user_subscriptions')
+                .select('*, subscription_plans(name)')
+                .eq('user_id', profile.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (data && data.status === 'active') {
+                const receiptInfo = {
+                    order_id: data.gateway_order_id,
+                    user_name: profile.username || user?.email,
+                    user_email: user?.email,
+                    plan_name: data.subscription_plans?.name || 'Specialist',
+                    amount: data.amount_paid,
+                    payment_method: data.payment_method || 'QRIS/Transfer',
+                    date: data.updated_at
+                };
+                setReceiptData(receiptInfo);
+                setShowSuccess(true);
+                setVerifying(false);
+                
+                // Trigger auto-download only once
+                if (!isDownloaded) {
+                    isDownloaded = true;
+                    setTimeout(() => generateReceiptPDF(receiptInfo), 1000);
+                }
+                return true;
+            }
+            return false;
+        };
+
+        // Initial check
+        const initialSuccess = await fetchTransaction();
+        if (initialSuccess) return; // if already active, no need to poll
+
+        // Poll every 2 seconds for up to 10 seconds
+        const interval = setInterval(async () => {
+            const success = await fetchTransaction();
+            attempts++;
+            if (success || attempts >= maxAttempts) {
+                clearInterval(interval);
+                if (!success) {
+                    setVerifying(false);
+                    setShowSuccess(true); // Still show success modal, but without auto-download
+                }
+            }
+        }, 2000);
+    };
 
     const handleCheckout = async (planCode, amount) => {
         setLoading(true);
@@ -138,11 +200,11 @@ export default function Subscription() {
                             </li>
                             <li className="flex gap-3 text-sm text-slate-600 dark:text-slate-400">
                                 <span className="material-symbols-outlined text-green-500 text-lg shrink-0">check_circle</span>
-                                Fitur kalkulator medis
+                                Beragam Tools medis pembantu
                             </li>
                             <li className="flex gap-3 text-sm text-slate-600 dark:text-slate-400">
                                 <span className="material-symbols-outlined text-green-500 text-lg shrink-0">check_circle</span>
-                                Pencarian ICD-10 dasar
+                                Reguler Medx AI Agent
                             </li>
                         </ul>
                         <button disabled className="w-full py-3 rounded-xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed">
@@ -162,10 +224,10 @@ export default function Subscription() {
                             </h3>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-xl font-bold text-slate-500">Rp</span>
-                                <span className="text-4xl font-black text-slate-900 dark:text-white">49.000</span>
+                                <span className="text-4xl font-black text-slate-900 dark:text-white">60.000</span>
                                 <span className="text-slate-500 font-medium">/bln</span>
                             </div>
-                            <p className="text-slate-500 text-sm mt-4">Perpanjangan setiap bulan.</p>
+                            <p className="text-slate-500 text-sm mt-4">Perpanjangan setiap bulan. Batalkan kapan saja.</p>
                         </div>
                         <ul className="space-y-4 mb-8 flex-1">
                             <li className="flex gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -174,31 +236,53 @@ export default function Subscription() {
                             </li>
                             <li className="flex gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
                                 <span className="material-symbols-outlined text-primary text-lg shrink-0">check_circle</span>
-                                Asisten AI Medis Lanjutan
+                                Advanced Medx AI Agent
                             </li>
                             <li className="flex gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
                                 <span className="material-symbols-outlined text-primary text-lg shrink-0">check_circle</span>
-                                Export Rekam Medis & PDF
+                                Export Output Pasien Detail di Medx AI Agent
                             </li>
                             <li className="flex gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
                                 <span className="material-symbols-outlined text-primary text-lg shrink-0">check_circle</span>
-                                Prioritas akses fitur baru
+                                Data selalu disimpan di database
                             </li>
                         </ul>
-                        <button onClick={() => handleCheckout('specialist_monthly', 49000)} disabled={loading} className="w-full py-3 rounded-xl font-bold bg-primary text-white hover:bg-primary/90 transition shadow-lg shadow-primary/30 flex justify-center items-center">
-                            {loading ? <span className="material-symbols-outlined animate-spin">refresh</span> : 'Mulai Langganan'}
+                        <button 
+                            onClick={() => handleCheckout('specialist_monthly', 60000)} 
+                            disabled={loading} 
+                            className={`w-full py-3 rounded-xl font-bold transition shadow-lg flex justify-center items-center gap-2 group ${
+                                isSpecialist 
+                                    ? 'bg-white dark:bg-slate-800 border-2 border-primary text-primary hover:bg-primary/5 shadow-primary/10' 
+                                    : 'bg-primary text-white hover:bg-primary/90 shadow-primary/30'
+                            }`}
+                        >
+                            {loading ? <span className="material-symbols-outlined animate-spin">refresh</span> : (
+                                <>
+                                    {isSpecialist && (
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full">
+                                            <span className="size-1.5 rounded-full bg-primary animate-pulse"></span>
+                                            <span className="text-[10px] font-black uppercase tracking-tighter">Aktif</span>
+                                        </div>
+                                    )}
+                                    <span>{isSpecialist ? 'Tambah Durasi' : 'Mulai Langganan'}</span>
+                                </>
+                            )}
                         </button>
                     </div>
 
-                    {/* Specialist (Lifetime) Card */}
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col hover:border-primary/50 transition">
+                    {/* Specialist Enthusiast Card */}
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 flex flex-col hover:border-slate-300 dark:hover:border-slate-700 transition relative overflow-hidden">
+                        <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-black uppercase tracking-wider py-1 px-3 rounded-full animate-pulse shadow-lg shadow-red-500/30 transform rotate-3">
+                            Hemat 17%
+                        </div>
                         <div className="mb-8">
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Lifetime</h3>
-                            <div className="flex items-baseline gap-1">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Specialist Enthusiast</h3>
+                            <div className="flex items-baseline gap-1 relative inline-block">
                                 <span className="text-xl font-bold text-slate-500">Rp</span>
-                                <span className="text-4xl font-black text-slate-900 dark:text-white">999.000</span>
+                                <span className="text-4xl font-black text-slate-900 dark:text-white">150.000</span>
                             </div>
-                            <p className="text-slate-500 text-sm mt-4">Sekali bayar untuk selamanya.</p>
+                            <div className="text-xs text-slate-400 line-through mt-1">Harga Normal: Rp 180.000</div>
+                            <p className="text-slate-500 text-sm mt-4">Paket 3 Bulan Specialist.</p>
                         </div>
                         <ul className="space-y-4 mb-8 flex-1">
                             <li className="flex gap-3 text-sm text-slate-600 dark:text-slate-400">
@@ -207,21 +291,48 @@ export default function Subscription() {
                             </li>
                             <li className="flex gap-3 text-sm text-slate-600 dark:text-slate-400">
                                 <span className="material-symbols-outlined text-teal-500 text-lg shrink-0">check_circle</span>
-                                Tanpa biaya bulanan
-                            </li>
-                            <li className="flex gap-3 text-sm text-slate-600 dark:text-slate-400">
-                                <span className="material-symbols-outlined text-teal-500 text-lg shrink-0">check_circle</span>
-                                Dukungan eksklusif 24/7
+                                Lebih hemat dibanding bulanan
                             </li>
                         </ul>
-                        <button onClick={() => handleCheckout('specialist_lifetime', 999000)} disabled={loading} className="w-full py-3 rounded-xl font-bold border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 transition flex justify-center items-center">
-                            {loading ? <span className="material-symbols-outlined animate-spin">refresh</span> : 'Beli Lifetime'}
+                        <button 
+                            onClick={() => handleCheckout('specialist_enthusiast', 150000)}
+                            disabled={loading}
+                            className={`w-full py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 border-2 ${
+                                isSpecialist && profile?.subscription_plans?.code === 'specialist_enthusiast'
+                                    ? 'border-teal-500 bg-teal-50/30 dark:bg-teal-900/10 text-teal-600 dark:text-teal-400'
+                                    : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            {loading ? <span className="material-symbols-outlined animate-spin">refresh</span> : (
+                                <>
+                                    {isSpecialist && profile?.subscription_plans?.code === 'specialist_enthusiast' && (
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-teal-500/10 rounded-full">
+                                            <span className="size-1.5 rounded-full bg-teal-500 animate-pulse"></span>
+                                            <span className="text-[10px] font-black uppercase tracking-tighter">Aktif</span>
+                                        </div>
+                                    )}
+                                    <span>{isSpecialist ? 'Tambah Durasi' : 'Beli Paket'}</span>
+                                </>
+                            )}
                         </button>
                     </div>
 
                 </div>
 
             </div>
+
+            {/* Verifying Overlay */}
+            {verifying && (
+                <div className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-md">
+                    <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-slate-200 dark:border-slate-800">
+                        <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
+                        <div className="text-center">
+                            <h3 className="text-lg font-bold">Memverifikasi Pembayaran...</h3>
+                            <p className="text-sm text-slate-500">Mohon tunggu sebentar, sistem sedang memproses transaksi Anda.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Success Celebration Modal */}
             {showSuccess && (
@@ -249,15 +360,30 @@ export default function Subscription() {
                         
                         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Pembayaran Berhasil!</h2>
                         <p className="text-slate-500 dark:text-slate-400 mb-8 relative z-10 leading-relaxed text-sm">
-                            Terima kasih telah berlangganan! Akun Anda sedang diperbarui ke level **Specialist**. Nikmati akses tanpa batas ke semua fitur klinis.
+                            {receiptData 
+                                ? `Terima kasih telah berlangganan! Kuitansi pembayaran #${receiptData.order_id} telah diunduh secara otomatis.`
+                                : "Terima kasih telah berlangganan! Akun Anda sedang diperbarui ke level **Specialist**. Nikmati akses tanpa batas ke semua fitur klinis."
+                            }
                         </p>
                         
-                        <button 
-                            onClick={() => setShowSuccess(false)}
-                            className="w-full py-4 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600 transition-all shadow-lg shadow-green-500/30 active:scale-95 relative z-10"
-                        >
-                            Ke Dashboard Utama
-                        </button>
+                        <div className="space-y-3 relative z-10">
+                            {receiptData && (
+                                <button 
+                                    onClick={() => generateReceiptPDF(receiptData)}
+                                    className="w-full py-4 rounded-xl font-bold border-2 border-green-500 text-green-600 hover:bg-green-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">download_done</span>
+                                    Cetak Ulang Kuitansi
+                                </button>
+                            )}
+                            
+                            <button 
+                                onClick={() => setShowSuccess(false)}
+                                className="w-full py-4 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600 transition-all shadow-lg shadow-green-500/30 active:scale-95"
+                            >
+                                Ke Dashboard Utama
+                            </button>
+                        </div>
                     </div>
                     
                     {/* Add required CSS directly if needed or assume styles exist. Adding inline for reliability. */}

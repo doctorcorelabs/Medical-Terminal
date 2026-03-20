@@ -8,6 +8,8 @@ import { useCopilotContext } from '../../context/CopilotContext';
 import { exportCopilotResponsePDF } from '../../services/pdfExportService';
 import { parseMedicalChartSegments } from '../../utils/medicalChartParser';
 import { CHART_MARKER_PREFIX } from '../../utils/pdfMarkdownChartSegmentation';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 import ClinicalVisualization from './ClinicalVisualization';
 import html2canvas from 'html2canvas';
@@ -307,6 +309,8 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
 
 const CopilotChat = () => {
     const { pageContext, patientData, isContextEnabled, toggleContext } = useCopilotContext();
+    const { isIntern } = useAuth();
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
         { role: 'ai', content: 'Halo! Saya asisten MedxTerminal. Ada yang bisa saya bantu hari ini?', isWelcome: true }
@@ -1881,12 +1885,24 @@ ATURAN KRUSIAL:
                                     <input 
                                         type="checkbox" 
                                         checked={isContextEnabled}
-                                        onChange={(e) => toggleContext(e.target.checked)}
+                                        onChange={(e) => {
+                                            if (isIntern) {
+                                                navigate('/subscription');
+                                                setIsOpen(false);
+                                            } else {
+                                                toggleContext(e.target.checked);
+                                            }
+                                        }}
                                     />
                                     <span className="context-slider"></span>
+                                    {isIntern && (
+                                        <span className="absolute -top-2 -right-2 material-symbols-outlined text-amber-500 text-sm bg-white rounded-full p-0.5 shadow-sm">
+                                            lock
+                                        </span>
+                                    )}
                                 </label>
-                                <span className={`context-label ${isContextEnabled ? 'active' : ''}`}>
-                                    Context
+                                <span className={`context-label ${isContextEnabled ? 'active' : ''} ${isIntern ? 'text-amber-500 font-bold' : ''}`}>
+                                    {isIntern ? 'PRO' : 'Context'}
                                 </span>
                             </div>
                         )}

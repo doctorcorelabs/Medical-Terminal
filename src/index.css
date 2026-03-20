@@ -30,6 +30,24 @@
   }
 }
 
+@keyframes bounce-short {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-bounce-short {
+  animation: bounce-short 1s ease-in-out infinite;
+}
+
+@keyframes pulse-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.animate-pulse-fast {
+  animation: pulse-fast 1.5s ease-in-out infinite;
+}
+
 /* Base */
 body {
   font-family: 'Outfit', 'Inter', sans-serif;

@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { deleteAllPatientsData, deleteAllStasesData, deleteAllSchedulesData, syncToSupabase, getAllStases, syncStasesToSupabase } from '../services/dataService';
 import StaseMappingModal from '../components/StaseMappingModal';
 import ConflictManager from '../components/ConflictManager';
+import { supabase } from '../services/supabaseClient';
+import { generateReceiptPDF } from '../services/receiptService';
 
 export default function Settings() {
-    const { user, updateProfile, isUsernameAvailable, isAdmin, isSpecialist } = useAuth();
+    const { user, profile, updateProfile, isUsernameAvailable, isAdmin, isSpecialist } = useAuth();
+    const navigate = useNavigate();
     // ... rest of state ...
 
     // Use effect to handle hash scrolling
@@ -140,6 +144,80 @@ export default function Settings() {
         }
     };
 
+    // Subscription Countdown Logic
+    const subInfo = useMemo(() => {
+        if (!profile?.subscription_expires_at) return null;
+        
+        const end = new Date(profile.subscription_expires_at);
+        const now = new Date();
+        const diff = end - now;
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        
+        // Let's assume a standard 30-day or 90-day cycle for the progress bar
+        // We can check the created_at vs expires_at to find the total duration
+        const start = profile.created_at ? new Date(profile.created_at) : new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        const totalDuration = end - start;
+        const elapsed = now - start;
+        const progress = Math.max(0, Math.min(100, (elapsed / totalDuration) * 100));
+        const remainingPercent = 100 - progress;
+
+        const formatDate = (date) => {
+            return new Intl.DateTimeFormat('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            }).format(date);
+        };
+
+        return {
+            expiresAt: formatDate(end),
+            daysLeft: Math.max(0, days),
+            progress: remainingPercent, // percentage of time LEFT
+            isExpiringSoon: days > 0 && days <= 7,
+            isExpired: days <= 0
+        };
+    }, [profile]);
+
+    const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+
+    const handleDownloadLatestReceipt = async () => {
+        if (!profile?.id) return;
+        setDownloadingReceipt(true);
+        try {
+            const { data, error } = await supabase
+                .from('user_subscriptions')
+                .select('*, subscription_plans(name)')
+                .eq('user_id', profile.user_id)
+                .eq('status', 'active')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data) {
+                addToast('Tidak ditemukan riwayat pembayaran aktif.', 'info');
+                return;
+            }
+
+            const receiptInfo = {
+                order_id: data.gateway_order_id,
+                user_name: profile.username || user?.email,
+                user_email: user?.email,
+                plan_name: data.subscription_plans?.name || 'Specialist',
+                amount: data.amount_paid,
+                payment_method: data.payment_method || 'QRIS/Transfer',
+                date: data.updated_at
+            };
+
+            generateReceiptPDF(receiptInfo);
+            addToast('Invoice berhasil diunduh.', 'success');
+        } catch (err) {
+            addToast('Gagal mengunduh invoice: ' + err.message, 'error');
+        } finally {
+            setDownloadingReceipt(false);
+        }
+    };
+
     return (
         <div className="flex-1 overflow-y-auto">
             <div className="p-4 md:p-6 lg:p-10 max-w-[1400px] mx-auto animate-[fadeIn_0.3s_ease-out]">
@@ -169,7 +247,7 @@ export default function Settings() {
                                         <div>
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status Keanggotaan</p>
                                             <p className="font-bold text-slate-700 dark:text-slate-200">
-                                                {isAdmin ? 'Administrator' : isSpecialist ? 'Specialist Member' : 'Pengguna Standar (Intern)'}
+                                                {isAdmin ? 'Administrator' : isSpecialist ? 'Specialist Member' : 'Intern'}
                                             </p>
                                         </div>
                                     </div>
@@ -209,6 +287,101 @@ export default function Settings() {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Subscription Status Section - Unique UI */}
+                                {(isSpecialist || isAdmin) && subInfo && (
+                                    <div className="mt-8 border-t border-slate-100 dark:border-slate-800 pt-8">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">Manajemen Langganan</h4>
+                                        <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/50 relative overflow-hidden group">
+                                            {/* Background glow for flair */}
+                                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-all duration-700" />
+                                            
+                                            <div className="flex flex-col md:flex-row gap-8 items-center relative z-10">
+                                                {/* Unique Countdown Visual: Ring/Circle */}
+                                                <div className="relative size-32 flex-shrink-0">
+                                                    <svg className="size-full -rotate-90" viewBox="0 0 100 100">
+                                                        {/* Background circle */}
+                                                        <circle 
+                                                            cx="50" cy="50" r="45" 
+                                                            fill="transparent" 
+                                                            stroke="currentColor" 
+                                                            strokeWidth="8"
+                                                            className="text-slate-200 dark:text-slate-700"
+                                                        />
+                                                        {/* Progress circle */}
+                                                        <circle 
+                                                            cx="50" cy="50" r="45" 
+                                                            fill="transparent" 
+                                                            stroke="currentColor" 
+                                                            strokeWidth="8"
+                                                            strokeDasharray="282.7"
+                                                            strokeDashoffset={282.7 - (282.7 * subInfo.progress) / 100}
+                                                            strokeLinecap="round"
+                                                            className={`${subInfo.isExpiringSoon ? 'text-amber-500' : 'text-primary'} transition-all duration-1000`}
+                                                        />
+                                                    </svg>
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                                        <span className={`text-2xl font-black ${subInfo.isExpiringSoon ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>
+                                                            {subInfo.daysLeft}
+                                                        </span>
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hari Lagi</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Text Info */}
+                                                <div className="flex-1 space-y-4 text-center md:text-left">
+                                                    <div>
+                                                        <h5 className="font-black text-slate-900 dark:text-white text-lg flex items-center justify-center md:justify-start gap-2">
+                                                            Specialist Access
+                                                            <span className="size-2 rounded-full bg-green-500 animate-pulse" />
+                                                        </h5>
+                                                        <p className="text-sm text-slate-500">Masa berlaku paket hingga <span className="font-bold text-slate-700 dark:text-slate-300">{subInfo.expiresAt}</span></p>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                            <span className="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+                                                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Advanced AI Active</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                            <span className="material-symbols-outlined text-primary text-sm">cloud_done</span>
+                                                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Sync On</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Manual Receipt Download */}
+                                                    <div className="pt-2">
+                                                        <button 
+                                                            onClick={handleDownloadLatestReceipt}
+                                                            disabled={downloadingReceipt}
+                                                            className="text-[11px] font-bold text-primary hover:text-blue-600 flex items-center gap-1.5 transition-colors group/btn"
+                                                        >
+                                                            <span className={`material-symbols-outlined text-[16px] ${downloadingReceipt ? 'animate-spin' : 'group-hover/btn:translate-y-0.5 transition-transform'}`}>
+                                                                {downloadingReceipt ? 'refresh' : 'receipt_long'}
+                                                            </span>
+                                                            {downloadingReceipt ? 'Menyiapkan Invoice...' : 'Download Invoice Terakhir'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Action */}
+                                                <button 
+                                                    onClick={() => navigate('/subscription')}
+                                                    className="w-full md:w-auto px-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl font-black text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary transition-all active:scale-95 shadow-sm shrink-0"
+                                                >
+                                                    Kelola Paket
+                                                </button>
+                                            </div>
+
+                                            {subInfo.isExpiringSoon && (
+                                                <div className="mt-6 flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl animate-bounce-short">
+                                                    <span className="material-symbols-outlined text-amber-600 text-[20px]">notification_important</span>
+                                                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Masa langganan hampir habis. Segera perpanjang paket Anda.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

@@ -45,6 +45,7 @@ const AdminAnalytics  = lazyRetry(() => import('./pages/admin/AdminAnalytics'));
 const AdminAnnouncements = lazyRetry(() => import('./pages/admin/AdminAnnouncements'));
 const AdminAlerts = lazyRetry(() => import('./pages/admin/AdminAlerts'));
 const AdminUserTimeline = lazyRetry(() => import('./pages/admin/AdminUserTimeline'));
+const AdminSubscriptions = lazyRetry(() => import('./pages/admin/AdminSubscriptions'));
 const Subscription = lazyRetry(() => import('./pages/Subscription'));
 import { ScheduleProvider } from './context/ScheduleContext';
 
@@ -119,6 +120,7 @@ function AppContent() {
                   <Route path="/admin/announcements" element={<AdminRoute><AdminAnnouncements /></AdminRoute>} />
                   <Route path="/admin/alerts" element={<AdminRoute><AdminAlerts /></AdminRoute>} />
                   <Route path="/admin/timeline" element={<AdminRoute><AdminUserTimeline /></AdminRoute>} />
+                  <Route path="/admin/subscriptions" element={<AdminRoute><AdminSubscriptions /></AdminRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

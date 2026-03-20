@@ -64,6 +64,7 @@ export default function AdminDashboard() {
         { label: 'Pengumuman Global', desc: 'Publikasikan banner informasi realtime untuk user.', icon: 'campaign', to: '/admin/announcements', color: 'amber' },
         { label: 'Alert Center', desc: 'Monitor alert realtime dan tangani insiden sistem.', icon: 'notification_important', to: '/admin/alerts', color: 'blue' },
         { label: 'Timeline User', desc: 'Audit aktivitas pengguna per akun secara kronologis.', icon: 'timeline', to: '/admin/timeline', color: 'emerald' },
+        { label: 'Manajemen Langganan', desc: 'Pantau transaksi masuk dan cetak ulang kuitansi pembayaran.', icon: 'receipt_long', to: '/admin/subscriptions', color: 'amber' },
     ];
 
     const statCards = [

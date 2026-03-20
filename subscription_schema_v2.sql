@@ -18,12 +18,15 @@ CREATE TABLE IF NOT EXISTS public.subscription_plans (
 );
 
 -- Isi Data Awal (Seeder)
-INSERT INTO public.subscription_plans (name, code, price, duration_days, max_patients, features)
-VALUES
-('Intern (Free)', 'intern', 0, NULL, 2, '{"ai_insight": false, "export_pdf": false}'),
-('Specialist Monthly', 'specialist_monthly', 49000, 30, NULL, '{"ai_insight": true, "export_pdf": true}'),
-('Specialist Lifetime', 'specialist_lifetime', 999000, NULL, NULL, '{"ai_insight": true, "export_pdf": true}')
-ON CONFLICT (code) DO NOTHING;
+INSERT INTO public.subscription_plans (name, code, price, duration_days, max_patients, features) VALUES
+    ('Intern', 'intern', 0, NULL, 2, '{"can_export": false, "ai_agent": "regular", "advanced_analytics": false}'),
+    ('Specialist Monthly', 'specialist_monthly', 60000, 30, NULL, '{"can_export": true, "ai_agent": "advanced", "advanced_analytics": true}'),
+    ('Specialist Enthusiast', 'specialist_enthusiast', 150000, 90, NULL, '{"can_export": true, "ai_agent": "advanced", "advanced_analytics": true}')
+ON CONFLICT (code) DO UPDATE 
+SET price = EXCLUDED.price, 
+    duration_days = EXCLUDED.duration_days,
+    max_patients = EXCLUDED.max_patients,
+    features = EXCLUDED.features;
 
 -- 2. Transaksi/Riwayat Langganan User (Untuk Payment Gateway)
 -- Tabel ini akan di-insert ketika user klik "Beli" (menunggu bayar) dan di-update via Webhook dari Midtrans/Stripe/Pakasir.
@@ -72,8 +75,14 @@ BEGIN
             UPDATE public.profiles
             SET role = 'specialist',
                 subscription_expires_at = CASE 
+                    -- Jika paket lifetime (duration NULL), maka expires_at jadi NULL
                     WHEN plan_duration IS NULL THEN NULL 
-                    ELSE now() + (plan_duration || ' days')::interval 
+                    -- Jika belum punya expires_at atau sudah lewat (expired), hitung dari sekarang
+                    WHEN subscription_expires_at IS NULL OR subscription_expires_at < now() THEN 
+                        now() + (plan_duration || ' days')::interval
+                    -- Jika masih aktif, tambahkan durasi baru ke tanggal yang sudah ada (Stacking)
+                    ELSE 
+                        subscription_expires_at + (plan_duration || ' days')::interval 
                 END,
                 active_subscription_id = NEW.id
             WHERE user_id = NEW.user_id;

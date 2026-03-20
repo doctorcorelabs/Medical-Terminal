@@ -157,8 +157,8 @@ export default function Sidebar({ isOpen, onClose }) {
                                         <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800">Admin</span>
                                     )}
                                     {isSpecialist && !isAdmin && (
-                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center gap-0.5">
-                                            <span className="material-symbols-outlined text-[10px]">star</span> Specialist
+                                        <span className="shrink-0 flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary border border-primary/20" title="Specialist">
+                                            <span className="material-symbols-outlined text-[12px]">star</span>
                                         </span>
                                     )}
                                 </div>

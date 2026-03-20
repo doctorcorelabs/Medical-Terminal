@@ -53,7 +53,8 @@ export const handler = async (event) => {
 
             if (subError) throw subError;
 
-            // 2. Kirim Notifikasi Telegram (Optional jika user terhubung)
+            // 2. Notifikasi (Legacy Telegram removed as per user request to replace with PDF Receipt)
+            /*
             if (tgToken && subData.user_id) {
                 try {
                     const { data: channel } = await supabase
@@ -83,6 +84,7 @@ export const handler = async (event) => {
                     console.error('[Webhook] Gagal kirim Telegram:', tgErr);
                 }
             }
+            */
 
             return { statusCode: 200, body: JSON.stringify({ message: "Success" }) };
         } else {

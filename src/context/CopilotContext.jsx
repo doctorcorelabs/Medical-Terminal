@@ -1,8 +1,10 @@
 import { createContext, useContext, useState, useCallback } from 'react';
+import { useAuth } from './AuthContext';
 
 const CopilotContext = createContext();
 
 export function CopilotProvider({ children }) {
+    const { isIntern } = useAuth();
     const [pageContext, setPageContext] = useState(null);
     const [patientData, setPatientData] = useState(null);
     const [isContextEnabled, setIsContextEnabled] = useState(() => {
@@ -32,13 +34,15 @@ export function CopilotProvider({ children }) {
         localStorage.setItem('copilot_context_enabled', JSON.stringify(val));
     }, []);
 
+    const activeContextEnabled = isIntern ? false : isContextEnabled;
+
     return (
         <CopilotContext.Provider value={{ 
             pageContext, 
             patientData,
             setPageContext: updatePageContext, 
             clearPageContext,
-            isContextEnabled,
+            isContextEnabled: activeContextEnabled,
             toggleContext
         }}>
             {children}
