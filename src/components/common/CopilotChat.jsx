@@ -7,6 +7,7 @@ import './CopilotChat.css';
 import { useCopilotContext } from '../../context/CopilotContext';
 import { exportCopilotResponsePDF } from '../../services/pdfExportService';
 import { parseMedicalChartSegments } from '../../utils/medicalChartParser';
+import { CHART_MARKER_PREFIX } from '../../utils/pdfMarkdownChartSegmentation';
 
 import ClinicalVisualization from './ClinicalVisualization';
 import html2canvas from 'html2canvas';
@@ -44,30 +45,57 @@ const COPILOT_PDF_PERF = {
 const getMessageRawText = (msg) => {
     if (!msg) return '';
 
+    let raw = '';
     if (typeof msg.content === 'string') {
-        return msg.content;
-    }
-
-    if (Array.isArray(msg.content)) {
+        raw = msg.content;
+    } else if (Array.isArray(msg.content)) {
         const textChunks = msg.content
             .filter((chunk) => chunk && typeof chunk === 'object' && chunk.type === 'text')
             .map((chunk) => (typeof chunk.text === 'string' ? chunk.text : ''))
             .filter(Boolean);
 
         if (textChunks.length > 0) {
-            return textChunks.join('\n\n');
+            raw = textChunks.join('\n\n');
         }
+    } else if (typeof msg.displayContent === 'string' && msg.displayContent.trim().length > 0) {
+        raw = msg.displayContent;
+    } else if (msg.content && typeof msg.content === 'object' && typeof msg.content.text === 'string') {
+        raw = msg.content.text;
     }
 
-    if (typeof msg.displayContent === 'string' && msg.displayContent.trim().length > 0) {
-        return msg.displayContent;
-    }
+    return sanitizeAiResponse(raw);
+};
 
-    if (msg.content && typeof msg.content === 'object' && typeof msg.content.text === 'string') {
-        return msg.content.text;
-    }
-
-    return '';
+/**
+ * Robustly sanitizes and repairs AI response text to prevent 
+ * malformed MedicalChart tags from swallowing subsequent content.
+ * Uses the same parser logic as the PDF export for consistency.
+ */
+const sanitizeAiResponse = (text) => {
+    if (typeof text !== 'string') return '';
+    
+    // Parse using the robust segments logic
+    const parsed = parseMedicalChartSegments(text);
+    
+    // Re-join segments into clean markdown
+    // malformed-chart segments are replaced with a clear diagnostic marker
+    // valid chart segments are re-serialized into clean <medicalchart /> tags
+    return parsed.segments.map(segment => {
+        if (segment.type === 'text') {
+            return segment.content;
+        }
+        if (segment.type === 'chart') {
+            const attrs = segment.attributes || {};
+            const attrStr = Object.entries(attrs)
+                .map(([k, v]) => `${k}="${v.toString().replace(/"/g, '&quot;')}"`)
+                .join(' ');
+            return `\n\n<medicalchart ${attrStr} />\n\n`;
+        }
+        if (segment.type === 'malformed-chart') {
+            return `\n\n> [!ERROR]\n> Gagal memproses visualisasi (${segment.reasonCode})\n\n`;
+        }
+        return '';
+    }).join('');
 };
 
 
@@ -138,37 +166,61 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
                                                 }
                                                 return <p {...props}>{children}</p>;
                                             },
-                                            medicalchart: ({node, ...props}) => {
+                                            medicalchart: ({node, children, ...props}) => {
                                                 try {
                                                     const rawType = (props.type || '').toString().trim().toLowerCase();
                                                     const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
                                                     const isEmptyData = !chartData || (Array.isArray(chartData) && chartData.length === 0);
 
                                                     if (!rawType || isEmptyData) {
-                                                        // Jika tipe kosong atau data tidak ada, jangan render kontainer visualisasi sama sekali.
-                                                        return null;
+                                                        // Jika tipe kosong atau data tidak ada, jangan render kontainer visualisasi, tapi tetap render children 
+                                                        // untuk mencegah content swallowing jika tag tidak tertutup sempurna di markdown.
+                                                        return <>{children}</>;
                                                     }
 
-                                                    const chartKey = `chart-${chartRenderCounter++}`;
+                                                    const chartKey = `chart-${idx}-${chartRenderCounter++}`;
                                                     return (
-                                                        <ClinicalVisualization
-                                                            {...props}
-                                                            type={rawType}
-                                                            data={chartData}
-                                                            exportChartKey={chartKey}
-                                                            exportChartType={rawType}
-                                                        />
+                                                        <>
+                                                            <div className="medical-chart-container" data-export-chart-key={chartKey}>
+                                                                <ClinicalVisualization 
+                                                                    type={rawType} 
+                                                                    data={chartData} 
+                                                                    title={props.title || ''}
+                                                                    exportChartKey={chartKey}
+                                                                    exportChartType={rawType}
+                                                                />
+                                                            </div>
+                                                            {children}
+                                                        </>
                                                     );
                                                 } catch (e) {
                                                     console.error("Failed to parse chart data:", e);
-                                                    return <div className="text-red-500 text-xs">Gagal memuat grafik: Data tidak valid</div>;
+                                                    return (
+                                                        <div className="chart-error-box">
+                                                            <div className="text-red-500 text-xs font-bold mb-1">Gagal memuat visualisasi</div>
+                                                            {children}
+                                                        </div>
+                                                    );
                                                 }
                                             },
                                             strong: ({node, ...props}) => <strong className="md-bold" {...props} />,
                                             em: ({node, ...props}) => <em className="md-italic" {...props} />
                                         }}
                                     >
-                                        {msg.displayContent || (typeof msg.content === 'string' ? msg.content : msg.content.find(c => c.type === 'text')?.text || '')}
+                                        {msg.displayContent || (() => {
+                                            let textToRender = '';
+                                            if (typeof msg.content === 'string') {
+                                                textToRender = msg.content;
+                                            } else if (Array.isArray(msg.content)) {
+                                                textToRender = msg.content
+                                                    .filter(c => c && typeof c === 'object' && c.type === 'text')
+                                                    .map(c => c.text || '')
+                                                    .filter(Boolean)
+                                                    .join('\n\n');
+                                            }
+                                            
+                                            return sanitizeAiResponse(textToRender);
+                                        })()}
                                     </ReactMarkdown>
                                 );
                             })()}
@@ -650,8 +702,8 @@ TUGAS ANDA:
    - <MedicalChart type="dashboard" title="Quick Filter" data='[{"label":"Harian"},{"label":"Kritis"}]' /> (Tombol filter)
 3. PENTING: Gunakan <MedicalChart /> untuk menyajikan data terstruktur yang butuh analisis visual. JANGAN menduplikasi data yang sama dalam format Tabel Markdown biasa jika sudah menggunakan tag tersebut. Pilih salah satu (tag lebih disukai).
 4. Tag <MedicalChart /> HARUS dipisahkan dari teks paragraf dengan baris kosong.
-5. BATASI output agar ringkas dan efisien dibaca:
-    - Narasi utama maksimal 8 bullet atau 3 paragraf singkat.
+5. BERIKAN output yang komprehensif dan profesional:
+    - Narasi utama harus mencakup semua temuan klinis, terapi, dan rencana.
     - Jangan mengulang data yang sudah ada di tag <MedicalChart />.
     - Untuk type="outliers": maksimal 24 baris data.
     - Untuk type="heatmap": maksimal 8 baris x 12 kolom.
@@ -692,7 +744,7 @@ ATURAN KRUSIAL:
 3. JANGAN PERNAH memberikan indentasi (spasi) di awal baris.
 4. Gunakan Markdown GFM (Tabel, Bold, List).
 5. JANGAN membuat awalan output seperti "Tentu...". Langsung ke jawaban.
-6. Ringkas output: hindari narasi panjang berulang bila visualisasi sudah ada.
+6. PERTAHANKAN seluruh informasi klinis yang ada di draf, termasuk Temuan Penting, Terapi, dan Rencana. Jangan memangkas informasi medis yang krusial.
 7. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
@@ -1552,12 +1604,12 @@ ATURAN KRUSIAL:
                 captureDiagnostics.push({ reasonCode: CHART_CAPTURE_REASON.MISSING_MESSAGE_ROW, msgIdx });
             }
 
-            const vizContainers = messageRow ? Array.from(messageRow.querySelectorAll('.clinical-viz-container')) : [];
+            const vizContainers = messageRow ? Array.from(messageRow.querySelectorAll('.medical-chart-container')) : [];
             console.log(`[PDF Export] Found ${vizContainers.length} viz containers in DOM for message ${msgIdx}`);
 
             for (let i = 0; i < chartSegments.length; i++) {
-                const chartKey = `chart-${i}`;
-                const containerByKey = messageRow?.querySelector(`.clinical-viz-container[data-export-chart-key="${chartKey}"]`);
+                const chartKey = `chart-${msgIdx}-${i}`;
+                const containerByKey = messageRow?.querySelector(`.medical-chart-container[data-export-chart-key="${chartKey}"]`);
                 const container = containerByKey || vizContainers[i];
 
                 if (!container) {
@@ -1581,7 +1633,8 @@ ATURAN KRUSIAL:
                 for (let attempt = 1; attempt <= COPILOT_PDF_PERF.maxRetries && !captured; attempt++) {
                     const attemptStart = performance.now();
                     try {
-                        chartImages[chartKey] = await captureChartContainer(container, chartKey);
+                        const pdfChartKey = `chart-${i}`;
+                        chartImages[pdfChartKey] = await captureChartContainer(container, chartKey);
                         captureTiming.push({
                             chartKey,
                             attempt,

@@ -196,7 +196,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                 const gaugeValue = data[0]?.value || 0;
                 const pieData = [{ value: gaugeValue }, { value: 100 - gaugeValue }];
                 return (
-                    <div className="gauge-container">
+                    <div className="gauge-container" style={{ minHeight: '220px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
