@@ -736,9 +736,18 @@ function migrateLegacySchedules(userId) {
     if (!userId) return;
     const scopedKey = getScheduleStorageKey(userId);
     if (localStorage.getItem(scopedKey)) return;
-    const legacySchedules = readSchedulesFromKey(getScheduleStorageKey());
-    if (legacySchedules.length === 0) return;
-    localStorage.setItem(scopedKey, JSON.stringify(legacySchedules));
+    
+    const legacyKey = getScheduleStorageKey();
+    const legacyData = localStorage.getItem(legacyKey);
+    if (!legacyData) return;
+    
+    const legacySchedules = readSchedulesFromKey(legacyKey);
+    if (legacySchedules.length > 0) {
+        localStorage.setItem(scopedKey, JSON.stringify(legacySchedules));
+    }
+    
+    // Prevent this legacy data from leaking to subsequent new users
+    localStorage.removeItem(legacyKey);
 }
 
 export function setScheduleStorageScope(userId) {
