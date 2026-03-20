@@ -1230,6 +1230,22 @@ input:checked + .context-slider:before {
   border-color: rgba(239, 68, 68, 0.35);
 }
 
+.export-pdf-mini-btn.is-exporting {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+@keyframes spin-export {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.export-spinner {
+  animation: spin-export 1s linear infinite;
+}
+
 
 /* --- Visualization Info Modal --- */
 .viz-info-overlay {

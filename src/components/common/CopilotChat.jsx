@@ -67,6 +67,23 @@ const getMessageRawText = (msg) => {
 };
 
 /**
+ * Safely parses chart data JSON with repair fallbacks.
+ * AI sometimes generates apostrophes or smart quotes that break JSON.parse.
+ */
+const safeParseChartData = (raw) => {
+    if (typeof raw !== 'string') return raw;
+    // Try 1: Direct parse
+    try { return JSON.parse(raw); } catch (_) {}
+    // Try 2: Replace curly/smart quotes
+    try { return JSON.parse(raw.replace(/[\u2018\u2019]/g, "\\'").replace(/[\u201C\u201D]/g, '"')); } catch (_) {}
+    // Try 3: Escape lone apostrophes inside string values
+    try { return JSON.parse(raw.replace(/(?<=[^\\])'/g, "'")); } catch (_) {}
+    // Try 4: Strip trailing comma before } or ]
+    try { return JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); } catch (_) {}
+    return null; // All repairs failed
+};
+
+/**
  * Robustly sanitizes and repairs AI response text to prevent 
  * malformed MedicalChart tags from swallowing subsequent content.
  * Uses the same parser logic as the PDF export for consistency.
@@ -100,6 +117,18 @@ const sanitizeAiResponse = (text) => {
 
 
 const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExportPDF }) {
+    const [isExporting, setIsExporting] = React.useState(false);
+
+    const handleExportClick = async (e) => {
+        if (isExporting) return;
+        setIsExporting(true);
+        try {
+            await onExportPDF(msg, idx, e.currentTarget.closest('button'));
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <div className={`message-row ${msg.role}`} data-msg-index={idx}>
             {msg.role === 'ai' && (
@@ -169,27 +198,25 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
                                             medicalchart: ({node, children, ...props}) => {
                                                 try {
                                                     const rawType = (props.type || '').toString().trim().toLowerCase();
-                                                    const chartData = typeof props.data === 'string' ? JSON.parse(props.data) : props.data;
+                                                    const chartData = safeParseChartData(props.data);
                                                     const isEmptyData = !chartData || (Array.isArray(chartData) && chartData.length === 0);
 
-                                                    if (!rawType || isEmptyData) {
+                                                    if (!rawType || isEmptyData || chartData === null) {
                                                         // Jika tipe kosong atau data tidak ada, jangan render kontainer visualisasi, tapi tetap render children 
                                                         // untuk mencegah content swallowing jika tag tidak tertutup sempurna di markdown.
                                                         return <>{children}</>;
                                                     }
 
-                                                    const chartKey = `chart-${idx}-${chartRenderCounter++}`;
+                                                    const chartKey = `chart-${chartRenderCounter++}`;
                                                     return (
                                                         <>
-                                                            <div className="medical-chart-container" data-export-chart-key={chartKey}>
-                                                                <ClinicalVisualization 
-                                                                    type={rawType} 
-                                                                    data={chartData} 
-                                                                    title={props.title || ''}
-                                                                    exportChartKey={chartKey}
-                                                                    exportChartType={rawType}
-                                                                />
-                                                            </div>
+                                                            <ClinicalVisualization 
+                                                                type={rawType} 
+                                                                data={chartData} 
+                                                                title={props.title || ''}
+                                                                exportChartKey={chartKey}
+                                                                exportChartType={rawType}
+                                                            />
                                                             {children}
                                                         </>
                                                     );
@@ -243,12 +270,22 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
 
                 {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && msg.isContextual && (
                     <button 
-                        className="export-pdf-mini-btn" 
-                        onClick={(e) => onExportPDF(msg, idx, e.currentTarget)}
+                        className={`export-pdf-mini-btn ${isExporting ? 'is-exporting' : ''}`}
+                        onClick={handleExportClick}
+                        disabled={isExporting}
                         title="Export jawaban ini ke PDF"
                     >
-                        <span className="material-symbols-outlined">picture_as_pdf</span>
-                        <span>Simpan PDF</span>
+                        {isExporting ? (
+                            <>
+                                <span className="export-spinner material-symbols-outlined">sync</span>
+                                <span>Memproses...</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="material-symbols-outlined">picture_as_pdf</span>
+                                <span>Simpan PDF</span>
+                            </>
+                        )}
                     </button>
                 )}
 
@@ -702,13 +739,14 @@ TUGAS ANDA:
    - <MedicalChart type="dashboard" title="Quick Filter" data='[{"label":"Harian"},{"label":"Kritis"}]' /> (Tombol filter)
 3. PENTING: Gunakan <MedicalChart /> untuk menyajikan data terstruktur yang butuh analisis visual. JANGAN menduplikasi data yang sama dalam format Tabel Markdown biasa jika sudah menggunakan tag tersebut. Pilih salah satu (tag lebih disukai).
 4. Tag <MedicalChart /> HARUS dipisahkan dari teks paragraf dengan baris kosong.
-5. BERIKAN output yang komprehensif dan profesional:
+5. SELALU gunakan format **Markdown GFM Table** (| Header |) jika ingin menyajikan data tabel di luar tag <MedicalChart />.
+6. BERIKAN output yang komprehensif dan profesional:
     - Narasi utama harus mencakup semua temuan klinis, terapi, dan rencana.
     - Jangan mengulang data yang sudah ada di tag <MedicalChart />.
     - Untuk type="outliers": maksimal 24 baris data.
     - Untuk type="heatmap": maksimal 8 baris x 12 kolom.
     - Untuk type="gantt": maksimal 10 item timeline.
-6. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+7. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'system', content: `KONTEKS PASIEN:\n${pageContext}` },
                             ...sanitizedHistory,
                             { role: 'user', content: currentMessageContent }
@@ -745,7 +783,8 @@ ATURAN KRUSIAL:
 4. Gunakan Markdown GFM (Tabel, Bold, List).
 5. JANGAN membuat awalan output seperti "Tentu...". Langsung ke jawaban.
 6. PERTAHANKAN seluruh informasi klinis yang ada di draf, termasuk Temuan Penting, Terapi, dan Rencana. Jangan memangkas informasi medis yang krusial.
-7. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
+7. SELALU pastikan format **Markdown GFM Table** (| Header |) terjaga konsistensinya.
+8. DILARANG memberikan referensi artikel, buku, jurnal, link atau kutipan literatur lainnya.` },
                             { role: 'user', content: `Draf:\n${draftText}` }
                         ],
                     }),
@@ -771,7 +810,7 @@ ATURAN KRUSIAL:
                             model: 'gpt-4o',
                             stream: false,
                             messages: [
-                                { role: 'system', content: `Anda adalah Master Editor Medis (Fallback Mode). Poles draf menjadi profesional dan BEBAS TYPO.` },
+                                { role: 'system', content: `Anda adalah Master Editor Medis (Fallback Mode). Poles draf menjadi profesional dan BEBAS TYPO. SELALU gunakan format **Markdown GFM Table** (| Header |) untuk data tabel.` },
                                 { role: 'user', content: `Draf:\n${draftText}` }
                             ],
                         }),
@@ -1293,11 +1332,81 @@ ATURAN KRUSIAL:
         container.style.minHeight = `${dims.height}px`;
         container.style.display = 'block';
 
-        const strategies = [
-            { target: container, width: dims.width, height: dims.height, label: 'container-direct', useOffscreenClone: false },
-            { target: vizCanvasWrapper || rechartsWrapper || vizContent || container, width: dims.width, height: dims.height, label: 'chart-node-direct', useOffscreenClone: false },
-            { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
-        ];
+        // Brief delay to ensure ResponsiveContainer triggers layout
+        await new Promise(r => setTimeout(r, 150));
+
+        // Capture strategy 4: Body-mounted clone
+        // For DOM-only charts (gantt, dashboard, audit, heatmap, outliers) that have no SVG
+        // and fail in html2canvas's iframe clone. We mount a styled clone on document.body.
+        const captureFromBodyClone = async () => {
+            const sandbox = document.createElement('div');
+            sandbox.style.cssText = [
+                'position:fixed', 'left:-99999px', 'top:0',
+                `width:${dims.width}px`, 'min-height:80px',
+                'background:#fff', 'z-index:-999', 'overflow:visible',
+                'padding:0', 'margin:0', 'box-shadow:none',
+                'font-family:Inter,system-ui,sans-serif',
+            ].join(';');
+
+            const cloned = container.cloneNode(true);
+            cloned.style.cssText = [
+                `width:${dims.width}px`, 'max-width:none',
+                'background:#fff', 'box-shadow:none',
+                'border-radius:0', 'overflow:visible',
+            ].join(';');
+            // Make any internal scrollers visible for capture
+            cloned.querySelectorAll('[style*="overflow"]').forEach(el => {
+                el.style.overflow = 'visible';
+            });
+
+            sandbox.appendChild(cloned);
+            document.body.appendChild(sandbox);
+
+            // Wait for layout
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            try {
+                const canvas = await html2canvas(cloned, {
+                    backgroundColor: '#ffffff',
+                    scale: COPILOT_PDF_PERF.captureScale,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true,
+                    width: dims.width,
+                    height: Math.max(80, cloned.scrollHeight || cloned.offsetHeight || dims.height),
+                    windowWidth: dims.width,
+                    scrollX: 0,
+                    scrollY: 0,
+                });
+
+                if (isCanvasMostlyBlank(canvas)) {
+                    throw new Error('body-clone-capture-blank');
+                }
+
+                const imgData = canvas.toDataURL('image/png');
+                if (!imgData || !imgData.startsWith('data:image/png;base64,')) {
+                    throw new Error('body-clone-invalid-image-data');
+                }
+                return imgData;
+            } finally {
+                if (sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
+            }
+        };
+
+        // If no SVG/recharts element exists, this is a DOM-only chart (gantt, dashboard, audit, etc.)
+        // Skip the iframe-based strategies that always fail for pure HTML charts.
+        const hasSvg = !!container.querySelector('svg, .recharts-wrapper');
+        const strategies = hasSvg
+            ? [
+                { target: container, width: dims.width, height: dims.height, label: 'container-direct', useOffscreenClone: false },
+                { target: vizCanvasWrapper || rechartsWrapper || vizContent || container, width: dims.width, height: dims.height, label: 'chart-node-direct', useOffscreenClone: false },
+                { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
+                { target: container, width: dims.width, height: dims.height, label: 'body-clone', useOffscreenClone: false, customRun: captureFromBodyClone },
+            ]
+            : [
+                // DOM-only: go straight to body-clone
+                { target: container, width: dims.width, height: dims.height, label: 'body-clone', useOffscreenClone: false, customRun: captureFromBodyClone },
+            ];
 
         let lastError = null;
         try {
@@ -1599,18 +1708,42 @@ ATURAN KRUSIAL:
 
             console.log(`[PDF Export] Found ${chartSegments.length} chart tags in markdown for message ${msgIdx}`);
             const messageRowFromTrigger = triggerEl?.closest?.('.message-row');
-            const messageRow = messageRowFromTrigger || document.querySelector(`.message-row[data-msg-index="${msgIdx}"]`);
+            let messageRow = messageRowFromTrigger || document.querySelector(`.message-row[data-msg-index="${msgIdx}"]`);
+            
+            // Resilience: If message row not found immediately, poll briefly
+            if (!messageRow) {
+                const pollStart = Date.now();
+                while (!messageRow && Date.now() - pollStart < 500) {
+                    await new Promise(r => setTimeout(r, 50));
+                    messageRow = document.querySelector(`.message-row[data-msg-index="${msgIdx}"]`);
+                }
+            }
+
             if (!messageRow) {
                 captureDiagnostics.push({ reasonCode: CHART_CAPTURE_REASON.MISSING_MESSAGE_ROW, msgIdx });
             }
 
-            const vizContainers = messageRow ? Array.from(messageRow.querySelectorAll('.medical-chart-container')) : [];
+            // Poll until the expected number of viz containers appear, up to 2000ms.
+            // This handles React re-render race conditions where containers haven't mounted yet.
+            const getVizContainers = () => 
+                messageRow ? Array.from(messageRow.querySelectorAll('.medical-chart-container')) : [];
+
+            let vizContainers = getVizContainers();
+            if (chartSegments.length > 0 && vizContainers.length < chartSegments.length && messageRow) {
+                const pollStart = Date.now();
+                while (vizContainers.length < chartSegments.length && Date.now() - pollStart < 2000) {
+                    await new Promise(r => setTimeout(r, 100));
+                    vizContainers = getVizContainers();
+                }
+            }
+
             console.log(`[PDF Export] Found ${vizContainers.length} viz containers in DOM for message ${msgIdx}`);
 
             for (let i = 0; i < chartSegments.length; i++) {
-                const chartKey = `chart-${msgIdx}-${i}`;
-                const containerByKey = messageRow?.querySelector(`.medical-chart-container[data-export-chart-key="${chartKey}"]`);
-                const container = containerByKey || vizContainers[i];
+                const chartKey = `chart-${i}`;
+                // Use ordinal matching: chart i in markdown = vizContainers[i] in DOM.
+                // React always renders in document order so this is always correct.
+                const container = vizContainers[i] || null;
 
                 if (!container) {
                     captureDiagnostics.push({ reasonCode: CHART_CAPTURE_REASON.MISSING_CONTAINER, chartKey, msgIdx });
@@ -1633,8 +1766,7 @@ ATURAN KRUSIAL:
                 for (let attempt = 1; attempt <= COPILOT_PDF_PERF.maxRetries && !captured; attempt++) {
                     const attemptStart = performance.now();
                     try {
-                        const pdfChartKey = `chart-${i}`;
-                        chartImages[pdfChartKey] = await captureChartContainer(container, chartKey);
+                        chartImages[chartKey] = await captureChartContainer(container, chartKey);
                         captureTiming.push({
                             chartKey,
                             attempt,

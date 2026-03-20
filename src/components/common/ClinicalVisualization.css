@@ -94,8 +94,8 @@
 /* Gauge Specifics */
 .gauge-container {
     position: relative;
-    width: 200px;
-    height: 120px;
+    min-width: 200px;
+    min-height: 120px;
 }
 
 .gauge-value {
@@ -409,4 +409,23 @@
     background: #136dec;
     color: #ffffff;
     border-color: #136dec;
+}
+
+.viz-dashboard-list {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.viz-dashboard-active-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #136dec;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: rgba(19, 109, 236, 0.07);
+    border-radius: 8px;
+    border: 1px solid rgba(19, 109, 236, 0.12);
 }

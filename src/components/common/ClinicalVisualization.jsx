@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import './ClinicalVisualization.css';
 
-const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, exportChartKey, exportChartType }) => {
+const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, exportChartKey, exportChartType, width = 800, height = 220 }) => {
     const [activeDashboardFilter, setActiveDashboardFilter] = useState(null);
 
     const safeArray = Array.isArray(data) ? data : [];
@@ -56,14 +56,14 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
     };
     
     const renderChart = () => {
-        const height = type === 'radar' ? 380 : 250;
+        const chartHeight = type === 'radar' ? 380 : 250;
         const scrollableTypes = ['trend', 'simulation', 'timeline', 'forecast'];
-        const width = (type === 'radar' || scrollableTypes.includes(type)) ? (type === 'radar' ? 600 : 800) : '100%';
+        const chartWidth = (type === 'radar' || scrollableTypes.includes(type)) ? (type === 'radar' ? 600 : 800) : width;
 
         switch(type) {
             case 'trend': // Lab vs Vitals
                 return (
-                    <ResponsiveContainer width={width} height={height + 50}>
+                    <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
                         <LineChart data={data} margin={{ top: 20, right: 20, left: 5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis 
@@ -116,7 +116,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
 
             case 'radar': // Risk Radar
                 return (
-                    <ResponsiveContainer width={600} height={height}>
+                    <ResponsiveContainer width={600} height={chartHeight}>
                         <RadarChart cx="50%" cy="50%" outerRadius="65%" data={data} margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
                             <PolarGrid stroke="rgba(0,0,0,0.1)" />
                             <PolarAngleAxis dataKey="subject" fontSize={11} fontWeight={600} />
@@ -196,8 +196,8 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                 const gaugeValue = data[0]?.value || 0;
                 const pieData = [{ value: gaugeValue }, { value: 100 - gaugeValue }];
                 return (
-                    <div className="gauge-container" style={{ minHeight: '220px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="gauge-container" style={{ width: width, height: height, minWidth: 200, minHeight: 120 }}>
+                        <ResponsiveContainer width={width} height={height}>
                             <PieChart>
                                 <Pie
                                     data={pieData}
@@ -234,7 +234,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
 
             case 'simulation': // Drug Concentration
                 return (
-                    <ResponsiveContainer width={width} height={height + 50}>
+                    <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
                         <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                             <defs>
                                 <linearGradient id="colorConc" x1="0" y1="0" x2="0" y2="1">
@@ -253,7 +253,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
 
             case 'comparison': // Lab Comparison % Delta
                 return (
-                    <ResponsiveContainer width="100%" height={height}>
+                    <ResponsiveContainer width={width} height={chartHeight}>
                         <BarChart data={data} layout="vertical" margin={{ top: 10, right: 40, left: 0, bottom: 10 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis type="number" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} domain={['auto', 'auto']} />
@@ -270,21 +270,21 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
 
             case 'timeline': // Drug-Response Timeline
                 return (
-                    <ResponsiveContainer width={width} height={height + 50}>
+                    <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
                         <LineChart data={data} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                             <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                            <Scatter yAxisId="left" data={data.filter(d => d.drug)} name="Obat" shape="star" fill="#ef4444" />
+                            <Scatter data={data.filter(d => d.drug)} name="Obat" shape="star" fill="#ef4444" />
                         </LineChart>
                     </ResponsiveContainer>
                 );
 
             case 'forecast': // Recovery Forecast
                 return (
-                    <ResponsiveContainer width={width} height={height + 50}>
+                    <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
                         <LineChart data={data} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis dataKey="day" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
@@ -384,12 +384,18 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                             <button
                                 key={i}
                                 type="button"
-                                onClick={() => setActiveDashboardFilter(btn.label || `filter-${i}`)}
+                                onClick={() => setActiveDashboardFilter(activeDashboardFilter === (btn.label || `filter-${i}`) ? null : (btn.label || `filter-${i}`))}
                                 className={`viz-dashboard-btn ${activeDashboardFilter === (btn.label || `filter-${i}`) ? 'is-active' : ''}`}
                             >
                                 {btn.label}
                             </button>
                         ))}
+                        {activeDashboardFilter && (
+                            <div className="viz-dashboard-active-label">
+                                <span className="material-symbols-outlined" style={{fontSize:'13px'}}>filter_list</span>
+                                Filter aktif: <strong>{activeDashboardFilter}</strong>
+                            </div>
+                        )}
                     </div>
                 );
 
@@ -404,7 +410,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
 
     return (
         <div
-            className="clinical-viz-container"
+            className="clinical-viz-container medical-chart-container"
             id={vizId}
             data-export-chart-key={exportChartKey || ''}
             data-export-chart-type={exportChartType || type || ''}
