@@ -71,7 +71,7 @@ const getMessageRawText = (msg) => {
 };
 
 
-const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, isContextEnabled, onExportPDF }) {
+const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExportPDF }) {
     return (
         <div className={`message-row ${msg.role}`} data-msg-index={idx}>
             {msg.role === 'ai' && (
@@ -189,7 +189,7 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, isCon
                     </div>
                 )}
 
-                {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && isContextEnabled && (
+                {msg.role === 'ai' && msg.content && !msg.isStreaming && !msg.isWelcome && patientData && msg.isContextual && (
                     <button 
                         className="export-pdf-mini-btn" 
                         onClick={(e) => onExportPDF(msg, idx, e.currentTarget)}
@@ -199,6 +199,7 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, isCon
                         <span>Simpan PDF</span>
                     </button>
                 )}
+
 
                 {msg.usedModel && (
                     <div className="model-badge">
@@ -557,60 +558,63 @@ const CopilotChat = () => {
             }
         }
 
-        const userMessage = { 
-            role: 'user', 
-            content: finalInput,
-            displayContent: input, // Tampilkan teks asli yang diketik user
-            attachments: [...attachments],
-            usedModel: selectedModel,
-            shortcut: detectedShortcut?.id
-        };
-
-        setMessages(prev => [...prev, userMessage]);
-        
-        const currentInput = finalInput;
-        const currentAttachments = [...attachments];
-        
-        setInput('');
-        setAttachments([]);
-        setActiveShortcut(null); 
-        setIsLoading(true);
-
-        try {
-            // Persiapkan konten pesan (mendukung gambar/multi-modal)
-            let currentMessageContent;
-            if (isMultiModal) {
-                currentMessageContent = [
-                    { type: 'text', text: currentInput || "Analisis lampiran berikut:" }
-                ];
-                currentAttachments.forEach(att => {
-                    if (att.isImage) {
-                        currentMessageContent.push({
-                            type: 'image_url',
-                            image_url: { url: att.data }
-                        });
-                    } else if (att.textContent) {
-                        currentMessageContent[0].text += `\n\n--- Isi dari file ${att.name} ---\n${att.textContent}\n--- Akhir file ---`;
-                    } else {
-                        currentMessageContent[0].text += `\n\n[File dilampirkan: ${att.name}]`;
-                    }
-                });
-            } else {
-                currentMessageContent = currentInput;
-            }
-
             const activeContext = isContextEnabled && pageContext;
             const targetModel = (activeContext || isMultiModal) ? 'gpt-5-mini' : 'gpt-4.1';
 
-            // --- JALUR 1: ADVANCED (Hanya jika Context ON / Patient Detail) ---
-            if (activeContext) {
-                setMessages(prev => [...prev, { 
-                    role: 'ai', 
-                    content: '', 
-                    usedModel: targetModel,
-                    isStreaming: true,
-                    stage: 'thinking' 
-                }]);
+            const userMessage = { 
+                role: 'user', 
+                content: finalInput,
+                displayContent: input, // Tampilkan teks asli yang diketik user
+                attachments: [...attachments],
+                usedModel: selectedModel,
+                shortcut: detectedShortcut?.id,
+                isContextual: !!activeContext // Simpan status context pada pesan
+            };
+
+            setMessages(prev => [...prev, userMessage]);
+            
+            const currentInput = finalInput;
+            const currentAttachments = [...attachments];
+            
+            setInput('');
+            setAttachments([]);
+            setActiveShortcut(null); 
+            setIsLoading(true);
+
+            try {
+                // Persiapkan konten pesan (mendukung gambar/multi-modal)
+                let currentMessageContent;
+                if (isMultiModal) {
+                    currentMessageContent = [
+                        { type: 'text', text: currentInput || "Analisis lampiran berikut:" }
+                    ];
+                    currentAttachments.forEach(att => {
+                        if (att.isImage) {
+                            currentMessageContent.push({
+                                type: 'image_url',
+                                image_url: { url: att.data }
+                            });
+                        } else if (att.textContent) {
+                            currentMessageContent[0].text += `\n\n--- Isi dari file ${att.name} ---\n${att.textContent}\n--- Akhir file ---`;
+                        } else {
+                            currentMessageContent[0].text += `\n\n[File dilampirkan: ${att.name}]`;
+                        }
+                    });
+                } else {
+                    currentMessageContent = currentInput;
+                }
+
+                // --- JALUR 1: ADVANCED (Hanya jika Context ON / Patient Detail) ---
+                if (activeContext) {
+                    setMessages(prev => [...prev, { 
+                        role: 'ai', 
+                        content: '', 
+                        usedModel: targetModel,
+                        isStreaming: true,
+                        stage: 'thinking',
+                        isContextual: true // Simpan status context pada pesan AI
+                    }]);
+
 
                 const sanitizedHistory = messages.slice(-10).map(m => ({
                     role: m.role === 'ai' ? 'assistant' : 'user',
@@ -751,8 +755,10 @@ ATURAN KRUSIAL:
                     content: '', 
                     usedModel: targetModel,
                     isStreaming: true,
-                    stage: 'ready' 
+                    stage: 'ready',
+                    isContextual: false // Mode basic tidak mendukung ekspor PDF visualisasi
                 }]);
+
 
                 const sanitizedHistory = messages.slice(-10).map(m => ({
                     role: m.role === 'ai' ? 'assistant' : 'user',
@@ -1744,9 +1750,9 @@ ATURAN KRUSIAL:
                             msg={msg}
                             idx={idx}
                             patientData={patientData}
-                            isContextEnabled={isContextEnabled}
                             onExportPDF={handleExportPDF}
                         />
+
                     ))}
                     {isLoading && !messages.some(m => m.isStreaming) && (
                         <div className="message-row ai">
