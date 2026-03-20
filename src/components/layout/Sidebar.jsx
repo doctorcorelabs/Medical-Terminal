@@ -17,7 +17,7 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { user, signOut, isAdmin, isIntern } = useAuth();
+    const { user, signOut, isAdmin, isIntern, isSpecialist } = useAuth();
     const { pinnedStase } = useStase();
     const { patients } = usePatients();
     const { conflictCount } = useOffline();
@@ -153,8 +153,13 @@ export default function Sidebar({ isOpen, onClose }) {
                             <div className="overflow-hidden min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5">
                                     <p className="text-sm font-bold truncate" title={displayName}>{displayName}</p>
-                                    {isAdmin && (
-                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">Admin</span>
+                                {isAdmin && (
+                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800">Admin</span>
+                                    )}
+                                    {isSpecialist && !isAdmin && (
+                                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center gap-0.5">
+                                            <span className="material-symbols-outlined text-[10px]">star</span> Specialist
+                                        </span>
                                     )}
                                 </div>
                                 <p className="text-xs text-slate-500 truncate whitespace-nowrap">{pinnedStase ? <span className="font-semibold" style={{ color: pinnedStase.color }}>{pinnedStase.name}</span> : 'Belum ada stase aktif'}</p>

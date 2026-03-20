@@ -7,7 +7,7 @@ import StaseMappingModal from '../components/StaseMappingModal';
 import ConflictManager from '../components/ConflictManager';
 
 export default function Settings() {
-    const { user, updateProfile, isUsernameAvailable, isAdmin } = useAuth();
+    const { user, updateProfile, isUsernameAvailable, isAdmin, isSpecialist } = useAuth();
     // ... rest of state ...
 
     // Use effect to handle hash scrolling
@@ -168,7 +168,9 @@ export default function Settings() {
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status Keanggotaan</p>
-                                            <p className="font-bold text-slate-700 dark:text-slate-200">{isAdmin ? 'Administrator' : 'Pengguna Standar'}</p>
+                                            <p className="font-bold text-slate-700 dark:text-slate-200">
+                                                {isAdmin ? 'Administrator' : isSpecialist ? 'Specialist Member' : 'Pengguna Standar (Intern)'}
+                                            </p>
                                         </div>
                                     </div>
                                     {isAdmin ? (
@@ -176,10 +178,15 @@ export default function Settings() {
                                             <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
                                             Admin
                                         </span>
+                                    ) : isSpecialist ? (
+                                        <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-black uppercase tracking-wider shadow-sm border border-primary/20">
+                                            <span className="material-symbols-outlined text-[16px]">workspace_premium</span>
+                                            Specialist
+                                        </span>
                                     ) : (
                                         <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-black uppercase tracking-wider">
                                             <span className="material-symbols-outlined text-[16px]">person</span>
-                                            User
+                                            Intern
                                         </span>
                                     )}
                                 </div>
