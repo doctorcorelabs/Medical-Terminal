@@ -36,6 +36,7 @@ export default function AdminAnalytics() {
         tool_action_started: 0,
         feature_opened: 0,
     });
+    const [subscriptionStats, setSubscriptionStats] = useState({ activeSpecialists: 0, expiringSoon: 0 });
     const [loading, setLoading] = useState(true);
     const returnTo = location.state?.returnTo;
     const returnState = location.state?.returnState ?? null;
@@ -106,7 +107,7 @@ export default function AdminAnalytics() {
                         .gte('occurred_at', since30d.toISOString()),
                     supabase
                         .from('profiles')
-                        .select('user_id, username, full_name, created_at')
+                        .select('user_id, username, full_name, created_at, role, subscription_expires_at')
                         .order('created_at', { ascending: false }),
                 ]);
 
@@ -144,6 +145,19 @@ export default function AdminAnalytics() {
                 const inactive = (allProfiles || []).filter((p) => !lastByUser[p.user_id]).slice(0, 20);
                 setInactiveUsers(inactive);
                 setFunnel(funnelCounts);
+
+                // Subscription metrics
+                const activeSpec = (allProfiles || []).filter(p => {
+                    if (p.role !== 'specialist') return false;
+                    if (!p.subscription_expires_at) return true;
+                    return new Date(p.subscription_expires_at) > new Date();
+                });
+                const expSoon = activeSpec.filter(p => {
+                    if (!p.subscription_expires_at) return false;
+                    const diffDays = Math.ceil((new Date(p.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24));
+                    return diffDays >= 0 && diffDays <= 7;
+                }).length;
+                setSubscriptionStats({ activeSpecialists: activeSpec.length, expiringSoon: expSoon });
             } catch (err) {
                 addToast('Gagal memuat analitik: ' + (err.message || ''), 'error');
             } finally {
@@ -230,12 +244,12 @@ export default function AdminAnalytics() {
             ) : (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
                             <div className="size-10 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-3">
                                 <span className="material-symbols-outlined text-[20px]">touch_app</span>
                             </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Penggunaan Fitur</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Penggunaan</p>
                             <p className="text-3xl font-bold mt-1">{data.totalUsage.toLocaleString('id-ID')}</p>
                         </div>
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
@@ -244,6 +258,22 @@ export default function AdminAnalytics() {
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Pengguna Aktif</p>
                             <p className="text-3xl font-bold mt-1">{data.activeUsers.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                            <div className="flex justify-between items-start mb-3">
+                                <div className="size-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-[20px]">workspace_premium</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Specialist Aktif</p>
+                            <p className="text-3xl font-bold mt-1">{subscriptionStats.activeSpecialists.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                            <div className="size-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+                                <span className="material-symbols-outlined text-[20px]">hourglass_empty</span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Akan Expired {'(< 7 Hr)'}</p>
+                            <p className="text-3xl font-bold mt-1">{subscriptionStats.expiringSoon.toLocaleString('id-ID')}</p>
                         </div>
                     </div>
 

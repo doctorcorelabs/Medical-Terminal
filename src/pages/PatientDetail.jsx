@@ -24,7 +24,7 @@ function getNowLocalISO() {
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { patients, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
+    const { patients, canEditPatient, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('patientDetailActiveTab') || 'overview';
@@ -187,6 +187,17 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                 </nav>
             </div>
 
+            
+            {!canEditPatient && (
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm mb-2">
+                    <span className="material-symbols-outlined mt-0.5">lock</span>
+                    <div>
+                        <h3 className="font-bold text-sm">Mode Read-Only (Langganan Specialist Berakhir)</h3>
+                        <p className="text-xs opacity-90 mt-0.5">Anda tidak dapat mengubah data medis Anda karena paket Specialist telah habis. Silakan perpanjang.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Progress Pemulihan */}
             {recovery && (
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -214,7 +225,7 @@ ${aiText || 'Belum ada evaluasi AI'}`;
             </div>
 
             {/* Konten */}
-            {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} updatePatient={updatePatient} />}
+            {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} updatePatient={updatePatient} canEditPatient={canEditPatient} />}
             {activeTab === 'vitals' && <TabVitalSigns patient={patient}
                 onAdd={(vitals) => addVitalSign(patient.id, vitals)}
                 onUpdate={(vsId, updates) => updateVitalSign(patient.id, vsId, updates)}
@@ -254,13 +265,13 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                 onUpdate={(reportId, updates) => updateDailyReport(patient.id, reportId, updates)}
                 onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
                 aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
-            {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} />}
+            {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} canEditPatient={canEditPatient} />}
         </div>
     );
 }
 
 /* ====== TAB RINGKASAN ====== */
-function TabRingkasan({ patient, navigate: _navigate, updatePatient }) {
+function TabRingkasan({ patient, navigate: _navigate, updatePatient, canEditPatient }) {
     const [headerEditing, setHeaderEditing] = useState(false);
     const [headerTemp, setHeaderTemp] = useState({});
 
@@ -346,7 +357,7 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient }) {
                 {/* Kartu Pasien */}
                 <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 lg:p-6">
                     <div className="absolute top-3 right-3 z-10">
-                        <button onClick={startHeaderEdit} title="Edit data pasien" className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20">
+                        <button onClick={startHeaderEdit} title="Edit data pasien" className={`p-1.5 rounded-lg transition-colors border border-transparent ${canEditPatient ? 'text-slate-400 hover:text-primary hover:bg-primary/5 hover:border-primary/20' : 'text-slate-300 cursor-not-allowed opacity-50'}`} disabled={!canEditPatient}>
                             <span className="material-symbols-outlined text-base">edit</span>
                         </button>
                     </div>
@@ -403,7 +414,7 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient }) {
                 {/* Keluhan Utama */}
                 <Kartu judul="Keluhan Utama" aksi={
                     <button onClick={startHeaderEdit}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20"
+                        className={`p-1.5 rounded-lg transition-colors border border-transparent ${canEditPatient ? 'text-slate-400 hover:text-primary hover:bg-primary/5 hover:border-primary/20' : 'text-slate-300 cursor-not-allowed opacity-50'}`} disabled={!canEditPatient}
                         title="Edit keluhan utama">
                         <span className="material-symbols-outlined text-sm">edit</span>
                     </button>
@@ -430,7 +441,7 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient }) {
                     <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
                         <h3 className="font-bold text-sm">Ringkasan Pasien</h3>
                         <button onClick={startHeaderEdit}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20"
+                            className={`p-1.5 rounded-lg transition-colors border border-transparent ${canEditPatient ? 'text-slate-400 hover:text-primary hover:bg-primary/5 hover:border-primary/20' : 'text-slate-300 cursor-not-allowed opacity-50'}`} disabled={!canEditPatient}
                             title="Edit data pasien">
                             <span className="material-symbols-outlined text-sm">edit</span>
                         </button>
@@ -663,7 +674,7 @@ function EditSelect({ label, options, ...props }) {
 }
 
 /* ====== TAB VITAL SIGNS ====== */
-function TabVitalSigns({ patient, onAdd, onUpdate, onRemove }) {
+function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
     const now = new Date();
     const localISO = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
@@ -724,7 +735,7 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove }) {
         <div className="space-y-5 lg:space-y-6">
             {/* Input Form */}
             <Kartu judul="Catat Vital Signs" headerIcon="ecg_heart">
-                <form onSubmit={handleAdd} className="space-y-4">
+                {canEditPatient && (<form onSubmit={handleAdd} className="space-y-4">
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Waktu Pencatatan</label>
                         <input type="datetime-local" value={vitalInput.recordedAt} onChange={setV('recordedAt')}
@@ -743,7 +754,7 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove }) {
                     <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
                         Tambah Data Vital
                     </button>
-                </form>
+                </form>)}
             </Kartu>
 
             {/* Chart tren */}
@@ -841,7 +852,7 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove }) {
 }
 
 /* ====== TAB GEJALA ====== */
-function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
+function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1149,7 +1160,7 @@ function ConfirmPanel({ onCancel, onConfirm, label }) {
 }
 
 /* ====== TAB LAB ====== */
-function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
+function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1394,7 +1405,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
 }
 
 /* ====== TAB OBAT ====== */
-function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
+function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1648,7 +1659,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
 }
 
 /* ====== TAB LAPORAN ====== */
-function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading }) {
+function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1808,7 +1819,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
 }
 
 /* ====== TAB AI ====== */
-function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI }) {
+function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI, canEditPatient }) {
     const aiMethods = [
         {
             key: 'summary', icon: 'auto_awesome', color: 'from-primary to-blue-600', title: 'Ringkasan Cerdas', desc: 'Kondisi, temuan kritis, tindakan',

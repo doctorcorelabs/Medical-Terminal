@@ -5,7 +5,7 @@ import * as dataService from '../services/dataService';
 const PatientContext = createContext();
 
 export function PatientProvider({ children }) {
-    const { user } = useAuth();
+    const { user, isIntern, isSpecialist, isExpiredSpecialist, isAdmin } = useAuth();
     const [patients, setPatients] = useState([]);
     const [selectedPatientId, setSelectedPatientId] = useState(null);
 
@@ -26,12 +26,15 @@ export function PatientProvider({ children }) {
     }, [user]);
 
     const selectedPatient = patients.find(p => p.id === selectedPatientId) || null;
+    const canAddPatient = isAdmin || isSpecialist || (isIntern && !isExpiredSpecialist && patients.length < 2);
+    const canEditPatient = !isExpiredSpecialist;
 
     const addPatient = useCallback((patient) => {
+        if (!canAddPatient) return null;
         const newPatient = dataService.addPatient(patient);
         refreshPatients();
         return newPatient;
-    }, [refreshPatients]);
+    }, [refreshPatients, canAddPatient]);
 
     const updatePatient = useCallback((id, updates) => {
         const updated = dataService.updatePatient(id, updates);
@@ -164,6 +167,8 @@ export function PatientProvider({ children }) {
             patients,
             selectedPatient,
             selectedPatientId,
+            canAddPatient,
+            canEditPatient,
             setSelectedPatientId,
             addPatient,
             updatePatient,

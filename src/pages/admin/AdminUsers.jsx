@@ -14,7 +14,7 @@ export default function AdminUsers() {
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [pending, setPending] = useState(null); // { profile, newRole }
+    const [pending, setPending] = useState(null); // { profile, newRole, newExpiresAt }
     const [saving, setSaving] = useState(false);
     const returnTo = location.state?.returnTo;
     const returnState = location.state?.returnState ?? null;
@@ -25,7 +25,7 @@ export default function AdminUsers() {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, user_id, username, full_name, role, created_at')
+                .select('id, user_id, username, full_name, role, created_at, subscription_expires_at')
                 .order('created_at', { ascending: false });
             if (!error) setProfiles(data || []);
         } catch (_err) {
@@ -41,19 +41,21 @@ export default function AdminUsers() {
         if (!pending) return;
         setSaving(true);
         try {
+            const updates = { role: pending.newRole };
+            if (pending.newRole === 'specialist') {
+                updates.subscription_expires_at = pending.newExpiresAt || null;
+            } else {
+                updates.subscription_expires_at = null;
+            }
+            
             const { error } = await supabase
                 .from('profiles')
-                .update({ role: pending.newRole })
+                .update(updates)
                 .eq('user_id', pending.profile.user_id);
             if (error) throw error;
-            addToast(
-                pending.newRole === 'admin'
-                    ? `${pending.profile.username} diangkat sebagai Administrator.`
-                    : `${pending.profile.username} diturunkan menjadi User.`,
-                'success'
-            );
+            addToast(`Role ${pending.profile.username} diperbarui menjadi ${pending.newRole}.`, 'success');
             setProfiles(prev => prev.map(p =>
-                p.user_id === pending.profile.user_id ? { ...p, role: pending.newRole } : p
+                p.user_id === pending.profile.user_id ? { ...p, ...updates } : p
             ));
         } catch (err) {
             addToast('Gagal mengubah peran: ' + (err.message || ''), 'error');
@@ -92,6 +94,7 @@ export default function AdminUsers() {
                 { key: 'full_name', label: 'Nama Lengkap' },
                 { key: 'role', label: 'Role' },
                 { key: 'user_id', label: 'User ID' },
+                { key: 'subscription_expires_at', label: 'Expired At' },
                 { key: 'created_at', label: 'Tanggal Bergabung' },
             ],
             filename: `users_roles_${new Date().toISOString().slice(0, 10)}.csv`,
@@ -210,10 +213,25 @@ export default function AdminUsers() {
                                                         <span className="material-symbols-outlined text-[13px]">admin_panel_settings</span>
                                                         Administrator
                                                     </span>
+                                                ) : profile.role === 'specialist' ? (
+                                                    <div className="flex flex-col gap-1 items-start">
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                                                            <span className="material-symbols-outlined text-[13px]">workspace_premium</span>
+                                                            Specialist
+                                                        </span>
+                                                        {profile.subscription_expires_at && (
+                                                            <span className="text-[10px] text-slate-400 font-medium">
+                                                                Exp: {new Date(profile.subscription_expires_at).toLocaleDateString('id-ID')}
+                                                            </span>
+                                                        )}
+                                                        {!profile.subscription_expires_at && (
+                                                            <span className="text-[10px] text-teal-500 font-bold">Lifetime</span>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-semibold">
                                                         <span className="material-symbols-outlined text-[13px]">person</span>
-                                                        User
+                                                        Intern
                                                     </span>
                                                 )}
                                             </td>
@@ -224,17 +242,19 @@ export default function AdminUsers() {
                                             </td>
                                             <td className="px-5 py-3.5 text-right">
                                                 <button
-                                                    onClick={() => setPending({ profile, newRole: isAdmin ? 'user' : 'admin' })}
+                                                    onClick={() => setPending({ 
+                                                        profile, 
+                                                        newRole: profile.role || 'user',
+                                                        newExpiresAt: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toISOString().split('T')[0] : ''
+                                                    })}
                                                     disabled={isSelf}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                                                         isSelf
                                                             ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
-                                                            : isAdmin
-                                                                ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800'
-                                                                : 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-800'
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                                                     }`}
                                                 >
-                                                    {isAdmin ? 'Turunkan ke User' : 'Angkat Admin'}
+                                                    Ubah Peran
                                                 </button>
                                             </td>
                                         </tr>
@@ -251,21 +271,59 @@ export default function AdminUsers() {
                 )}
             </div>
 
-            {/* Confirm Dialog */}
-            <ConfirmDialog
-                open={!!pending}
-                title={pending?.newRole === 'admin' ? 'Angkat sebagai Administrator?' : 'Turunkan ke User?'}
-                message={
-                    pending?.newRole === 'admin'
-                        ? `${pending?.profile?.username} akan mendapatkan akses penuh ke Panel Admin, termasuk kontrol fitur dan manajemen pengguna.`
-                        : `${pending?.profile?.username} akan kehilangan akses ke Panel Admin.`
-                }
-                confirmLabel={saving ? 'Menyimpan…' : (pending?.newRole === 'admin' ? 'Ya, Angkat Admin' : 'Ya, Turunkan')}
-                cancelLabel="Batal"
-                danger={pending?.newRole !== 'admin'}
-                onConfirm={handleRoleChange}
-                onCancel={() => setPending(null)}
-            />
+            {/* Role Edit Modal */}
+            {pending && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col animate-[slideUpScale_0.3s_cubic-bezier(0.16,1,0.3,1)]">
+                        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                            <h3 className="text-xl font-black text-slate-900 dark:text-white">Ubah Peran Pengguna</h3>
+                            <p className="text-sm text-slate-500 mt-1">Mengubah akses untuk {pending.profile.username}</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Role Akses</label>
+                                <select 
+                                    value={pending.newRole} 
+                                    onChange={e => setPending(p => ({ ...p, newRole: e.target.value }))}
+                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-3 px-4 font-semibold text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                                >
+                                    <option value="user">Intern (User)</option>
+                                    <option value="specialist">Specialist (Premium)</option>
+                                    <option value="admin">Administrator</option>
+                                </select>
+                            </div>
+                            {pending.newRole === 'specialist' && (
+                                <div className="animate-[fadeIn_0.2s_ease-out]">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Kedaluwarsa Langganan</label>
+                                    <input 
+                                        type="date" 
+                                        value={pending.newExpiresAt}
+                                        onChange={e => setPending(p => ({ ...p, newExpiresAt: e.target.value }))}
+                                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-3 px-4 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                                    />
+                                    <p className="text-[10px] text-slate-500 mt-1 ml-1">Kosongkan jika Lifetime / Tanpa Batas.</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-6 pt-2 flex gap-3">
+                            <button
+                                onClick={() => setPending(null)}
+                                disabled={saving}
+                                className="flex-1 py-3 px-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleRoleChange}
+                                disabled={saving}
+                                className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-primary hover:bg-primary/90 transition shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                            >
+                                {saving ? <span className="material-symbols-outlined animate-spin text-lg">refresh</span> : 'Simpan'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

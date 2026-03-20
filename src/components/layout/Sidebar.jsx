@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useStase } from '../../context/StaseContext';
+import { usePatients } from '../../context/PatientContext';
 import { useOffline } from '../../context/OfflineContext';
 
 const navItems = [
@@ -16,11 +17,13 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { user, signOut, isAdmin } = useAuth();
+    const { user, signOut, isAdmin, isIntern } = useAuth();
     const { pinnedStase } = useStase();
+    const { patients } = usePatients();
     const { conflictCount } = useOffline();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const navigate = useNavigate();
     const displayName = user?.user_metadata?.username || user?.email || 'Dokter Coass';
 
     return (
@@ -101,6 +104,24 @@ export default function Sidebar({ isOpen, onClose }) {
                         </>
                     )}
                 </nav>
+
+                {/* Quota Progress Bar for Interns */}
+                {isIntern && (
+                    <div className={`px-4 py-3 shrink-0 ${isCollapsed ? 'hidden' : 'block'}`}>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-200 dark:border-slate-800">
+                            <div className="flex justify-between items-center mb-1.5">
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Kuota Pasien</span>
+                                <span className="text-[10px] font-bold text-slate-500">{patients.length} / 2</span>
+                            </div>
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mb-2 overflow-hidden">
+                                <div className={`h-full rounded-full ${patients.length >= 2 ? 'bg-amber-500' : 'bg-primary'}`} style={{ width: `${Math.min(100, (patients.length / 2) * 100)}%` }}></div>
+                            </div>
+                            <button onClick={() => navigate('/subscription')} className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors w-full text-left">
+                                Upgrade Specialist &rarr;
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* User info */}
                 <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 relative">

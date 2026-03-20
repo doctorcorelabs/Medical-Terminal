@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, user_id, username, full_name, role, created_at')
+                .select('id, user_id, username, full_name, role, subscription_expires_at, created_at')
                 .eq('user_id', userId)
                 .single();
             if (!error && data) {
@@ -137,6 +137,9 @@ export function AuthProvider({ children }) {
         user,
         profile,
         isAdmin: profile?.role === 'admin',
+        isSpecialist: profile?.role === 'specialist' && (!profile.subscription_expires_at || new Date(profile.subscription_expires_at) > new Date()),
+        isExpiredSpecialist: profile?.role === 'specialist' && profile.subscription_expires_at && new Date(profile.subscription_expires_at) <= new Date(),
+        isIntern: profile?.role !== 'admin' && !(profile?.role === 'specialist' && (!profile.subscription_expires_at || new Date(profile.subscription_expires_at) > new Date())),
         refreshProfile: () => fetchProfile(user?.id),
         isRecoveryMode,
         setIsRecoveryMode,

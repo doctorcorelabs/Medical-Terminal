@@ -7,10 +7,14 @@ import { useAdminAlerts } from '../../context/AdminAlertContext';
 
 export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
     const { isOnline, isSyncing, syncFailed, lastSyncAt, conflictCount } = useOffline();
-    const { isAdmin } = useAuth();
+    const { isAdmin, profile, isSpecialist } = useAuth();
     const { openAlertsCount } = useAdminAlerts();
     const navigate = useNavigate();
     const [announcement, setAnnouncement] = useState(null);
+
+    const expDate = profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+    const daysLeft = expDate ? Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
+    const showExpWarning = isSpecialist && daysLeft !== null && daysLeft <= 3 && daysLeft >= 0;
 
     useEffect(() => {
         let isMounted = true;
@@ -54,6 +58,21 @@ export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
 
     return (
         <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 shrink-0">
+            {/* Subscription Warning Banner */}
+            {showExpWarning && (
+                <div className="bg-amber-500 text-white px-4 md:px-8 py-2 flex items-center justify-between text-xs sm:text-sm font-semibold sticky top-0 z-30 shadow-md flex-wrap gap-2 animate-[slideDown_0.3s_ease-out]">
+                    <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[18px]">warning</span>
+                        <span>
+                            Langganan <b>Specialist</b> Anda akan berakhir dalam <span className="bg-amber-600 px-1.5 py-0.5 rounded mr-0.5">{daysLeft}</span> hari. 
+                        </span>
+                    </div>
+                    <button onClick={() => navigate('/subscription')} className="bg-white text-amber-600 px-3 py-1 rounded-lg text-xs hover:bg-amber-50 active:scale-95 transition-all shadow-sm shrink-0 font-bold ml-auto border border-transparent hover:border-amber-200">
+                        Perpanjang Sekarang
+                    </button>
+                </div>
+            )}
+            
             {announcement && (
                 <div className={`px-4 md:px-8 py-2 text-xs font-medium border-b border-slate-200/70 dark:border-slate-700/60 ${announcement.level === 'critical'
                     ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'

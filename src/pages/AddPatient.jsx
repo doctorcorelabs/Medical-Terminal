@@ -12,7 +12,7 @@ import CustomSelect from '../components/common/CustomSelect';
 
 export default function AddPatient() {
     const navigate = useNavigate();
-    const { addPatient } = usePatients();
+    const { addPatient, patients, canAddPatient } = usePatients();
     const { addToast } = useToast();
     const { stases, pinnedStaseId } = useStase();
 
@@ -153,6 +153,29 @@ export default function AddPatient() {
         { key: 'obat', label: 'Obat', icon: 'medication' },
         { key: 'harian', label: 'Harian', icon: 'description' },
     ];
+
+    if (!canAddPatient) {
+        return (
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 flex items-center justify-center animate-[fadeIn_0.3s_ease-out]">
+                <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-6">
+                    <div className="w-20 h-20 bg-amber-50 dark:bg-amber-900/30 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-100 dark:border-amber-800/50">
+                        <span className="material-symbols-outlined text-4xl">lock</span>
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Batas Pasien Tercapai</h2>
+                        <p className="text-slate-500 text-sm leading-relaxed">Anda saat ini menggunakan paket <b className="text-slate-700 dark:text-slate-300">Intern</b> dengan batas maksimal 2 pasien. Tingkatkan ke paket <b className="text-primary">Specialist</b> untuk menambahkan tanpa batas.</p>
+                    </div>
+                    <div className="pt-4 flex gap-3">
+                        <button onClick={() => navigate(-1)} className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition active:scale-95">Kembali</button>
+                        <button onClick={() => navigate('/subscription')} className="flex-1 py-3 px-4 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition shadow-lg shadow-primary/30 flex items-center justify-center gap-2 active:scale-95">
+                            <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                            Upgrade
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-32 animate-[fadeIn_0.3s_ease-out]">

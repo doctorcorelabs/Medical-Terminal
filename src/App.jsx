@@ -45,6 +45,7 @@ const AdminAnalytics  = lazyRetry(() => import('./pages/admin/AdminAnalytics'));
 const AdminAnnouncements = lazyRetry(() => import('./pages/admin/AdminAnnouncements'));
 const AdminAlerts = lazyRetry(() => import('./pages/admin/AdminAlerts'));
 const AdminUserTimeline = lazyRetry(() => import('./pages/admin/AdminUserTimeline'));
+const Subscription = lazyRetry(() => import('./pages/Subscription'));
 import { ScheduleProvider } from './context/ScheduleContext';
 
 function PageLoader() {
@@ -98,6 +99,7 @@ function AppContent() {
                   <Route path="/patient/:id" element={<PatientDetail />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/subscription" element={<Subscription />} />
                   <Route path="/tools" element={<Tools />} />
                   <Route path="/tools/icd10" element={<FeatureGate featureKey="icd10"><ICD10Tool /></FeatureGate>} />
                   <Route path="/tools/calculator" element={<FeatureGate featureKey="calculator"><MedCalculator /></FeatureGate>} />
