@@ -9,14 +9,15 @@ export default function Subscription() {
     const { profile, isSpecialist, isIntern } = useAuth();
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('success')) {
-            addToast('Pembayaran Anda sedang diproses. Jika berhasil, status langganan akan otomatis diperbarui dalam beberapa saat.', 'success');
+            setShowSuccess(true);
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }, [addToast]);
+    }, []);
 
     const handleCheckout = async (planCode, amount) => {
         setLoading(true);
@@ -221,6 +222,53 @@ export default function Subscription() {
                 </div>
 
             </div>
+
+            {/* Success Celebration Modal */}
+            {showSuccess && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+                        {/* Confetti Particles (CSS Only) */}
+                        <div className="absolute inset-0 pointer-events-none opacity-50">
+                            {[...Array(12)].map((_, i) => (
+                                <div 
+                                    key={i} 
+                                    className="absolute size-2 rounded-full animate-[confetti_3s_ease-in-out_infinite]"
+                                    style={{
+                                        left: `${Math.random() * 100}%`,
+                                        top: `-20px`,
+                                        backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'][i % 4],
+                                        animationDelay: `${Math.random() * 2}s`
+                                    }}
+                                />
+                            ))}
+                        </div>
+
+                        <div className="size-20 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10">
+                            <span className="material-symbols-outlined text-[40px] animate-bounce">verified</span>
+                        </div>
+                        
+                        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Pembayaran Berhasil!</h2>
+                        <p className="text-slate-500 dark:text-slate-400 mb-8 relative z-10 leading-relaxed text-sm">
+                            Terima kasih telah berlangganan! Akun Anda sedang diperbarui ke level **Specialist**. Nikmati akses tanpa batas ke semua fitur klinis.
+                        </p>
+                        
+                        <button 
+                            onClick={() => setShowSuccess(false)}
+                            className="w-full py-4 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600 transition-all shadow-lg shadow-green-500/30 active:scale-95 relative z-10"
+                        >
+                            Ke Dashboard Utama
+                        </button>
+                    </div>
+                    
+                    {/* Add required CSS directly if needed or assume styles exist. Adding inline for reliability. */}
+                    <style dangerouslySetInnerHTML={{ __html: `
+                        @keyframes confetti {
+                            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                            100% { transform: translateY(500px) rotate(720deg); opacity: 0; }
+                        }
+                    `}} />
+                </div>
+            )}
         </div>
     );
 }

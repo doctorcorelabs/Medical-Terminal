@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Pakasir Webhook Handler
-// URL: POST https://<your-netlify-url>/.netlify/functions/pakasir-webhook
+// URL: POST https://medx.daivanlabs.com/.netlify/functions/pakasir-webhook
 export const handler = async (event) => {
-    // Hanya menerima POST
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
     }
@@ -14,46 +13,32 @@ export const handler = async (event) => {
 
         console.log(`[Webhook] Menerima notifikasi untuk Order ID: ${order_id}, Status: ${status}`);
 
-        // Verifikasi lingkungan
         const supUrl = process.env.VITE_SUPABASE_URL;
-        const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Harus menggunakan Service Role key agar bypass RLS!
+        const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const pakasirProject = process.env.PAKASIR_PROJECT_SLUG || process.env.VITE_PAKASIR_PROJECT_SLUG;
         const pakasirKey = process.env.PAKASIR_API_KEY;
+        const tgToken = process.env.TELEGRAM_BOT_TOKEN;
 
         if (!supUrl || !supKey || !pakasirKey) {
-            console.error('Environment variables tidak lengkap (Supabase/Pakasir).');
+            console.error('Environment variables tidak lengkap.');
             return { statusCode: 500, body: 'Server configuration error' };
         }
 
-        // Cek apakah project sesuai
         if (project !== pakasirProject) {
             return { statusCode: 400, body: 'Project mismatch' };
         }
 
-        // Validasi Ganda ke API Pakasir
-        console.log(`[Webhook] Melakukan validasi ganda ke Pakasir API untuk ${order_id}...`);
+        // Validasi Ganda
         const pksResponse = await fetch(`https://app.pakasir.com/api/transactiondetail?project=${pakasirProject}&amount=${amount}&order_id=${order_id}&api_key=${pakasirKey}`);
-        
-        if (!pksResponse.ok) {
-            console.error(`Gagal validasi ganda dari Pakasir (HTTP ${pksResponse.status})`);
-            return { statusCode: 400, body: 'Failed to validate with Pakasir' };
-        }
+        if (!pksResponse.ok) return { statusCode: 400, body: 'Failed to validate with Pakasir' };
 
         const pksData = await pksResponse.json();
-        
-        if (!pksData || !pksData.transaction) {
-            console.error('Invalid response format dari Pakasir', pksData);
-            return { statusCode: 400, body: 'Invalid transaction validation response' };
-        }
-
         const validTransaction = pksData.transaction;
-        console.log(`[Webhook] Validasi berhasil: ${validTransaction.status}`);
 
-        // Jika transaksi memang 'completed' secara valid
         if (validTransaction.status === 'completed' || status === 'completed') {
             const supabase = createClient(supUrl, supKey);
 
-            // 1. Update ke user_subscriptions
+            // 1. Update user_subscriptions
             const { data: subData, error: subError } = await supabase
                 .from('user_subscriptions')
                 .update({ 
@@ -63,23 +48,46 @@ export const handler = async (event) => {
                     updated_at: new Date().toISOString()
                 })
                 .eq('gateway_order_id', order_id)
-                .select()
+                .select('*, subscription_plans(name)')
                 .single();
 
-            if (subError) {
-                console.error('[Webhook] Gagal mengupdate user_subscriptions', subError);
-                return { statusCode: 500, body: 'Database update failed' };
+            if (subError) throw subError;
+
+            // 2. Kirim Notifikasi Telegram (Optional jika user terhubung)
+            if (tgToken && subData.user_id) {
+                try {
+                    const { data: channel } = await supabase
+                        .from('notification_channels')
+                        .select('telegram_chat_id')
+                        .eq('user_id', subData.user_id)
+                        .eq('channel', 'telegram')
+                        .eq('is_enabled', true)
+                        .maybeSingle();
+
+                    if (channel?.telegram_chat_id) {
+                        const planName = subData.subscription_plans?.name || 'Specialist';
+                        const message = `✅ *Pembayaran Berhasil!*\n\nHalo! Pembayaran Anda sebesar *Rp ${Number(validTransaction.amount).toLocaleString('id-ID')}* untuk paket *${planName}* telah kami terima.\n\nAkun Anda otomatis aktif sebagai *Specialist*. Silakan refresh aplikasi untuk menikmati fitur lengkap.\n\nOrder ID: \`${order_id}\`\nWaktu: ${new Date().toLocaleString('id-ID')}`;
+                        
+                        await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                chat_id: channel.telegram_chat_id,
+                                text: message,
+                                parse_mode: 'Markdown'
+                            })
+                        });
+                        console.log(`[Webhook] Notifikasi Telegram terkirim ke ${channel.telegram_chat_id}`);
+                    }
+                } catch (tgErr) {
+                    console.error('[Webhook] Gagal kirim Telegram:', tgErr);
+                }
             }
 
-            console.log(`[Webhook] Transaksi ${order_id} berhasil diupdate menjadi active.`);
-            // Catatan: Trigger SQL (on_subscription_active) otomatis akan dijalankan oleh Supabase 
-            // untuk memodifikasi `profiles.role` dan memperpanjang masa berlaku langganan.
-
-            return { statusCode: 200, body: JSON.stringify({ message: "Success", transaction: subData }) };
+            return { statusCode: 200, body: JSON.stringify({ message: "Success" }) };
         } else {
-            return { statusCode: 400, body: 'Transaction is not completed' };
+            return { statusCode: 400, body: 'Transaction not completed' };
         }
-
     } catch (err) {
         console.error('[Webhook Error]', err);
         return { statusCode: 500, body: err.message };

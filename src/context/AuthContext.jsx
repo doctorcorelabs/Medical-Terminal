@@ -80,6 +80,36 @@ export function AuthProvider({ children }) {
         return () => subscription.unsubscribe();
     }, [fetchProfile]);
 
+    // Real-time Profile Synchronization
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const channel = supabase
+            .channel(`profile_realtime_${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `user_id=eq.${user.id}`
+                },
+                (payload) => {
+                    console.log('[AuthContext] Real-time profile update received:', payload.new);
+                    setProfile(payload.new);
+                    localStorage.setItem('medterminal_profile_cache', JSON.stringify(payload.new));
+                    
+                    // Optional: If role changed to specialist, show a global celebration maybe?
+                    // We can handle specific UI logic in the components that consume this.
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
+
     const value = {
         signUp: (email, password, username, captchaToken) => supabase.auth.signUp({ email, password, options: { data: { username }, captchaToken } }),
         signIn: (email, password, captchaToken) => supabase.auth.signInWithPassword({ email, password, options: { captchaToken } }),
