@@ -75,7 +75,9 @@ export default function Login() {
         return () => window.clearTimeout(timer);
     }, [requiresCaptcha, turnstileSiteKey, isCaptchaReady, captchaKey, logCaptchaTelemetry]);
 
-    // Reset captcha when user returns to the page (e.g. from Google Login window or Back button)
+    // Remove automated remount on focus/visibility as it can be too aggressive and clears valid tokens.
+    // Cloudflare Turnstile's own expiration is already handled by onExpire callback.
+    /*
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && requiresCaptcha) {
@@ -93,6 +95,7 @@ export default function Login() {
             window.removeEventListener('focus', handleFocus);
         };
     }, [requiresCaptcha, remountCaptcha]);
+    */
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -140,6 +143,10 @@ export default function Login() {
             }
         } catch (err) {
             setError(err.message || 'Terjadi kesalahan');
+            // Reset captcha on form failure so the user gets a fresh challenge for the next attempt
+            if (requiresCaptcha) {
+                remountCaptcha('form_error');
+            }
         } finally {
             setLoading(false);
         }

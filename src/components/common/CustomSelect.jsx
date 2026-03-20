@@ -18,11 +18,11 @@ export default function CustomSelect({ label, options, value, onChange, placehol
 
     return (
         <div className="relative" ref={containerRef}>
-            {label && <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">{label}</label>}
+            {label && <label className="block text-[10px] font-black text-slate-500 uppercase ml-1 tracking-widest mb-1.5">{label}</label>}
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold transition-all hover:bg-slate-100/50 ${isOpen ? 'ring-2 ring-primary/20 border-primary' : ''}`}
+                className={`w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold transition-all shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isOpen ? 'ring-4 ring-primary/10 border-primary' : ''}`}
             >
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     {icon && <span className="material-symbols-outlined text-[18px] text-slate-400 shrink-0">{icon}</span>}
