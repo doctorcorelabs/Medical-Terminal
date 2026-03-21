@@ -279,6 +279,54 @@
     min-width: 0 !important;
 }
 
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-canvas-wrapper {
+    padding: 0 !important;
+    align-items: stretch !important;
+    width: 100% !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-canvas-wrapper > div {
+    min-width: 0 !important;
+    width: 100% !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .heatmap-compact-wrap {
+    width: 100% !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .heatmap-compact-grid {
+    width: 100% !important;
+    overflow: visible !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-gantt-list,
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-audit-list,
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-dashboard-list {
+    width: 100% !important;
+    overflow: visible !important;
+}
+
+.clinical-viz-container[data-export-render-intent="pdf"] .heatmap-cell {
+    box-shadow: none !important;
+    transition: none !important;
+    transform: none !important;
+}
+
+@media print {
+    .clinical-viz-container {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        animation: none !important;
+        transition: none !important;
+        overflow: visible !important;
+    }
+    .viz-content,
+    .viz-canvas-wrapper,
+    .table-flow-container {
+        overflow: visible !important;
+    }
+}
+
 .clinical-viz-container[data-export-render-intent="pdf"] .outlier-row {
     background: #fee2e2 !important;
     color: #b91c1c !important;
