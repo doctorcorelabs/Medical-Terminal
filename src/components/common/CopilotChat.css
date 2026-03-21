@@ -1499,6 +1499,11 @@ input:checked + .context-slider:before {
   color: var(--copilot-primary);
 }
 
+.item-label {
+  font-weight: 600;
+  color: #1e293b;
+}
+
 .item-desc {
   font-size: 11px;
   color: #64748b;

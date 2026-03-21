@@ -237,7 +237,81 @@
 
 .outlier-row {
     background: rgba(239, 68, 68, 0.05);
-    color: #ef4444;
+}
+
+.outlier-value {
+    font-weight: 700;
+}
+
+.outlier-row .outlier-value {
+    color: #dc2626;
+}
+
+/* Outlier status badge */
+.outlier-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.outlier-status-badge.is-outlier {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.outlier-status-badge.is-normal {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
+
+/* Outlier scatter chart wrapper */
+.outlier-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.outlier-chart-wrap {
+    width: 100%;
+    background: rgba(248, 250, 252, 0.6);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 12px;
+    padding: 8px 8px 4px;
+}
+
+.outlier-legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 4px;
+    padding-left: 4px;
+}
+
+.outlier-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.outlier-legend-dot.normal {
+    background: #60a5fa;
+}
+
+.outlier-legend-dot.flagged {
+    background: #ef4444;
+    width: 14px;
+    height: 14px;
 }
 
 .viz-empty-state {
