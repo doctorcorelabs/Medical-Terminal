@@ -156,7 +156,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
             const imgProperties = doc.getImageProperties(chartDataUrl);
             const safeWidth = Math.max(1, Number(imgProperties.width) || 1);
             const safeHeight = Math.max(1, Number(imgProperties.height) || 1);
-            const scale = Math.min(mw / safeWidth, 122 / safeHeight);
+            const scale = Math.min(mw / safeWidth, 150 / safeHeight);
             const imgWidth = safeWidth * scale;
             const imgHeight = safeHeight * scale;
 
