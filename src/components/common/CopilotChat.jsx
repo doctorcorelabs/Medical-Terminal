@@ -1098,6 +1098,22 @@ ATURAN KRUSIAL:
                 cell.style.backgroundColor = solid;
                 cell.style.border = '1px solid #bfdbfe';
                 cell.style.color = '#0f172a';
+                // Add explicit dimensions and layout for html2canvas
+                cell.style.minHeight = '36px';
+                cell.style.display = 'flex';
+                cell.style.alignItems = 'center';
+                cell.style.justifyContent = 'center';
+            });
+
+            rootNode.querySelectorAll('.heatmap-head-cell').forEach((cell) => {
+                cell.style.display = 'block';
+                cell.style.textAlign = 'center';
+            });
+
+            rootNode.querySelectorAll('.heatmap-row-name').forEach((cell) => {
+                cell.style.display = 'flex';
+                cell.style.alignItems = 'center';
+                cell.style.minHeight = '36px';
             });
 
             rootNode.querySelectorAll('.outlier-row').forEach((row) => {
@@ -1369,6 +1385,12 @@ ATURAN KRUSIAL:
             cloned.querySelectorAll('[style*="overflow"]').forEach(el => {
                 el.style.overflow = 'visible';
             });
+
+            // Apply explicit styling for html2canvas compatibility
+            cloned.querySelectorAll('.heatmap-compact-grid').forEach(grid => {
+                grid.style.display = 'grid'; // Ensure grid layout is preserved
+            });
+            normalizeContainerForPdf(cloned);
 
             sandbox.appendChild(cloned);
             document.body.appendChild(sandbox);
