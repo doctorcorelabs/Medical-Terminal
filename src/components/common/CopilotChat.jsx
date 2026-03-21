@@ -27,17 +27,20 @@ const CHART_CAPTURE_REASON = {
 };
 
 const COPILOT_PDF_PERF = {
-    waitTimeoutMs: 800,
+    waitTimeoutMs: 1500,
     waitPollMs: 80,
     waitStableCycles: 1,
     captureScale: 2,
     maxCaptureWidth: 1200,
-    maxCaptureHeight: 700,
+    maxCaptureHeight: 1400,
     maxRetries: 1,
-    retryDelayMs: 100,
+    retryDelayMs: 150,
     fallbackCanvasWidth: 1400,
     fallbackCanvasHeight: 800,
     svgRenderScale: 2,
+    // Extra ms to wait after RAF frames so Recharts/ResponsiveContainer can
+    // finish re-rendering after being mounted in an off-screen clone container.
+    bodyCloneSettleMs: 300,
     // Set to true to bypass DOM capture entirely and render charts from raw
     // MedicalChart data directly in jsPDF (requires renderCopilotChartToPdf
     // helper in pdfExportService). Currently unused - reserved for future use.
@@ -919,6 +922,7 @@ ATURAN KRUSIAL:
     const inferChartDimensions = (container) => {
         const rect = container.getBoundingClientRect();
         const vizContent = container.querySelector('.viz-content');
+        const vizCanvasWrapper = container.querySelector('.viz-canvas-wrapper');
         const svg = container.querySelector('svg');
         const canvas = container.querySelector('canvas');
 
@@ -929,6 +933,7 @@ ATURAN KRUSIAL:
 
         const width = Math.max(
             vizContent?.scrollWidth || 0,
+            vizCanvasWrapper?.scrollWidth || 0,
             container.scrollWidth || 0,
             container.offsetWidth || 0,
             rect.width || 0,
@@ -941,6 +946,7 @@ ATURAN KRUSIAL:
             container.scrollHeight || 0,
             container.offsetHeight || 0,
             vizContent?.scrollHeight || 0,
+            vizCanvasWrapper?.scrollHeight || 0,
             rect.height || 0,
             svgHeight + 64,
             canvasHeight + 64,
@@ -950,7 +956,15 @@ ATURAN KRUSIAL:
         return {
             width: Math.round(width),
             height: Math.round(height),
-            hasRenderableNode: Boolean(svg || canvas || container.querySelector('.recharts-wrapper') || container.querySelector('table')),
+            hasRenderableNode: Boolean(
+                svg || canvas ||
+                container.querySelector('.recharts-wrapper') ||
+                container.querySelector('table') ||
+                container.querySelector('.viz-gantt-list') ||
+                container.querySelector('.viz-audit-list') ||
+                container.querySelector('.heatmap-compact-wrap') ||
+                container.querySelector('.viz-dashboard-list')
+            ),
         };
     };
 
@@ -1085,11 +1099,24 @@ ATURAN KRUSIAL:
             rootNode.style.background = '#ffffff';
             rootNode.style.opacity = '1';
             rootNode.style.boxShadow = 'none';
+            // Ensure the container itself doesn't clip chart overflow
+            rootNode.style.overflow = 'visible';
 
             const scroller = rootNode.querySelector('.viz-content');
             if (scroller) {
                 scroller.style.overflow = 'visible';
                 scroller.style.background = '#ffffff';
+            }
+
+            const canvasWrapper = rootNode.querySelector('.viz-canvas-wrapper');
+            if (canvasWrapper) {
+                canvasWrapper.style.overflow = 'visible';
+                canvasWrapper.style.minWidth = '0';
+            }
+
+            const tableContainer = rootNode.querySelector('.table-flow-container');
+            if (tableContainer) {
+                tableContainer.style.overflow = 'visible';
             }
 
             rootNode.querySelectorAll('.heatmap-cell').forEach((cell) => {
@@ -1098,6 +1125,9 @@ ATURAN KRUSIAL:
                 cell.style.backgroundColor = solid;
                 cell.style.border = '1px solid #bfdbfe';
                 cell.style.color = '#0f172a';
+                // Remove hover transition so static capture looks clean
+                cell.style.transition = 'none';
+                cell.style.transform = 'none';
             });
 
             rootNode.querySelectorAll('.outlier-row').forEach((row) => {
@@ -1118,6 +1148,12 @@ ATURAN KRUSIAL:
             rootNode.querySelectorAll('.body-part.highlighted').forEach((part) => {
                 part.style.filter = 'none';
                 part.style.fill = '#136dec';
+            });
+
+            // Unconditionally disable all CSS transitions/animations to get a stable snapshot
+            rootNode.querySelectorAll('*').forEach((el) => {
+                el.style.transition = 'none';
+                el.style.animation = 'none';
             });
 
             rootNode.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
@@ -1231,7 +1267,10 @@ ATURAN KRUSIAL:
 
         // Detect mobile/tablet once; used to lower canvas scale and avoid
         // WebKit memory limits that cause blank captures on iOS/iPadOS.
+        // Phones get scale 1, iPads/large tablets get scale 1.5 for better PDF quality.
+        const isPhone = window.innerWidth < 768 || /iPhone|iPod/.test(navigator.userAgent);
         const isMobileOrTablet = window.innerWidth <= 1024 || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+        const captureScale = isPhone ? 1 : (isMobileOrTablet ? 1.5 : COPILOT_PDF_PERF.captureScale);
 
         const captureElement = async (target, { width, height, label, useOffscreenClone = false }) => {
             if (!target) {
@@ -1274,18 +1313,25 @@ ATURAN KRUSIAL:
                 clonedContainer.style.boxShadow = 'none';
                 normalizeContainerForPdf(clonedContainer);
 
+                const clonedCanvasWrapper = cloned.querySelector('.viz-canvas-wrapper');
+                if (clonedCanvasWrapper) {
+                    clonedCanvasWrapper.style.overflow = 'visible';
+                    clonedCanvasWrapper.style.minWidth = '0';
+                }
+
                 sandbox.appendChild(cloned);
                 document.body.appendChild(sandbox);
                 captureTarget = cloned;
 
-                // Let browser finalize layout for cloned chart before capture.
+                // Let browser finalize layout + extra time for Recharts to re-render.
                 await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                await new Promise((resolve) => setTimeout(resolve, COPILOT_PDF_PERF.bodyCloneSettleMs));
             }
 
             try {
                 const canvas = await html2canvas(captureTarget, {
                     backgroundColor: '#ffffff',
-                    scale: isMobileOrTablet ? 1 : COPILOT_PDF_PERF.captureScale,
+                    scale: captureScale,
                     logging: false,
                     useCORS: true,
                     allowTaint: false,
@@ -1301,11 +1347,18 @@ ATURAN KRUSIAL:
                             clonedContainer.style.background = '#ffffff';
                             clonedContainer.style.opacity = '1';
                             clonedContainer.style.boxShadow = 'none';
+                            clonedContainer.style.overflow = 'visible';
                             normalizeContainerForPdf(clonedContainer);
+                            clonedContainer.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
                             const scroller = clonedContainer.querySelector('.viz-content');
                             if (scroller) {
                                 scroller.style.overflow = 'visible';
                                 scroller.style.width = `${safeWidth}px`;
+                            }
+                            const canvasWrapper = clonedContainer.querySelector('.viz-canvas-wrapper');
+                            if (canvasWrapper) {
+                                canvasWrapper.style.overflow = 'visible';
+                                canvasWrapper.style.minWidth = '0';
                             }
                         }
                     }
@@ -1365,26 +1418,45 @@ ATURAN KRUSIAL:
                 'background:#fff', 'box-shadow:none',
                 'border-radius:0', 'overflow:visible',
             ].join(';');
-            // Make any internal scrollers visible for capture
+
+            // Normalize the cloned container for PDF capture:
+            // - converts RGBA colors to solid, normalizes SVG attributes, etc.
+            normalizeContainerForPdf(cloned);
+
+            // Make ALL internal scrollers visible (both CSS-class-based and inline-style-based)
+            cloned.querySelectorAll('.viz-content, .viz-canvas-wrapper, .table-flow-container').forEach(el => {
+                el.style.overflow = 'visible';
+                el.style.width = `${dims.width}px`;
+                el.style.minWidth = '0';
+            });
+            // Also clear any remaining overflow:hidden/auto set via inline styles
             cloned.querySelectorAll('[style*="overflow"]').forEach(el => {
                 el.style.overflow = 'visible';
             });
 
+            // Normalize SVG elements inside clone for better canvas rendering
+            cloned.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
+
             sandbox.appendChild(cloned);
             document.body.appendChild(sandbox);
 
-            // Wait for layout
+            // Wait for RAF + extra settle time so Recharts/ResponsiveContainer can
+            // finish re-measuring the new container and re-rendering chart content.
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            await new Promise(r => setTimeout(r, COPILOT_PDF_PERF.bodyCloneSettleMs));
+
+            // Measure actual rendered height after layout settles
+            const clonedHeight = Math.max(80, cloned.scrollHeight || cloned.offsetHeight || dims.height);
 
             try {
                 const canvas = await html2canvas(cloned, {
                     backgroundColor: '#ffffff',
-                    scale: isMobileOrTablet ? 1 : COPILOT_PDF_PERF.captureScale,
+                    scale: captureScale,
                     logging: false,
                     useCORS: true,
                     allowTaint: false,
                     width: dims.width,
-                    height: Math.max(80, cloned.scrollHeight || cloned.offsetHeight || dims.height),
+                    height: clonedHeight,
                     windowWidth: dims.width,
                     scrollX: 0,
                     scrollY: 0,

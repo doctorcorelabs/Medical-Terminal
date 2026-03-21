@@ -263,6 +263,8 @@
     border: 1px solid #bfdbfe !important;
     box-shadow: none !important;
     animation: none !important;
+    overflow: visible !important;
+    transition: none !important;
 }
 
 .clinical-viz-container[data-export-render-intent="pdf"] .viz-header {
@@ -270,8 +272,11 @@
 }
 
 .clinical-viz-container[data-export-render-intent="pdf"] .viz-content,
-.clinical-viz-container[data-export-render-intent="pdf"] .viz-canvas-wrapper {
+.clinical-viz-container[data-export-render-intent="pdf"] .viz-canvas-wrapper,
+.clinical-viz-container[data-export-render-intent="pdf"] .table-flow-container {
     background: #ffffff !important;
+    overflow: visible !important;
+    min-width: 0 !important;
 }
 
 .clinical-viz-container[data-export-render-intent="pdf"] .outlier-row {
