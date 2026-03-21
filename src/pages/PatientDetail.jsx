@@ -213,10 +213,10 @@ ${aiText || 'Belum ada evaluasi AI'}`;
             )}
 
             {/* Tab */}
-            <div className="flex border-b border-slate-200 dark:border-slate-800 gap-0.5 overflow-x-auto">
+            <div className="flex border-b border-white/50 dark:border-slate-700/50 gap-1 overflow-x-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-t-3xl px-3 pt-2">
                 {tabs.map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                        className={`flex items-center gap-1 px-2.5 sm:px-3 py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap border-b-2 transition-all shrink-0 ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        className={`flex items-center gap-2 px-4 sm:px-5 py-3.5 text-xs sm:text-sm font-semibold whitespace-nowrap border-b-2 transition-all shrink-0 rounded-t-xl ${activeTab === tab.key ? 'border-primary text-primary bg-white/50 dark:bg-slate-800/50 shadow-[0_-4px_10px_rgb(0,0,0,0.02)]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-white/30 dark:hover:bg-slate-800/30'
                             }`}>
                         <span className="material-symbols-outlined text-[16px] sm:text-[18px]">{tab.icon}</span>
                         <span>{tab.label}</span>
@@ -225,47 +225,50 @@ ${aiText || 'Belum ada evaluasi AI'}`;
             </div>
 
             {/* Konten */}
-            {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} updatePatient={updatePatient} canEditPatient={canEditPatient} />}
-            {activeTab === 'vitals' && <TabVitalSigns patient={patient}
-                onAdd={(vitals) => addVitalSign(patient.id, vitals)}
-                onUpdate={(vsId, updates) => updateVitalSign(patient.id, vsId, updates)}
-                onRemove={(vsId) => removeVitalSign(patient.id, vsId)} />}
-            {activeTab === 'symptoms' && <TabGejala patient={patient} input={symptomInput} setInput={setSymptomInput}
-                onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, { ...symptomInput, recordedAt: symptomInput.recordedAt ? new Date(symptomInput.recordedAt).toISOString() : new Date().toISOString() }); setSymptomInput({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() }); }}
-                onRemove={(symptomId) => removeSymptom(patient.id, symptomId)}
-                onUpdate={(symptomId, updates) => updateSymptom(patient.id, symptomId, updates)}
-                onAI={() => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun`))}
-                aiResult={aiResults.symptoms} aiLoading={aiLoading.symptoms} />}
-            {activeTab === 'physical' && <TabDataUmum judul="Pemeriksaan Fisik" storageKey="physical" items={patient.physicalExams || []} input={examInput} setInput={setExamInput}
-                fields={[
-                    { key: 'system', type: 'select', label: 'Sistem', options: ['umum', 'kepala', 'leher', 'thorax', 'abdomen', 'ekstremitas', 'neurologis', 'kulit'] },
-                    { key: 'findings', type: 'textarea', label: 'Temuan', placeholder: 'Temuan pemeriksaan fisik...' },
-                ]}
-                onAdd={(e) => { e.preventDefault(); if (!examInput.findings.trim()) return; addPhysicalExam(patient.id, { ...examInput, date: examInput.date ? new Date(examInput.date).toISOString() : new Date().toISOString() }); setExamInput({ findings: '', system: 'umum', date: getNowLocalISO() }); }}
-                onRemove={(examId) => removePhysicalExam(patient.id, examId)}
-                onUpdate={(examId, updates) => updatePhysicalExam(patient.id, examId, updates)}
-                renderItem={(item) => <div className="min-w-0"><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1 break-words leading-relaxed">{item.findings}</p></div>}
-                onAI={() => callAI('physical', () => getPhysicalExamInsight((patient.physicalExams || []).map(e => e.findings).join('; '), (patient.symptoms || []).map(s => s.name).join(', ')))}
-                aiResult={aiResults.physical} aiLoading={aiLoading.physical} />}
-            {activeTab === 'labs' && <TabLab patient={patient} input={labInput} setInput={setLabInput}
-                onAdd={(e) => { e.preventDefault(); if (!labInput.testName.trim() && labInput.labKey !== 'custom') return; addSupportingExam(patient.id, { type: 'lab', ...labInput, date: labInput.date ? new Date(labInput.date).toISOString() : new Date().toISOString(), result: checkLabValue(labInput.labKey, labInput.value, patient.gender) }); setLabInput({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() }); }}
-                onRemove={(examId) => removeSupportingExam(patient.id, examId)}
-                onUpdate={(examId, updates) => updateSupportingExam(patient.id, examId, updates)}
-                onAI={() => callAI('labs', () => getSupportingExamInsight((patient.supportingExams || []).map(e => `${e.testName}: ${e.value} ${e.unit}`).join(', '), patient.diagnosis || ''))}
-                aiResult={aiResults.labs} aiLoading={aiLoading.labs} />}
-            {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
-                onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, { ...prescInput, date: prescInput.date ? new Date(prescInput.date).toISOString() : new Date().toISOString() }); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO(), fornas_source: false, fornas_form: '', fornas_category: '' }); }}
-                onRemove={(prescId) => removePrescription(patient.id, prescId)}
-                onUpdate={(prescId, updates) => updatePrescription(patient.id, prescId, updates)}
-                onAI={() => callAI('drugs', () => getMedicationRecommendation(patient.diagnosis, (patient.symptoms || []).map(s => s.name).join(', ')))}
-                aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} />}
-            {activeTab === 'reports' && <TabLaporan patient={patient} input={reportInput} setInput={setReportInput}
-                onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, { ...reportInput, date: reportInput.date ? new Date(reportInput.date).toISOString() : new Date().toISOString() }); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '', date: getNowLocalISO() }); }}
-                onRemove={(reportId) => removeDailyReport(patient.id, reportId)}
-                onUpdate={(reportId, updates) => updateDailyReport(patient.id, reportId, updates)}
-                onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
-                aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
-            {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} canEditPatient={canEditPatient} />}
+            {/* Konten */}
+            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-b-3xl rounded-tr-3xl border border-white/50 dark:border-slate-700/50 p-5 lg:p-7 min-h-125 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
+                {activeTab === 'overview' && <TabRingkasan patient={patient} navigate={navigate} updatePatient={updatePatient} canEditPatient={canEditPatient} />}
+                {activeTab === 'vitals' && <TabVitalSigns patient={patient}
+                    onAdd={(vitals) => addVitalSign(patient.id, vitals)}
+                    onUpdate={(vsId, updates) => updateVitalSign(patient.id, vsId, updates)}
+                    onRemove={(vsId) => removeVitalSign(patient.id, vsId)} />}
+                {activeTab === 'symptoms' && <TabGejala patient={patient} input={symptomInput} setInput={setSymptomInput}
+                    onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, { ...symptomInput, recordedAt: symptomInput.recordedAt ? new Date(symptomInput.recordedAt).toISOString() : new Date().toISOString() }); setSymptomInput({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() }); }}
+                    onRemove={(symptomId) => removeSymptom(patient.id, symptomId)}
+                    onUpdate={(symptomId, updates) => updateSymptom(patient.id, symptomId, updates)}
+                    onAI={() => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun`))}
+                    aiResult={aiResults.symptoms} aiLoading={aiLoading.symptoms} />}
+                {activeTab === 'physical' && <TabDataUmum judul="Pemeriksaan Fisik" storageKey="physical" items={patient.physicalExams || []} input={examInput} setInput={setExamInput}
+                    fields={[
+                        { key: 'system', type: 'select', label: 'Sistem', options: ['umum', 'kepala', 'leher', 'thorax', 'abdomen', 'ekstremitas', 'neurologis', 'kulit'] },
+                        { key: 'findings', type: 'textarea', label: 'Temuan', placeholder: 'Temuan pemeriksaan fisik...' },
+                    ]}
+                    onAdd={(e) => { e.preventDefault(); if (!examInput.findings.trim()) return; addPhysicalExam(patient.id, { ...examInput, date: examInput.date ? new Date(examInput.date).toISOString() : new Date().toISOString() }); setExamInput({ findings: '', system: 'umum', date: getNowLocalISO() }); }}
+                    onRemove={(examId) => removePhysicalExam(patient.id, examId)}
+                    onUpdate={(examId, updates) => updatePhysicalExam(patient.id, examId, updates)}
+                    renderItem={(item) => <div className="min-w-0"><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1 break-words leading-relaxed">{item.findings}</p></div>}
+                    onAI={() => callAI('physical', () => getPhysicalExamInsight((patient.physicalExams || []).map(e => e.findings).join('; '), (patient.symptoms || []).map(s => s.name).join(', ')))}
+                    aiResult={aiResults.physical} aiLoading={aiLoading.physical} />}
+                {activeTab === 'labs' && <TabLab patient={patient} input={labInput} setInput={setLabInput}
+                    onAdd={(e) => { e.preventDefault(); if (!labInput.testName.trim() && labInput.labKey !== 'custom') return; addSupportingExam(patient.id, { type: 'lab', ...labInput, date: labInput.date ? new Date(labInput.date).toISOString() : new Date().toISOString(), result: checkLabValue(labInput.labKey, labInput.value, patient.gender) }); setLabInput({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() }); }}
+                    onRemove={(examId) => removeSupportingExam(patient.id, examId)}
+                    onUpdate={(examId, updates) => updateSupportingExam(patient.id, examId, updates)}
+                    onAI={() => callAI('labs', () => getSupportingExamInsight((patient.supportingExams || []).map(e => `${e.testName}: ${e.value} ${e.unit}`).join(', '), patient.diagnosis || ''))}
+                    aiResult={aiResults.labs} aiLoading={aiLoading.labs} />}
+                {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
+                    onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, { ...prescInput, date: prescInput.date ? new Date(prescInput.date).toISOString() : new Date().toISOString() }); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO(), fornas_source: false, fornas_form: '', fornas_category: '' }); }}
+                    onRemove={(prescId) => removePrescription(patient.id, prescId)}
+                    onUpdate={(prescId, updates) => updatePrescription(patient.id, prescId, updates)}
+                    onAI={() => callAI('drugs', () => getMedicationRecommendation(patient.diagnosis, (patient.symptoms || []).map(s => s.name).join(', ')))}
+                    aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} />}
+                {activeTab === 'reports' && <TabLaporan patient={patient} input={reportInput} setInput={setReportInput}
+                    onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, { ...reportInput, date: reportInput.date ? new Date(reportInput.date).toISOString() : new Date().toISOString() }); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '', date: getNowLocalISO() }); }}
+                    onRemove={(reportId) => removeDailyReport(patient.id, reportId)}
+                    onUpdate={(reportId, updates) => updateDailyReport(patient.id, reportId, updates)}
+                    onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
+                    aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
+                {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} canEditPatient={canEditPatient} />}
+            </div>
         </div>
     );
 }
@@ -355,8 +358,8 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient, canEditPati
             )}
             <div className="lg:col-span-8 space-y-5 lg:space-y-6 min-w-0">
                 {/* Kartu Pasien */}
-                <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 lg:p-6">
-                    <div className="absolute top-3 right-3 z-10">
+                <div className="relative bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-white/50 dark:border-slate-700/50 p-6 lg:p-8">
+                    <div className="absolute top-4 right-4 z-10">
                         <button onClick={startHeaderEdit} title="Edit data pasien" className={`p-1.5 rounded-lg transition-colors border border-transparent ${canEditPatient ? 'text-slate-400 hover:text-primary hover:bg-primary/5 hover:border-primary/20' : 'text-slate-300 cursor-not-allowed opacity-50'}`} disabled={!canEditPatient}>
                             <span className="material-symbols-outlined text-base">edit</span>
                         </button>
@@ -437,8 +440,8 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient, canEditPati
 
             {/* Kolom Kanan */}
             <div className="lg:col-span-4 space-y-5 lg:space-y-6 min-w-0">
-                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
+                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-white/50 dark:border-slate-700/50 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-white/30 dark:border-slate-700/30 bg-white/40 dark:bg-slate-800/40 flex items-center justify-between gap-3 backdrop-blur-md">
                         <h3 className="font-bold text-sm">Ringkasan Pasien</h3>
                         <button onClick={startHeaderEdit}
                             className={`p-1.5 rounded-lg transition-colors border border-transparent ${canEditPatient ? 'text-slate-400 hover:text-primary hover:bg-primary/5 hover:border-primary/20' : 'text-slate-300 cursor-not-allowed opacity-50'}`} disabled={!canEditPatient}
@@ -464,7 +467,7 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient, canEditPati
                         ))}
                     </div>
                 </div>
-                <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-5">
+                <div className="bg-primary/5 dark:bg-primary/10 backdrop-blur-md rounded-2xl border border-primary/20 p-6 shadow-sm">
                     <h4 className="font-bold text-primary mb-2 flex items-center gap-2 text-sm">
                         <span className="material-symbols-outlined text-lg">lightbulb</span>Tips Klinis
                     </h4>
@@ -613,7 +616,7 @@ function EditPatientModal({ patient, headerTemp, setHeaderTemp, onSave, onCancel
                                 </button>
                             </div>
                             <textarea value={headerTemp.diagnosis || ''} onChange={set('diagnosis')} rows={4} placeholder="Diagnosis awal atau temuan utama..."
-                                className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none" />
+                                className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3 px-4 shadow-sm hover:shadow-md resize-none leading-relaxed" />
                             {showDiagnosisPicker && (
                                 <ICD10Picker
                                     onSelect={(code, display) => { set('diagnosis')({ target: { value: headerTemp.diagnosis ? `${headerTemp.diagnosis}\n${display} (${code})` : `${display} (${code})` } }); setShowDiagnosisPicker(false); }}
@@ -648,7 +651,7 @@ function EditInput({ label, ...props }) {
     return (
         <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">{label}</label>
-            <input {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+            <input {...props} className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3 px-4 shadow-sm hover:shadow-md" />
         </div>
     );
 }
@@ -657,7 +660,7 @@ function EditTextArea({ label, ...props }) {
     return (
         <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">{label}</label>
-            <textarea {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none" />
+            <textarea {...props} className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3 px-4 shadow-sm hover:shadow-md resize-none leading-relaxed" />
         </div>
     );
 }
@@ -666,7 +669,7 @@ function EditSelect({ label, options, ...props }) {
     return (
         <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 ml-1">{label}</label>
-            <select {...props} className="w-full rounded-xl border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5">
+            <select {...props} className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3 px-4 shadow-sm hover:shadow-md appearance-none">
                 {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
         </div>
@@ -687,7 +690,7 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
     const [editData, setEditData] = useState({});
 
     const sorted = useMemo(() =>
-        [...(patient.vitalSigns || [])].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt)),
+        [...(patient.vitalSigns || [])].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt)),
         [patient.vitalSigns]
     );
 
@@ -734,25 +737,38 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
     return (
         <div className="space-y-5 lg:space-y-6">
             {/* Input Form */}
-            <Kartu judul="Catat Vital Signs" headerIcon="ecg_heart">
+            <Kartu judul="Catat Vital Signs" className="border-primary/20 bg-primary/5">
                 {canEditPatient && (<form onSubmit={handleAdd} className="space-y-4">
-                    <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Waktu Pencatatan</label>
-                        <input type="datetime-local" value={vitalInput.recordedAt} onChange={setV('recordedAt')}
-                            className="rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5 w-full sm:w-auto" />
+                    <div className="space-y-5">
+                        <div className="space-y-1.5 px-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">calendar_month</span> Waktu Pencatatan</label>
+                            <input type="datetime-local" value={vitalInput.recordedAt} onChange={setV('recordedAt')}
+                                className="w-full sm:w-auto rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3 px-4 shadow-sm hover:shadow-md" />
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            {[
+                                { k: 'heartRate', l: 'Jantung', u: 'bpm', i: 'favorite', c: 'text-red-500' },
+                                { k: 'bloodPressure', l: 'TD', u: 'mmHg', i: 'rebase_edit', c: 'text-blue-500' },
+                                { k: 'temperature', l: 'Suhu', u: '°C', i: 'thermostat', c: 'text-amber-500' },
+                                { k: 'respRate', l: 'Napas', u: '/min', i: 'air', c: 'text-teal-500' },
+                                { k: 'spO2', l: 'SpO2', u: '%', i: 'lungs', c: 'text-indigo-500' },
+                            ].map(f => (
+                                <div key={f.k} className="p-4 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md rounded-2xl border border-white/50 dark:border-slate-700/50 flex flex-col items-center group hover:border-primary/40 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all duration-300 shadow-sm hover:shadow-md">
+                                    <div className={`p-2 rounded-xl bg-white/60 dark:bg-slate-900 mb-2 group-hover:scale-110 shadow-sm transition-transform ${f.c}`}>
+                                        <span className="material-symbols-outlined text-[16px] block">{f.i}</span>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-widest text-center">{f.l}</span>
+                                    <div className="flex items-baseline gap-1 relative">
+                                        <input type="text" value={vitalInput[f.k]} onChange={setV(f.k)} placeholder="-" className="w-16 bg-transparent border-none p-0 text-center font-bold text-xl text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-200" />
+                                        <span className="text-[7px] text-slate-400 font-bold uppercase tracking-tighter absolute -right-3 bottom-1">{f.u}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                        {vitalFields.map(f => (
-                            <div key={f.key} className="flex flex-col items-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide mb-2 text-center leading-tight">{f.label}</span>
-                                <input type="text" value={vitalInput[f.key]} onChange={setV(f.key)} placeholder={f.placeholder}
-                                    className="w-full bg-transparent border-none p-0 text-center font-black text-xl focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-300 dark:placeholder:text-slate-600" />
-                                <span className="text-[9px] text-slate-400 font-bold mt-1">{f.unit}</span>
-                            </div>
-                        ))}
-                    </div>
-                    <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
-                        Tambah Data Vital
+                    <button type="submit" 
+                        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined font-bold">add_circle</span> Simpan Data Vital
                     </button>
                 </form>)}
             </Kartu>
@@ -767,15 +783,15 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
             {/* Riwayat */}
             <Kartu judul={`Riwayat Vital Signs (${sorted.length})`} headerIcon="history">
                 {sorted.length === 0 ? <Kosong /> : (
-                    <div className="space-y-3">
+                    <div className="max-h-[360px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
                         {sorted.map(vs => (
                             <div key={vs.id}>
                                 {editingId === vs.id ? (
-                                    <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                    <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
                                         <div>
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Waktu</label>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Waktu</label>
                                             <input type="datetime-local" value={editData.recordedAt} onChange={setEd('recordedAt')}
-                                                className="rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5 w-full sm:w-auto" />
+                                                className="rounded-2xl border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 w-full sm:w-auto shadow-sm" />
                                         </div>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                                             {vitalFields.map(f => (
@@ -873,52 +889,59 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, 
         <div className="space-y-5 lg:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
-                    <Kartu judul="Tambah Gejala" aksi={<button className="p-1 rounded-full text-slate-400 hover:text-primary transition-colors hover:bg-slate-50"><span className="material-symbols-outlined text-xl">add_circle</span></button>}>
+                    <Kartu judul="Tambah Gejala" className="border-primary/20 bg-primary/5">
                         <form onSubmit={onAdd} className="space-y-4">
-                            <textarea value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} rows={1} required placeholder="Nama gejala (cth. Demam, Batuk, Nyeri Dada)"
-                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm px-4 py-3" />
+                            <div className="space-y-4">
+                                <div className="relative group">
+                                    <input type="text" value={input.name} onChange={e => setInput(p => ({ ...p, name: e.target.value }))} required placeholder="Nama gejala (cth. Demam, Sesak)"
+                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 text-sm transition-all shadow-sm px-4 py-3.5 placeholder:text-slate-400" />
+                                </div>
 
-                            <textarea value={input.notes || ''} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="Catatan / Penjelasan gejala (opsional)"
-                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm px-4 py-3" />
+                                <div className="relative group">
+                                    <textarea value={input.notes || ''} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="Catatan penyakit (opsional)"
+                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 text-sm transition-all resize-none shadow-sm px-4 py-3.5 placeholder:text-slate-400 leading-relaxed" />
+                                </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keparahan</label>
-                                <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl gap-1">
-                                    {[
-                                        { v: 'ringan', l: 'Ringan', c: 'text-green-600 bg-green-50 border-green-200' },
-                                        { v: 'sedang', l: 'Sedang', c: 'text-amber-600 bg-amber-50 border-amber-200' },
-                                        { v: 'berat', l: 'Berat', c: 'text-red-600 bg-red-50 border-red-200' }
-                                    ].map(opt => (
-                                        <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, severity: opt.v }))}
-                                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all border ${input.severity === opt.v ? `${opt.c} shadow-sm scale-[1.02]` : 'text-slate-500 border-transparent hover:bg-white/50 dark:hover:bg-slate-800'}`}>
-                                            {opt.l}
-                                        </button>
-                                    ))}
+                                <div className="space-y-2.5 px-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">warning</span> Tingkat Keparahan</label>
+                                    <div className="flex p-1 bg-slate-50 dark:bg-slate-950 rounded-xl gap-1 border border-slate-100 dark:border-slate-800">
+                                        {[{ v: 'ringan', l: 'Ringan' }, { v: 'sedang', l: 'Sedang' }, { v: 'berat', l: 'Berat' }].map(opt => (
+                                            <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, severity: opt.v }))}
+                                                className={`flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${input.severity === opt.v ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                {opt.l}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
-                                <input type="datetime-local" value={input.recordedAt} onChange={e => setInput(p => ({ ...p, recordedAt: e.target.value }))}
-                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5 px-4" />
+                            <div className="space-y-1.5 ml-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">calendar_month</span> Waktu Pencatatan</label>
+                                <div className="relative group">
+                                    <input type="datetime-local" value={input.recordedAt} onChange={e => setInput(p => ({ ...p, recordedAt: e.target.value }))}
+                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3.5 px-4 shadow-sm" />
+                                </div>
                             </div>
 
-                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Tambah Gejala</button>
+                            <button type="submit" 
+                                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined font-bold">add_circle</span> Simpan Gejala
+                            </button>
                         </form>
                     </Kartu>
                 </div>
                 <div className="space-y-5 min-w-0">
                     <Kartu judul={`Daftar Gejala (${(patient.symptoms || []).length})`}>
-                        <div className="space-y-2">
+                        <div className="max-h-[360px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
                             {(patient.symptoms || []).length === 0 ? <Kosong /> :
-                                [...(patient.symptoms || [])].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt)).map(s => (
+                                [...(patient.symptoms || [])].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt)).map(s => (
                                     <div key={s.id}>
                                         {editingId === s.id ? (
-                                            <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
-                                                <textarea value={editData.name} onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} rows={1} placeholder="Nama gejala"
-                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm px-4 py-3" />
-                                                <textarea value={editData.notes || ''} onChange={e => setEditData(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="Catatan / Penjelasan gejala (opsional)"
-                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm px-4 py-3" />
+                                            <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
+                                                <input type="text" value={editData.name} onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} placeholder="Nama gejala (cth. Demam, Sesak)"
+                                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 transition-all shadow-sm px-4 py-3.5 placeholder:text-slate-400" />
+                                                <textarea value={editData.notes || ''} onChange={e => setEditData(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="Catatan penyakit (opsional)"
+                                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 transition-all resize-none shadow-sm px-4 py-3.5 placeholder:text-slate-400 leading-relaxed" />
                                                 <div>
                                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Keparahan</label>
                                                     <div className="flex p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl gap-1">
@@ -947,23 +970,28 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, 
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
-                                                <div className="flex items-start gap-2">
-                                                    <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
+                                            <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
+                                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-bold leading-snug break-words">{s.name}</p>
-                                                        {s.notes && <p className="text-xs text-slate-400 mt-0.5 break-words line-clamp-2">{s.notes}</p>}
-                                                        <p className="text-[10px] text-slate-400 mt-1">{formatDateTime(s.recordedAt)}</p>
+                                                        <div className="flex items-start gap-2.5 mb-1">
+                                                            <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
+                                                            <span className="text-sm font-bold flex-1 min-w-0 break-words leading-snug">{s.name}</span>
+                                                        </div>
+                                                        {s.notes && <p className="text-xs text-slate-500 ml-4.5 mb-2 break-words leading-relaxed">{s.notes}</p>}
+                                                        <div className="flex items-center gap-2.5 ml-4.5 mt-2">
+                                                            <BadgeKeparahan keparahan={s.severity} />
+                                                            <span className="text-[10px] font-medium text-slate-400">{formatDateTime(s.recordedAt)}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        <BadgeKeparahan keparahan={s.severity} />
+                                                    
+                                                    <div className="flex items-center self-end sm:self-start gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                         <button type="button" onClick={() => startEdit(s)}
-                                                            className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100">
-                                                            <span className="material-symbols-outlined text-sm">edit</span>
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                            <span className="material-symbols-outlined text-[16px]">edit</span>
                                                         </button>
                                                         <button type="button" onClick={() => setConfirmingId(s.id)}
-                                                            className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                                            <span className="material-symbols-outlined text-sm">close</span>
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                            <span className="material-symbols-outlined text-[16px]">close</span>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1027,47 +1055,53 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
         <div className="space-y-5 lg:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
-                    <Kartu judul={`Tambah ${judul}`}>
+                    <Kartu judul={`Tambah ${judul}`} className="border-secondary/20 bg-secondary/5">
                         <form onSubmit={onAdd} className="space-y-4">
-                            {fields.map(f => f.type === 'select' ? (
-                                <div key={f.key} className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
-                                        {f.options.map(o => (
-                                            <button key={o} type="button" onClick={() => setInput(p => ({ ...p, [f.key]: o }))}
-                                                className={`py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${input[f.key] === o ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800 border border-transparent'}`}>
-                                                {o}
-                                            </button>
-                                        ))}
+                            <div className="space-y-4">
+                                {fields.map(f => f.type === 'select' ? (
+                                    <div key={f.key} className="space-y-2.5 px-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">category</span> {f.label}</label>
+                                        <div className="grid grid-cols-4 gap-1 p-1 bg-white/40 dark:bg-slate-950/40 backdrop-blur-md rounded-xl border border-white/50 dark:border-slate-800">
+                                            {f.options.map(o => (
+                                                <button key={o} type="button" onClick={() => setInput(p => ({ ...p, [f.key]: o }))}
+                                                    className={`py-2 text-[9px] font-bold uppercase rounded-lg transition-all ${input[f.key] === o ? 'bg-primary text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                    {o}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div key={f.key} className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{f.label}</label>
-                                    <textarea value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))} rows={4} required placeholder={f.placeholder}
-                                        className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm px-4 py-3" />
-                                </div>
-                            ))}
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
-                                <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
-                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5 px-4" />
+                                ) : (
+                                    <div key={f.key} className="relative group">
+                                        <textarea value={input[f.key]} onChange={e => setInput(p => ({ ...p, [f.key]: e.target.value }))} rows={4} required placeholder={f.placeholder}
+                                            className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 text-sm transition-all resize-none shadow-sm px-4 py-4 placeholder:text-slate-400 leading-relaxed" />
+                                    </div>
+                                ))}
                             </div>
-                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Simpan</button>
+                            <div className="space-y-2 ml-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">calendar_month</span> Waktu Pencatatan</label>
+                                <div className="relative group">
+                                    <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
+                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3.5 px-4 shadow-sm" />
+                                </div>
+                            </div>
+                            <button type="submit" 
+                                className="w-full bg-secondary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-secondary/25 hover:shadow-secondary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined font-bold">save</span> Simpan {judul}
+                            </button>
                         </form>
                     </Kartu>
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Riwayat (${items.length})`}>
-                        <div className="space-y-3">
-                            {items.length === 0 ? <Kosong /> : [...items].sort((a, b) => new Date(b.date) - new Date(a.date)).map(item => (
+                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                            {items.length === 0 ? <Kosong /> : [...items].sort((a, b) => new Date(a.date) - new Date(b.date)).map(item => (
                                 <div key={item.id}>
                                     {editingId === item.id ? (
-                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                        <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
                                             {fields.map(f => f.type === 'select' ? (
                                                 <div key={f.key}>
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">{f.label}</label>
-                                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">{f.label}</label>
+                                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 rounded-xl">
                                                         {f.options.map(o => (
                                                             <button key={o} type="button" onClick={() => setEditData(p => ({ ...p, [f.key]: o }))}
                                                                 className={`py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${editData[f.key] === o ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-white/50 dark:hover:bg-slate-800 border border-transparent'}`}>
@@ -1078,15 +1112,15 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
                                                 </div>
                                             ) : (
                                                 <div key={f.key}>
-                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">{f.label}</label>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">{f.label}</label>
                                                     <textarea value={editData[f.key] || ''} onChange={e => setEditData(p => ({ ...p, [f.key]: e.target.value }))} rows={3}
-                                                        className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm transition-all resize-none shadow-sm px-4 py-3" />
+                                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all resize-none shadow-sm px-4 py-3" />
                                                 </div>
                                             ))}
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
                                                 <input type="datetime-local" value={editData.date} onChange={e => setEditData(p => ({ ...p, date: e.target.value }))}
-                                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-sm" />
+                                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-sm" />
                                             </div>
                                             <div className="flex gap-2 justify-end pt-1">
                                                 <button type="button" onClick={() => setEditingId(null)}
@@ -1096,7 +1130,7 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 relative group">
+                                        <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm relative group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className="flex items-center gap-1 text-[10px] text-slate-400">
                                                     <span className="material-symbols-outlined text-[11px]">schedule</span>
@@ -1130,13 +1164,13 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
 
             {items.length > 0 && (
                 <Kartu judul={`Timeline ${judul}`} headerIcon="timeline">
-                    <div className="relative">
+                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sorted.map((item, index) => (
                                 <div key={item.id} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
                                     <div className="absolute left-2.75 w-3 h-3 rounded-full bg-primary border-2 border-white dark:border-slate-900 z-10" />
-                                    <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                    <div className="ml-6 flex-1 p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                             <span className="text-[10px] text-slate-400">{formatDateTime(item.date)}</span>
                                         </div>
@@ -1215,11 +1249,11 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
             {showRefModal && <LabReferenceModal onClose={() => setShowRefModal(false)} />}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
-                    <Kartu judul="Input Hasil Lab" aksi={
+                    <Kartu judul="Input Hasil Lab" className="border-indigo-500/20 bg-indigo-50/5" aksi={
                         <button
                             type="button"
                             onClick={() => setShowRefModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary/20 transition-all text-[11px] font-bold"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-600 border border-slate-200 dark:border-slate-700 hover:border-indigo-500/30 transition-all text-[11px] font-black uppercase tracking-wider shadow-xs"
                             title="Lihat tabel nilai rujukan resmi"
                         >
                             <span className="material-symbols-outlined text-[16px]">fact_check</span>
@@ -1227,81 +1261,94 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                         </button>
                     }>
                         <form onSubmit={onAdd} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori Pemeriksaan</label>
-                                <div className="flex gap-1 overflow-x-auto pb-1">
-                                    {labCategories.map(cat => (
-                                        <button key={cat.key} type="button" onClick={() => setActiveLabCat(cat.key)}
-                                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-                                            <span className="material-symbols-outlined text-[12px]">{cat.icon}</span>
-                                            {cat.label.split(' ')[0]}
-                                        </button>
-                                    ))}
-                                    <button type="button" onClick={() => setActiveLabCat('custom')}
-                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-primary/10 text-primary border-primary/30' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
-                                        <span className="material-symbols-outlined text-[12px]">add</span>
-                                        Custom
-                                    </button>
-                                </div>
-                            </div>
-
-                            {activeLabCat === 'custom' ? (
-                                <input type="text" value={input.testName} onChange={e => setInput(p => ({ ...p, testName: e.target.value, labKey: 'custom' }))} placeholder="Nama pemeriksaan" required className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 transition-all shadow-sm" />
-                            ) : (
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parameter</label>
-                                    <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl max-h-44 overflow-y-auto custom-scrollbar">
-                                        {catItems.map(([k, v]) => (
-                                            <button key={k} type="button" onClick={() => setInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit, value: v.qualitative ? '' : p.value }))}
-                                                className={`py-2 px-3 text-xs font-bold text-left rounded-lg transition-all flex justify-between items-center gap-1 ${input.labKey === k ? 'bg-primary text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-800 border border-transparent'}`}>
-                                                <span className="truncate text-[11px]">{v.name}</span>
-                                                <span className={`text-[9px] font-mono shrink-0 ${input.labKey === k ? 'text-white/70' : 'text-slate-400'}`}>{v.unit !== '-' ? v.unit : ''}</span>
+                            <div className="space-y-4">
+                                <div className="space-y-2.5 px-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">category</span> Kategori Pemeriksaan</label>
+                                    <div className="flex gap-1 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+                                        {labCategories.map(cat => (
+                                            <button key={cat.key} type="button" onClick={() => setActiveLabCat(cat.key)}
+                                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-indigo-500 text-white border-indigo-500 shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-750'}`}>
+                                                <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
+                                                {cat.label}
                                             </button>
                                         ))}
+                                        <button type="button" onClick={() => setActiveLabCat('custom')}
+                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-indigo-500 text-white border-indigo-500 shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
+                                            <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                                            Lainnya
+                                        </button>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Inline reference hint */}
-                            {selectedRef && refDisplay && (
-                                <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
-                                    <span className="material-symbols-outlined text-primary text-[14px] mt-0.5 shrink-0">info</span>
-                                    <div className="min-w-0">
-                                        <p className="text-[10px] text-primary font-black uppercase tracking-wide">Nilai Rujukan</p>
-                                        <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-0.5 wrap-break-word">{refDisplay.text}</p>
-                                        {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5">Metode: {selectedRef.metode}</p>}
+                                {activeLabCat === 'custom' ? (
+                                    <div className="relative group">
+                                        <input type="text" value={input.testName} onChange={e => setInput(p => ({ ...p, testName: e.target.value, labKey: 'custom' }))} placeholder="Nama pemeriksaan kustom..." required className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 text-sm py-3.5 px-4 transition-all shadow-sm placeholder:text-slate-400" />
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="space-y-2.5 px-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">list_alt</span> Pilih Parameter</label>
+                                        <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-white/40 dark:bg-slate-950/40 backdrop-blur-md rounded-2xl border border-white/50 dark:border-slate-800 max-h-48 overflow-y-auto custom-scrollbar shadow-inner">
+                                            {catItems.map(([k, v]) => (
+                                                <button key={k} type="button" onClick={() => setInput(p => ({ ...p, labKey: k, testName: v.name, unit: v.unit, value: v.qualitative ? '' : p.value }))}
+                                                    className={`py-2 px-3 text-xs font-bold text-left rounded-xl transition-all flex justify-between items-center gap-2 ${input.labKey === k ? 'bg-white dark:bg-slate-800 border-primary/50 border text-primary shadow-sm scale-[1.02]' : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:shadow-xs'}`}>
+                                                    <span className="truncate text-[11px] font-black tracking-tight">{v.name}</span>
+                                                    <span className={`text-[9px] font-mono shrink-0 px-1.5 py-0.5 rounded-md ${input.labKey === k ? 'bg-primary/10 text-primary' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>{v.unit !== '-' ? v.unit : ''}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
-                            {/* Value input */}
-                            {(input.labKey || activeLabCat === 'custom') && (
-                                <div className="flex gap-3">
-                                    <input
-                                        type="text"
-                                        value={input.value}
-                                        onChange={e => setInput(p => ({ ...p, value: e.target.value }))}
-                                        placeholder={selectedRef?.qualitative ? `Nilai (cth: ${selectedRef.normalValue || 'Negatif/Positif'})` : 'Nilai (Hasil)'}
-                                        required
-                                        className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 min-w-0 transition-all shadow-sm"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={input.unit}
-                                        onChange={e => setInput(p => ({ ...p, unit: e.target.value }))}
-                                        placeholder="Satuan"
-                                        className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-3 shrink-0 transition-all shadow-sm"
-                                    />
-                                </div>
-                            )}
+                                {selectedRef && refDisplay && (
+                                    <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800/30 animate-[slideUp_0.2s_ease-out]">
+                                        <div className="p-1.5 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                            <span className="material-symbols-outlined text-indigo-500 text-[16px] block">info</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-wider">Nilai Rujukan</p>
+                                            <p className="text-sm text-slate-700 dark:text-slate-200 font-bold mt-0.5">{refDisplay.text}</p>
+                                            {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5 font-medium italic">Metode: {selectedRef.metode}</p>}
+                                        </div>
+                                    </div>
+                                )}
 
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
-                                <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
-                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                {(input.labKey || activeLabCat === 'custom') && (
+                                    <div className="flex gap-3">
+                                        <div className="relative group flex-1">
+                                            <input
+                                                type="text"
+                                                value={input.value}
+                                                onChange={e => setInput(p => ({ ...p, value: e.target.value }))}
+                                                placeholder={selectedRef?.qualitative ? `Hasil (cth: ${selectedRef.normalValue || 'Negatif'})` : 'Hasil Pengukuran'}
+                                                required
+                                                className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 py-3.5 px-4 transition-all shadow-sm placeholder:text-slate-400"
+                                            />
+                                        </div>
+                                        <div className="relative group w-28">
+                                            <input
+                                                type="text"
+                                                value={input.unit}
+                                                onChange={e => setInput(p => ({ ...p, unit: e.target.value }))}
+                                                placeholder="Satuan"
+                                                className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-xs font-semibold text-slate-800 dark:text-slate-200 py-3.5 px-4 transition-all shadow-sm placeholder:text-slate-400"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            <button type="submit" disabled={!input.value || (!input.testName && activeLabCat !== 'custom')} className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">Simpan Hasil</button>
+                            <div className="space-y-1.5 ml-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">calendar_month</span> Waktu Pencatatan</label>
+                                <div className="relative group">
+                                    <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
+                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3.5 px-4 shadow-sm" />
+                                </div>
+                            </div>
+
+                            <button type="submit" disabled={!input.value || (!input.testName && activeLabCat !== 'custom')} 
+                                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider">
+                                <span className="material-symbols-outlined font-bold">add_chart</span> Simpan Hasil Laboratorium
+                            </button>
                         </form>
                     </Kartu>
                 </div>
@@ -1313,26 +1360,26 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                             Rujukan
                         </button>
                     }>
-                        <div className="space-y-2">
-                            {(patient.supportingExams || []).length === 0 ? <Kosong /> : [...(patient.supportingExams || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(e => (
+                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                            {(patient.supportingExams || []).length === 0 ? <Kosong /> : [...(patient.supportingExams || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map(e => (
                                 <div key={e.id}>
                                     {editingId === e.id ? (
-                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                        <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
                                             <input type="text" value={editData.testName} onChange={ev => setEditData(p => ({ ...p, testName: ev.target.value }))}
                                                 placeholder="Nama pemeriksaan"
-                                                className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 transition-all shadow-sm" />
+                                                className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold py-2.5 px-4 transition-all shadow-sm" />
                                             <div className="flex gap-3">
                                                 <input type="text" value={editData.value} onChange={ev => setEditData(p => ({ ...p, value: ev.target.value }))}
                                                     placeholder="Nilai"
-                                                    className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 min-w-0 transition-all shadow-sm" />
+                                                    className="flex-1 rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold py-2.5 px-4 min-w-0 transition-all shadow-sm" />
                                                 <input type="text" value={editData.unit} onChange={ev => setEditData(p => ({ ...p, unit: ev.target.value }))}
                                                     placeholder="Satuan"
-                                                    className="w-24 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 shrink-0 transition-all shadow-sm" />
+                                                    className="w-24 rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold py-2.5 px-4 shrink-0 transition-all shadow-sm" />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
                                                 <input type="datetime-local" value={editData.date} onChange={ev => setEditData(p => ({ ...p, date: ev.target.value }))}
-                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-sm" />
                                             </div>
                                             <div className="flex gap-2 justify-end pt-1">
                                                 <button type="button" onClick={() => setEditingId(null)}
@@ -1342,37 +1389,36 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 group">
-                                            {/* Row 1: name + actions */}
-                                            <div className="flex items-start justify-between gap-2 mb-1.5">
-                                                <p className="text-sm font-semibold leading-snug break-words min-w-0 flex-1">{e.testName}</p>
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                                        <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
+                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold leading-snug break-words mb-1.5">{e.testName}</p>
+                                                    <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                                        <span className="text-sm font-black">{e.value}</span>
+                                                        {e.unit && <span className="text-[10px] font-medium text-slate-500">{e.unit}</span>}
+                                                        {e.result && (
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md self-center ${
+                                                                e.result.status === 'high' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                                                e.result.status === 'low' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
+                                                                e.result.status === 'normal' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                                                                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                                            }`}>{e.result.label}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
+                                                        <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                                        <span>{formatDateTime(e.date)}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center self-end sm:self-start gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                     <button type="button" onClick={() => startEdit(e)}
-                                                        className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
-                                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                        <span className="material-symbols-outlined text-[16px]">edit</span>
                                                     </button>
                                                     <button type="button" onClick={() => setConfirmingId(e.id)}
-                                                        className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                        <span className="material-symbols-outlined text-[16px]">close</span>
                                                     </button>
-                                                </div>
-                                            </div>
-                                            {/* Row 2: timestamp + value + status */}
-                                            <div className="flex items-center justify-between gap-2">
-                                                <p className="text-[10px] text-slate-400 flex items-center gap-1 min-w-0">
-                                                    <span className="material-symbols-outlined text-[11px] shrink-0">schedule</span>
-                                                    <span className="truncate">{formatDateTime(e.date)}</span>
-                                                </p>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <span className="text-sm font-bold">{e.value} <span className="text-[10px] font-medium text-slate-400">{e.unit}</span></span>
-                                                    {e.result && (
-                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                                            e.result.status === 'high' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                                                            e.result.status === 'low' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                                            e.result.status === 'normal' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                                                            'bg-slate-100 text-slate-500'
-                                                        }`}>{e.result.label}</span>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -1390,7 +1436,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
 
             {(patient.supportingExams || []).length > 0 && (
                 <Kartu judul="Timeline Hasil Lab" headerIcon="timeline">
-                    <div className="relative">
+                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sortedLab.map((e, index) => (
@@ -1398,7 +1444,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                                     <div className={`absolute left-2.75 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 z-10 ${
                                         e.result?.status === 'high' ? 'bg-red-500' : e.result?.status === 'low' ? 'bg-amber-500' : e.result?.status === 'normal' ? 'bg-green-500' : 'bg-primary'
                                     }`} />
-                                    <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-w-0">
+                                    <div className="ml-6 flex-1 p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all min-w-0">
                                         <div className="flex items-start justify-between gap-2 mb-1">
                                             <span className="text-sm font-bold leading-snug break-words min-w-0 flex-1">{e.testName}</span>
                                             <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(e.date)}</span>
@@ -1458,84 +1504,95 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
         <div className="space-y-5 lg:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
-                    <Kartu judul="Tambah Obat">
-                        <form onSubmit={onAdd} className="space-y-3">
-                            {/* Fornas shortcut row */}
-                            <div className="flex items-center justify-between gap-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Obat</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowFornasPicker(true)}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-teal-200 dark:border-teal-800/50 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition"
-                                >
-                                    <span className="material-symbols-outlined text-[13px]">local_pharmacy</span>
-                                    Pilih dari Fornas
-                                </button>
-                            </div>
-                            {/* Fornas selected indicator */}
-                            {input.fornas_source && (
-                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/40">
-                                    <span className="material-symbols-outlined text-teal-500 text-[14px] shrink-0">verified</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wide">Dari Fornas</p>
-                                        {input.fornas_category && <p className="text-[11px] text-teal-600 dark:text-teal-400 truncate">{input.fornas_category}</p>}
-                                    </div>
+                    <Kartu judul="Tambah Resep Obat" className="border-primary/20 bg-primary/5">
+                        <form onSubmit={onAdd} className="space-y-4">
+                            <div className="space-y-4">
+                                {/* Fornas shortcut row */}
+                                <div className="flex items-center justify-between gap-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">medication</span> Nama Obat</label>
                                     <button
                                         type="button"
-                                        onClick={() => setInput(p => ({ ...p, fornas_source: false, fornas_form: '', fornas_category: '' }))}
-                                        className="shrink-0 p-0.5 rounded text-teal-400 hover:text-teal-700 dark:hover:text-teal-200 transition"
-                                        title="Hapus pilihan Fornas"
+                                        onClick={() => setShowFornasPicker(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border border-teal-200 dark:border-teal-800/50 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition active:scale-95"
                                     >
-                                        <span className="material-symbols-outlined text-sm">close</span>
+                                        <span className="material-symbols-outlined text-[13px]">local_pharmacy</span>
+                                        Pilih dari Fornas
                                     </button>
                                 </div>
-                            )}
-                            <input
-                                type="text"
-                                value={input.name}
-                                onChange={e => setInput(p => ({ ...p, name: e.target.value, fornas_source: false, fornas_form: '' }))}
-                                placeholder="Nama obat (cth. Amoxicillin)"
-                                required
-                                className="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-                            />
-                            <div className="flex gap-3">
-                                <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (500mg)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
-                                <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frekuensi (3x/hari)" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm" />
+                                {/* Fornas selected indicator */}
+                                {input.fornas_source && (
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800/20 animate-[slideUp_0.2s_ease-out]">
+                                        <span className="material-symbols-outlined text-teal-500 text-[14px] shrink-0">verified</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[10px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wide">Dari Fornas</p>
+                                            {input.fornas_category && <p className="text-[11px] text-teal-600 dark:text-teal-400 truncate font-semibold">{input.fornas_category}</p>}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setInput(p => ({ ...p, fornas_source: false, fornas_form: '', fornas_category: '' }))}
+                                            className="shrink-0 p-1 rounded-lg text-teal-400 hover:text-teal-700 dark:hover:text-teal-200 hover:bg-teal-100/50 transition"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">close</span>
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="relative group">
+                                    <input
+                                        type="text"
+                                        value={input.name}
+                                        onChange={e => setInput(p => ({ ...p, name: e.target.value, fornas_source: false, fornas_form: '' }))}
+                                        placeholder="Nama obat (cth. Amoxicillin)"
+                                        required
+                                        className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200 transition-all shadow-sm placeholder:text-slate-400"
+                                    />
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="relative group flex-1">
+                                        <input type="text" value={input.dosage} onChange={e => setInput(p => ({ ...p, dosage: e.target.value }))} placeholder="Dosis (cth. 500mg)" className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200 transition-all shadow-sm placeholder:text-slate-400" />
+                                    </div>
+                                    <div className="relative group flex-1">
+                                        <input type="text" value={input.frequency} onChange={e => setInput(p => ({ ...p, frequency: e.target.value }))} placeholder="Frek (3x/hari)" className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200 transition-all shadow-sm placeholder:text-slate-400" />
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Rute Pemberian</label>
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">route</span> Rute Pemberian</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {routeOptions.map(opt => (
                                         <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, route: opt.v }))}
-                                            className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all ${input.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
-                                            <span className="material-symbols-outlined text-lg mb-0.5">{opt.i}</span>
-                                            <span className="text-[10px] font-black uppercase">{opt.l}</span>
+                                            className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${input.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm scale-[1.02]' : 'bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-800 text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'}`}>
+                                            <span className="material-symbols-outlined text-xl mb-1">{opt.i}</span>
+                                            <span className="text-[9px] font-bold uppercase tracking-tighter">{opt.l}</span>
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                            <div className="space-y-1.5 ml-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">calendar_month</span> Waktu Pencatatan</label>
                                 <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
-                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3.5 px-4 shadow-sm" />
                             </div>
 
-                            <button type="submit" className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20">Tambah Obat</button>
+                            <button type="submit" 
+                                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined font-bold">add_circle</span>
+                                Simpan Resep Obat
+                            </button>
                         </form>
                     </Kartu>
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>
-                        <div className="space-y-3">
-                            {(patient.prescriptions || []).length === 0 ? <Kosong /> : [...(patient.prescriptions || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(p => (
+                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                            {(patient.prescriptions || []).length === 0 ? <Kosong /> : [...(patient.prescriptions || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map(p => (
                                 <div key={p.id}>
                                     {editingId === p.id ? (
-                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                        <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
                                             {/* Edit — Fornas shortcut */}
                                             <div className="flex items-center justify-between gap-2">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Obat</label>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Obat</label>
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowEditFornasPicker(true)}
@@ -1559,25 +1616,25 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                                                 </div>
                                             )}
                                             <input type="text" value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value, fornas_source: false, fornas_form: '' }))}
-                                                placeholder="Nama obat" className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 transition-all shadow-sm" />
-                                            <div className="flex gap-3">
+                                                placeholder="Nama obat" className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold py-2.5 px-4 transition-all shadow-sm" />
+                                            <div className="flex flex-col sm:flex-row gap-3">
                                                 <input type="text" value={editData.dosage} onChange={e => setEditData(d => ({ ...d, dosage: e.target.value }))}
-                                                    placeholder="Dosis" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 min-w-0 transition-all shadow-sm" />
+                                                    placeholder="Dosis" className="flex-1 rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold py-3 px-4 min-w-0 transition-all shadow-sm" />
                                                 <input type="text" value={editData.frequency} onChange={e => setEditData(d => ({ ...d, frequency: e.target.value }))}
-                                                    placeholder="Frekuensi" className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-sm py-2.5 min-w-0 transition-all shadow-sm" />
+                                                    placeholder="Frekuensi" className="flex-1 rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold py-3 px-4 min-w-0 transition-all shadow-sm" />
                                             </div>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {routeOptions.map(opt => (
                                                     <button key={opt.v} type="button" onClick={() => setEditData(d => ({ ...d, route: opt.v }))}
-                                                        className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all text-[10px] font-black uppercase ${editData.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500 hover:bg-slate-100'}`}>
+                                                        className={`flex flex-col items-center py-2 px-1 rounded-xl border transition-all text-[10px] font-bold uppercase ${editData.route === opt.v ? 'bg-primary/10 border-primary text-primary shadow-sm' : 'bg-white/40 dark:bg-slate-800/40 border border-white/50 dark:border-slate-800 text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'}`}>
                                                         <span className="material-symbols-outlined text-base mb-0.5">{opt.i}</span>{opt.l}
                                                     </button>
                                                 ))}
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
                                                 <input type="datetime-local" value={editData.date} onChange={e => setEditData(d => ({ ...d, date: e.target.value }))}
-                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 focus:border-primary focus:ring-primary/20 text-sm font-semibold transition-all py-2.5" />
+                                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-sm" />
                                             </div>
                                             <div className="flex gap-2 justify-end pt-1">
                                                 <button type="button" onClick={() => setEditingId(null)}
@@ -1587,7 +1644,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 group">
+                                        <div className="p-4 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md rounded-xl border border-white/50 dark:border-slate-700/50 shadow-sm group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
                                             <div className="flex items-start justify-between gap-2 mb-1">
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1628,13 +1685,13 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
 
             {(patient.prescriptions || []).length > 0 && (
                 <Kartu judul="Timeline Pemberian Obat" headerIcon="timeline">
-                    <div className="relative">
+                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sortedPresc.map((p, index) => (
                                 <div key={p.id} className="relative flex items-start gap-4 pl-4 animate-[slideIn_0.3s_ease-out]" style={{ animationDelay: `${index * 50}ms` }}>
                                     <div className="absolute left-2.75 w-3 h-3 rounded-full bg-primary border-2 border-white dark:border-slate-900 z-10" />
-                                    <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                    <div className="ml-6 flex-1 p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="text-sm font-bold">{p.name}</span>
@@ -1713,14 +1770,14 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
                     <Kartu judul="Laporan Harian Baru">
                         <form onSubmit={onAdd} className="space-y-4">
                             <textarea value={input.notes} onChange={e => setInput(p => ({ ...p, notes: e.target.value }))} rows={5} required placeholder="Catatan perkembangan pasien hari ini..."
-                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary focus:ring-4 focus:ring-primary/10 text-sm transition-all px-4 py-3 placeholder:text-slate-400 shadow-sm leading-relaxed" />
+                                className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-sm transition-all px-4 py-4 placeholder:text-slate-400 shadow-sm leading-relaxed" />
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Perbarui Kondisi Pasien</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Perbarui Kondisi Pasien</label>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     {conditionOptions.map(opt => (
                                         <button key={opt.v} type="button" onClick={() => setInput(p => ({ ...p, condition: opt.v }))}
-                                            className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${input.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                                            className={`py-2 px-1 text-[10px] font-bold uppercase rounded-xl border transition-all ${input.condition === opt.v ? opt.c : 'bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-800 text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'}`}>
                                             {opt.l}
                                         </button>
                                     ))}
@@ -1728,41 +1785,42 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Waktu Pencatatan</label>
                                 <input type="datetime-local" value={input.date} onChange={e => setInput(p => ({ ...p, date: e.target.value }))}
-                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-xs" />
+                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3.5 px-4 shadow-sm" />
                             </div>
 
-                            <button type="submit" className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-primary/30 hover:shadow-primary/40 active:scale-[0.98]">
-                                Simpan Laporan
+                            <button type="submit" 
+                                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined font-bold">add_circle</span> Simpan Laporan
                             </button>
                         </form>
                     </Kartu>
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Riwayat Laporan (${(patient.dailyReports || []).length})`}>
-                        <div className="space-y-3">
-                            {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map(r => (
+                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                            {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map(r => (
                                 <div key={r.id}>
                                     {editingId === r.id ? (
-                                        <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 space-y-3 animate-[fadeIn_0.2s_ease-out]">
+                                        <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
                                             <textarea value={editData.notes} onChange={e => setEditData(d => ({ ...d, notes: e.target.value }))} rows={4}
-                                                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary focus:ring-4 focus:ring-primary/10 text-sm resize-none px-4 py-3 shadow-xs leading-relaxed" />
+                                                className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold resize-none px-4 py-3 shadow-sm leading-relaxed" />
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Kondisi</label>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Kondisi</label>
                                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                                     {conditionOptions.map(opt => (
                                                         <button key={opt.v} type="button" onClick={() => setEditData(d => ({ ...d, condition: opt.v }))}
-                                                            className={`py-2 px-1 text-[10px] font-black uppercase rounded-xl border transition-all ${editData.condition === opt.v ? opt.c : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'}`}>
+                                                            className={`py-2 px-1 text-[10px] font-bold uppercase rounded-xl border transition-all ${editData.condition === opt.v ? opt.c : 'bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-800 text-slate-500 hover:bg-white/60 dark:hover:bg-slate-800/60'}`}>
                                                             {opt.l}
                                                         </button>
                                                     ))}
                                                 </div>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Waktu</label>
                                                 <input type="datetime-local" value={editData.date} onChange={e => setEditData(d => ({ ...d, date: e.target.value }))}
-                                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-xs" />
+                                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-2.5 px-4 shadow-sm" />
                                             </div>
                                             <div className="flex gap-2 justify-end pt-1">
                                                 <button type="button" onClick={() => setEditingId(null)}
@@ -1772,27 +1830,37 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 relative group">
-                                            <div className="flex justify-between items-center gap-3 mb-2">
-                                                <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                                                    <span className="material-symbols-outlined text-[11px]">schedule</span>
-                                                    {formatDateTime(r.date)}
-                                                </span>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    {r.condition && <KondisiBadge kondisi={r.condition} />}
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                        <button type="button" onClick={() => startEdit(r)}
-                                                            className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
-                                                            <span className="material-symbols-outlined text-sm">edit</span>
-                                                        </button>
-                                                        <button type="button" onClick={() => setConfirmingId(r.id)}
-                                                            className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                                                            <span className="material-symbols-outlined text-sm">close</span>
-                                                        </button>
+                                        <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
+                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start gap-2.5 mb-2">
+                                                        <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${
+                                                            r.condition === 'critical' ? 'bg-red-500' : 
+                                                            r.condition === 'urgent' ? 'bg-amber-500' : 
+                                                            r.condition === 'improving' ? 'bg-green-500' : 'bg-primary'
+                                                        }`} />
+                                                        <p className="text-sm font-bold leading-relaxed break-words flex-1 text-slate-700 dark:text-slate-200">{r.notes}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2.5 ml-4.5 mt-2">
+                                                        {r.condition && <KondisiBadge kondisi={r.condition} />}
+                                                        <span className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                                                            <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                                            {formatDateTime(r.date)}
+                                                        </span>
                                                     </div>
                                                 </div>
+                                                
+                                                <div className="flex items-center self-end sm:self-start gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                                    <button type="button" onClick={() => startEdit(r)}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
+                                                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                                                    </button>
+                                                    <button type="button" onClick={() => setConfirmingId(r.id)}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                                        <span className="material-symbols-outlined text-[16px]">close</span>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed break-words">{r.notes}</p>
                                         </div>
                                     )}
                                     {confirmingId === r.id && (
@@ -1808,7 +1876,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
 
             {(patient.dailyReports || []).length > 0 && (
                 <Kartu judul="Timeline Laporan Harian" headerIcon="timeline">
-                    <div className="relative">
+                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sortedReports.map((r, index) => {
@@ -1818,7 +1886,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
                                         <div className={`absolute left-2.75 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 z-10 ${
                                             r.condition === 'critical' ? 'bg-red-500' : r.condition === 'urgent' ? 'bg-amber-500' : r.condition === 'improving' ? 'bg-green-500' : 'bg-primary'
                                         }`} />
-                                        <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                        <div className="ml-6 flex-1 p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
                                             <div className="flex items-center justify-between gap-2 mb-1">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] text-slate-400">{formatDateTime(r.date)}</span>
@@ -1863,8 +1931,8 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI, canEditPatient
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
                 {aiMethods.map(item => (
                     <button key={item.key} onClick={item.fn} disabled={item.disabled || aiLoading[item.key]}
-                        className="flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:gap-0 p-4 lg:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-primary/5 hover:border-primary/30 transition-all text-left group disabled:opacity-50">
-                        <div className={`size-10 rounded-lg bg-linear-to-br ${item.color} text-white flex items-center justify-center sm:mb-3 group-hover:scale-110 transition-transform shrink-0`}>
+                        className="flex flex-row sm:flex-col items-center sm:items-start gap-3 sm:gap-0 p-4 lg:p-5 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-white/60 dark:border-slate-700/50 rounded-2xl hover:bg-white/80 dark:hover:bg-slate-800/80 hover:border-primary/30 hover:shadow-lg transition-all text-left group disabled:opacity-50 shadow-sm">
+                        <div className={`size-10 rounded-xl bg-linear-to-br ${item.color} text-white flex items-center justify-center sm:mb-3 group-hover:scale-110 transition-transform shadow-md shrink-0`}>
                             <span className="material-symbols-outlined">{item.icon}</span>
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -1902,8 +1970,8 @@ function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI, canEditPatient
 /* ====== KOMPONEN BERSAMA ====== */
 function Kartu({ judul, headerIcon, aksi, children, id, className = "" }) {
     return (
-        <div id={id} className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 shadow-lg shadow-slate-200/50 dark:shadow-none overflow-hidden flex flex-col items-stretch transition-all ${className}`}>
-            <div className="px-5 py-4 lg:px-6 lg:py-5 border-b border-slate-200/80 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center gap-3">
+        <div id={id} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/50 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none overflow-hidden flex flex-col items-stretch transition-all ${className}`}>
+            <div className="px-5 py-4 lg:px-6 lg:py-5 border-b border-white/30 dark:border-slate-700/30 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md flex justify-between items-center gap-3">
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[13px] uppercase tracking-wide truncate">{judul}</h3>
                 {aksi || (headerIcon && <span className="material-symbols-outlined text-slate-400 shrink-0">{headerIcon}</span>)}
             </div>
@@ -1924,7 +1992,7 @@ function TombolAI({ label, onGenerate, loading, result, disabled, storageKey }) 
     };
 
     return (
-        <div className="bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 p-4 lg:p-5 transition-all">
+        <div className="bg-primary/5 dark:bg-primary/10 backdrop-blur-md rounded-2xl border border-primary/20 p-5 lg:p-6 shadow-sm transition-all">
             <div className="flex justify-between items-center mb-3">
                 <h4 className="font-bold text-primary flex items-center gap-2 text-sm">
                     <span className="material-symbols-outlined text-lg">auto_awesome</span>Analisis AI
@@ -1937,11 +2005,26 @@ function TombolAI({ label, onGenerate, loading, result, disabled, storageKey }) 
             {!isMinimized && (
                 <div className="animate-[fadeIn_0.2s_ease-out]">
                     <button onClick={onGenerate} disabled={disabled || loading}
-                        className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-primary/30 hover:shadow-primary/40 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-3">
+                        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3 disabled:opacity-50 disabled:cursor-not-allowed">
                         {loading ? <><span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>Menganalisis...</> :
                             <><span className="material-symbols-outlined text-lg">auto_awesome</span>{label}</>}
                     </button>
-                    {result && <div className="mt-3 p-3 lg:p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>}
+                    {result && (
+                        <div className="mt-3 p-3 lg:p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify">
+                            <ReactMarkdown 
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    table: ({node, ...props}) => (
+                                        <div className="overflow-x-auto my-4 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                                            <table {...props} className="min-w-full divide-y divide-slate-200 dark:divide-slate-800" />
+                                        </div>
+                                    )
+                                }}
+                            >
+                                {result}
+                            </ReactMarkdown>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -1966,34 +2049,42 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey })
     };
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-700/50 shadow-lg shadow-slate-200/50 dark:shadow-none overflow-hidden transition-all">
-            <div className="px-5 py-4 lg:px-6 lg:py-5 border-b border-slate-200/80 dark:border-slate-700/50 flex justify-between items-start sm:items-center bg-slate-50/50 dark:bg-slate-800/30 gap-3">
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2 flex-1 min-w-0">
+        <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/50 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none overflow-hidden transition-all">
+            <div className="px-5 py-4 lg:px-6 lg:py-5 border-b border-white/30 dark:border-slate-700/30 flex flex-col sm:flex-row sm:items-center bg-white/40 dark:bg-slate-800/40 backdrop-blur-md gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0 pr-10 sm:pr-0 relative">
                     <span className="material-symbols-outlined text-primary text-lg shrink-0">auto_awesome</span>
-                    <span className="wrap-break-word">{judul}</span>
-                </h3>
-                <div className="flex gap-1 justify-end items-center flex-wrap shrink-0">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{judul}</h3>
+                    
+                    {/* Toggle button moved to absolute on mobile to save space if needed, or just let it flow */}
+                    <button onClick={handleToggle} title={isMinimized ? "Perbesar" : "Perkecil"} className="sm:hidden absolute right-0 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 transition-colors border border-slate-200 dark:border-slate-700">
+                        <span className="material-symbols-outlined text-sm">{isMinimized ? 'expand_more' : 'expand_less'}</span>
+                    </button>
+                </div>
+
+                <div className="flex gap-1.5 justify-start sm:justify-end items-center shrink-0">
                     {!isEditing && !loading && result && (
                         <>
-                            <button onClick={onUpdate} title="Update AI (Generate Ulang)" className="flex items-center gap-1 p-1.5 px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors font-semibold text-[11px] bg-white dark:bg-slate-800">
-                                <span className="material-symbols-outlined text-sm">refresh</span> Update
+                            <button onClick={onUpdate} title="Update AI" className="flex items-center gap-1.5 p-1.5 px-2.5 sm:px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-primary hover:bg-primary/5 transition-all font-bold text-[10px] sm:text-[11px] bg-white dark:bg-slate-800 shadow-sm">
+                                <span className="material-symbols-outlined text-[14px] sm:text-[16px]">refresh</span>
+                                <span className="hidden xs:inline">Update</span>
                             </button>
-                            <button onClick={() => setIsEditing(true)} title="Edit Manual" className="flex items-center gap-1 p-1.5 px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-amber-600 hover:border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors font-semibold text-[11px] bg-white dark:bg-slate-800 ml-1">
-                                <span className="material-symbols-outlined text-sm">edit</span> Edit
+                            <button onClick={() => setIsEditing(true)} title="Edit Manual" className="flex items-center gap-1.5 p-1.5 px-2.5 sm:px-3 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-all font-bold text-[10px] sm:text-[11px] bg-white dark:bg-slate-800 shadow-sm">
+                                <span className="material-symbols-outlined text-[14px] sm:text-[16px]">edit</span>
+                                <span className="hidden xs:inline">Edit</span>
                             </button>
                         </>
                     )}
                     {isEditing && (
                         <>
-                            <button onClick={() => { setIsEditing(false); setEditText(result); }} title="Batal Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border border-transparent">
-                                <span className="material-symbols-outlined text-sm">close</span>
+                            <button onClick={() => { setIsEditing(false); setEditText(result); }} title="Batal" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                <span className="material-symbols-outlined text-[16px]">close</span>
                             </button>
-                            <button onClick={() => { onSave(editText); setIsEditing(false); }} title="Simpan Perubahan" className="flex items-center gap-1 p-1.5 px-4 rounded-lg text-white bg-green-500 hover:bg-green-600 border border-green-600 transition-colors font-bold text-[11px] shadow-sm ml-1">
-                                <span className="material-symbols-outlined text-sm">save</span> Simpan
+                            <button onClick={() => { onSave(editText); setIsEditing(false); }} title="Simpan" className="flex items-center gap-1.5 p-1.5 px-4 rounded-lg text-white bg-green-500 hover:bg-green-600 transition-all font-bold text-[10px] sm:text-[11px] shadow-sm">
+                                <span className="material-symbols-outlined text-[14px] sm:text-[16px]">save</span> Simpan
                             </button>
                         </>
                     )}
-                    <button onClick={handleToggle} title={isMinimized ? "Perbesar" : "Perkecil"} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors ml-2 border border-slate-200 dark:border-slate-700">
+                    <button onClick={handleToggle} title={isMinimized ? "Perbesar" : "Perkecil"} className="hidden sm:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 dark:hover:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700">
                         <span className="material-symbols-outlined text-sm">{isMinimized ? 'expand_more' : 'expand_less'}</span>
                     </button>
                 </div>
@@ -2011,11 +2102,22 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey })
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
                             placeholder="Ketik detail diagnosis/catatan di sini..."
-                            className="w-full min-h-87.5 p-4 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-primary focus:ring-primary/20 text-slate-700 dark:text-slate-300 font-mono leading-relaxed"
+                            className="w-full min-h-[350px] p-5 text-sm rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 leading-relaxed shadow-sm transition-all resize-y"
                         />
                     ) : (
                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
+                            <ReactMarkdown 
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    table: ({node, ...props}) => (
+                                        <div className="overflow-x-auto my-4 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
+                                            <table {...props} className="min-w-full divide-y divide-slate-200 dark:divide-slate-800" />
+                                        </div>
+                                    )
+                                }}
+                            >
+                                {result}
+                            </ReactMarkdown>
                         </div>
                     )}
                 </div>

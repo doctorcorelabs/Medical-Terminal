@@ -92,7 +92,7 @@ export default function DDxRadar({ symptoms, aiResult }) {
 
     return (
         <div className="w-full h-100 md:h-110">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={400} minWidth={0}>
                 <RadarChart data={data} cx="50%" cy="50%" outerRadius="52%" margin={{ top: 30, right: 60, bottom: 30, left: 60 }}>
                     <PolarGrid stroke="#e2e8f0" />
                     <PolarAngleAxis

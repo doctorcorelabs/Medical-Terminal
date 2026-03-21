@@ -17,7 +17,7 @@ export default function TimelineChart({ symptoms, admissionDate }) {
     }
 
     return (
-        <div className="relative">
+        <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
             {/* Timeline line */}
             <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-[#e2e8f0] dark:bg-[#2d3a4a]" />
 
@@ -42,22 +42,20 @@ export default function TimelineChart({ symptoms, admissionDate }) {
                                 className="absolute left-2.75 w-3 h-3 rounded-full border-2 border-white dark:border-[#1a2332] z-10"
                                 style={{ backgroundColor: color }}
                             />
-                            <div className="ml-6 flex-1 p-3 rounded-xl bg-slate-50 dark:bg-[#1e2a3a] hover:bg-slate-100 dark:hover:bg-[#253347] transition-colors">
-                                <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold">{symptom.name}</span>
-                                        <span
-                                            className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
-                                            style={{ backgroundColor: `${color}20`, color }}
-                                        >
-                                            {symptom.severity}
-                                        </span>
-                                    </div>
-                                    <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(symptom.recordedAt)}</span>
-                                </div>
+                            <div className="ml-6 flex-1 p-4 rounded-xl bg-slate-50 dark:bg-[#1e2a3a] hover:bg-slate-100 dark:hover:bg-[#253347] transition-all shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-slate-100/50 dark:border-white/5">
+                                <span className="text-sm font-bold block mb-1.5 break-words leading-snug">{symptom.name}</span>
                                 {symptom.notes && (
-                                    <p className="text-xs text-slate-500 mt-1">{symptom.notes}</p>
+                                    <p className="text-xs text-slate-500 mb-2.5 break-words leading-relaxed">{symptom.notes}</p>
                                 )}
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md"
+                                        style={{ backgroundColor: `${color}15`, color }}
+                                    >
+                                        {symptom.severity}
+                                    </span>
+                                    <span className="text-[10px] font-medium text-slate-400">{formatDateTime(symptom.recordedAt)}</span>
+                                </div>
                             </div>
                         </div>
                     );

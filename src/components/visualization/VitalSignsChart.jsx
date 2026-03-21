@@ -102,7 +102,7 @@ export default function VitalSignsChart({ vitalSigns }) {
             </div>
 
             {/* Chart */}
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={260} minWidth={0}>
                 <LineChart data={data} margin={{ top: 5, right: 10, left: -15, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.6} />
                     <XAxis
