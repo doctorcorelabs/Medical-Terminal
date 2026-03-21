@@ -128,7 +128,7 @@ export default function VitalSignsChart({ vitalSigns }) {
                             strokeWidth={2}
                             dot={{ r: 3, fill: m.color, strokeWidth: 0 }}
                             activeDot={{ r: 5, strokeWidth: 0 }}
-                            connectNulls={false}
+                            connectNulls
                         />
                     ))}
                 </LineChart>

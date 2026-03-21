@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
-    LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+    LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    Legend,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     BarChart, Bar, Cell, PieChart, Pie,
     ScatterChart, Scatter, ZAxis
@@ -61,10 +62,17 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
         const chartWidth = (type === 'radar' || scrollableTypes.includes(type)) ? (type === 'radar' ? 600 : 800) : width;
 
         switch(type) {
-            case 'trend': // Lab vs Vitals
+            case 'trend': { // Lab vs Vitals
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data tren belum tersedia. Pastikan format data mengandung field <strong>time</strong>, <strong>vitals</strong>, dan/atau <strong>lab</strong>.
+                        </div>
+                    );
+                }
                 return (
                     <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
-                        <LineChart data={data} margin={{ top: 20, right: 20, left: 5, bottom: 20 }}>
+                        <LineChart data={safeArray} margin={{ top: 20, right: 20, left: 5, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis 
                                 dataKey="time" 
@@ -90,10 +98,12 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                 width={40}
                             />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} formatter={(value) => value === 'vitals' ? 'Vital Signs' : 'Lab'} />
                             <Line 
                                 yAxisId="left" 
                                 type="monotone" 
                                 dataKey="vitals" 
+                                name="vitals"
                                 stroke="#136dec" 
                                 strokeWidth={2.5} 
                                 dot={{ r: 3.5, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} 
@@ -104,6 +114,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                 yAxisId="right" 
                                 type="monotone" 
                                 dataKey="lab" 
+                                name="lab"
                                 stroke="#10b981" 
                                 strokeWidth={2.5} 
                                 dot={{ r: 3.5, fill: '#fff', stroke: '#10b981', strokeWidth: 2 }} 
@@ -113,11 +124,19 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                         </LineChart>
                     </ResponsiveContainer>
                 );
+            }
 
-            case 'radar': // Risk Radar
+            case 'radar': { // Risk Radar
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data radar belum tersedia. Pastikan format data mengandung field <strong>subject</strong> dan <strong>A</strong>.
+                        </div>
+                    );
+                }
                 return (
                     <ResponsiveContainer width={600} height={chartHeight}>
-                        <RadarChart cx="50%" cy="50%" outerRadius="65%" data={data} margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
+                        <RadarChart cx="50%" cy="50%" outerRadius="65%" data={safeArray} margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
                             <PolarGrid stroke="rgba(0,0,0,0.1)" />
                             <PolarAngleAxis dataKey="subject" fontSize={11} fontWeight={600} />
                             <PolarRadiusAxis angle={30} domain={[0, 10]} fontSize={10} />
@@ -126,8 +145,9 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                         </RadarChart>
                     </ResponsiveContainer>
                 );
+            }
 
-            case 'heatmap': // Symptom Heatmap
+            case 'heatmap': { // Symptom Heatmap
                 const heatmapRows = normalizeHeatmapRows(safeArray);
                 if (heatmapRows.length === 0) {
                     return (
@@ -191,9 +211,10 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                         )}
                     </div>
                 );
+            }
 
-            case 'gauge': // Vulnerability Gauge
-                const gaugeValue = data[0]?.value || 0;
+            case 'gauge': { // Vulnerability Gauge
+                const gaugeValue = safeArray[0]?.value || 0;
                 const pieData = [{ value: gaugeValue }, { value: 100 - gaugeValue }];
                 return (
                     <div className="gauge-container" style={{ width: width, height: height, minWidth: 200, minHeight: 120 }}>
@@ -221,21 +242,31 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                         </div>
                     </div>
                 );
+            }
 
-            case 'anatomy': // SVG Human Body Highlight
+            case 'anatomy': { // SVG Human Body Highlight
+                const bodyParts = Array.isArray(data) ? data : [];
                 return (
                     <svg viewBox="0 0 200 500" className="anatomy-svg">
-                        <path className={`body-part ${data.includes('head') ? 'highlighted' : ''}`} d="M100,20c-15,0-25,10-25,25s10,25,25,25s25-10,25-25S115,20,100,20z" />
-                        <rect className={`body-part ${data.includes('chest') ? 'highlighted' : ''}`} x="75" y="75" width="50" height="80" rx="10" />
-                        <path className={`body-part ${data.includes('arms') ? 'highlighted' : ''}`} d="M70,80l-30,50l10,10l30-40V80z M130,80l30,50l-10,10l-30-40V80z" />
-                        <path className={`body-part ${data.includes('legs') ? 'highlighted' : ''}`} d="M80,160l-15,120h20l5-120H80z M110,160l15,120h-20l-5-120H110z" />
+                        <path className={`body-part ${bodyParts.includes('head') ? 'highlighted' : ''}`} d="M100,20c-15,0-25,10-25,25s10,25,25,25s25-10,25-25S115,20,100,20z" />
+                        <rect className={`body-part ${bodyParts.includes('chest') ? 'highlighted' : ''}`} x="75" y="75" width="50" height="80" rx="10" />
+                        <path className={`body-part ${bodyParts.includes('arms') ? 'highlighted' : ''}`} d="M70,80l-30,50l10,10l30-40V80z M130,80l30,50l-10,10l-30-40V80z" />
+                        <path className={`body-part ${bodyParts.includes('legs') ? 'highlighted' : ''}`} d="M80,160l-15,120h20l5-120H80z M110,160l15,120h-20l-5-120H110z" />
                     </svg>
                 );
+            }
 
-            case 'simulation': // Drug Concentration
+            case 'simulation': { // Drug Concentration
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data simulasi belum tersedia. Pastikan format data mengandung field <strong>time</strong> dan <strong>level</strong>.
+                        </div>
+                    );
+                }
                 return (
                     <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
-                        <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                        <AreaChart data={safeArray} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                             <defs>
                                 <linearGradient id="colorConc" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#136dec" stopOpacity={0.3}/>
@@ -246,58 +277,96 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                             <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 30, right: 30 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Area type="monotone" dataKey="level" stroke="#136dec" strokeWidth={3} fillOpacity={1} fill="url(#colorConc)" />
+                            <Area type="monotone" dataKey="level" stroke="#136dec" strokeWidth={3} fillOpacity={1} fill="url(#colorConc)" connectNulls />
                         </AreaChart>
                     </ResponsiveContainer>
                 );
+            }
 
-            case 'comparison': // Lab Comparison % Delta
+            case 'comparison': { // Lab Comparison % Delta
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data perbandingan belum tersedia. Pastikan format data mengandung field <strong>name</strong> dan <strong>delta</strong>.
+                        </div>
+                    );
+                }
                 return (
                     <ResponsiveContainer width={width} height={chartHeight}>
-                        <BarChart data={data} layout="vertical" margin={{ top: 10, right: 40, left: 0, bottom: 10 }}>
+                        <BarChart data={safeArray} layout="vertical" margin={{ top: 10, right: 40, left: 0, bottom: 10 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis type="number" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} domain={['auto', 'auto']} />
                             <YAxis dataKey="name" type="category" width={100} fontSize={10} axisLine={false} tickLine={false} tickMargin={5} />
                             <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                             <Bar dataKey="delta" radius={[0, 4, 4, 0]} barSize={20}>
-                                {data.map((entry, index) => (
+                                {safeArray.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.delta > 0 ? '#ef4444' : '#10b981'} />
                                 ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 );
+            }
 
-            case 'timeline': // Drug-Response Timeline
+            case 'timeline': { // Drug-Response Timeline
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data timeline belum tersedia. Pastikan format data mengandung field <strong>time</strong> dan <strong>vital</strong>.
+                        </div>
+                    );
+                }
+                // Render custom dot: red "Rx" marker for drug events, default dot otherwise
+                const renderTimelineDot = (props) => {
+                    const { cx, cy, payload } = props;
+                    if (payload && payload.drug) {
+                        return (
+                            <g key={`dot-drug-${cx}-${cy}`}>
+                                <circle cx={cx} cy={cy} r={7} fill="#ef4444" stroke="#fff" strokeWidth={2} />
+                                <text x={cx} y={cy + 4} textAnchor="middle" fontSize={8} fill="#fff" fontWeight="bold">Rx</text>
+                            </g>
+                        );
+                    }
+                    return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill="#fff" stroke="#136dec" strokeWidth={2} />;
+                };
                 return (
                     <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
-                        <LineChart data={data} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
+                        <LineChart data={safeArray} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
-                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                            <Scatter data={data.filter(d => d.drug)} name="Obat" shape="star" fill="#ef4444" />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value, name) => [value, name === 'vital' ? 'Vital' : name]} />
+                            <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={renderTimelineDot} activeDot={{ r: 6 }} connectNulls />
                         </LineChart>
                     </ResponsiveContainer>
                 );
+            }
 
-            case 'forecast': // Recovery Forecast
+            case 'forecast': { // Recovery Forecast
+                if (safeArray.length === 0) {
+                    return (
+                        <div className="viz-empty-state">
+                            Data prediksi belum tersedia. Pastikan format data mengandung field <strong>day</strong>, <strong>actual</strong>, dan/atau <strong>forecast</strong>.
+                        </div>
+                    );
+                }
                 return (
                     <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
-                        <LineChart data={data} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
+                        <LineChart data={safeArray} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis dataKey="day" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Line type="monotone" dataKey="actual" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} />
-                            <Line type="monotone" dataKey="forecast" stroke="#136dec" strokeDasharray="5 5" strokeOpacity={0.5} dot={false} />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} formatter={(value) => value === 'actual' ? 'Aktual' : 'Prediksi'} />
+                            <Line type="monotone" dataKey="actual" name="actual" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} connectNulls />
+                            <Line type="monotone" dataKey="forecast" name="forecast" stroke="#136dec" strokeDasharray="5 5" strokeOpacity={0.5} dot={false} connectNulls />
                         </LineChart>
                     </ResponsiveContainer>
                 );
+            }
 
             case 'outlier':
-            case 'outliers': // Analisis Outlier Table
+            case 'outliers': { // Analisis Outlier — visual chart + table
                 const outlierRows = normalizeOutlierRows(safeArray);
                 if (outlierRows.length === 0) {
                     return (
@@ -306,25 +375,78 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                         </div>
                     );
                 }
+
+                // Build scatter data (numeric values only)
+                const outlierChartData = outlierRows
+                    .map((d, i) => ({ x: i, y: typeof d.value === 'number' ? d.value : null, outlier: d.outlier, time: d.time, param: d.param }))
+                    .filter(d => d.y !== null);
+
+                const normalPoints = outlierChartData.filter(d => !d.outlier);
+                const flaggedPoints = outlierChartData.filter(d => d.outlier);
+
+                const OutlierTooltipRenderer = ({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    if (!d) return null;
+                    return (
+                        <div style={{ background: '#fff', border: `1px solid ${d.outlier ? '#fca5a5' : '#cbd5e1'}`, borderRadius: 10, padding: '8px 12px', fontSize: 11, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+                            <p style={{ fontWeight: 700, marginBottom: 4, color: d.outlier ? '#dc2626' : '#1e293b' }}>{d.outlier ? '⚠ Outlier' : '✓ Normal'}</p>
+                            <p style={{ color: '#475569' }}>Waktu: <strong>{d.time}</strong></p>
+                            <p style={{ color: '#475569' }}>Param: <strong>{d.param}</strong></p>
+                            <p style={{ color: '#475569' }}>Nilai: <strong>{d.y}</strong></p>
+                        </div>
+                    );
+                };
+
+                const NORMAL_POINT_SIZE = 30;
+                const OUTLIER_POINT_SIZE = 80;
+
                 return (
-                    <div className="table-flow-container">
-                        <table className="viz-table">
-                            <thead>
-                                <tr><th>Waktu</th><th>Param</th><th>Nilai</th><th>Status</th></tr>
-                            </thead>
-                            <tbody>
-                                {outlierRows.map((d, i) => (
-                                    <tr key={i} className={d.outlier ? 'outlier-row' : ''}>
-                                        <td>{d.time}</td>
-                                        <td>{d.param}</td>
-                                        <td>{d.value}</td>
-                                        <td>{d.outlier ? 'Abnormal' : 'Normal'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="outlier-container">
+                        {outlierChartData.length > 0 && (
+                            <div className="outlier-chart-wrap">
+                                <div className="outlier-legend">
+                                    <span className="outlier-legend-dot normal"></span><span>Normal</span>
+                                    <span className="outlier-legend-dot flagged"></span><span>Outlier</span>
+                                </div>
+                                <ResponsiveContainer width="100%" height={160}>
+                                    <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                                        <XAxis type="number" dataKey="x" hide domain={[-0.5, outlierChartData.length - 0.5]} />
+                                        <YAxis type="number" dataKey="y" fontSize={10} axisLine={false} tickLine={false} width={38} domain={['auto', 'auto']} />
+                                        <ZAxis range={[NORMAL_POINT_SIZE, NORMAL_POINT_SIZE]} />
+                                        <Tooltip content={<OutlierTooltipRenderer />} />
+                                        <Scatter name="Normal" data={normalPoints} fill="#60a5fa" />
+                                        <ZAxis range={[OUTLIER_POINT_SIZE, OUTLIER_POINT_SIZE]} />
+                                        <Scatter name="Outlier" data={flaggedPoints} fill="#ef4444" />
+                                    </ScatterChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                        <div className="table-flow-container">
+                            <table className="viz-table">
+                                <thead>
+                                    <tr><th>Waktu</th><th>Param</th><th>Nilai</th><th>Status</th></tr>
+                                </thead>
+                                <tbody>
+                                    {outlierRows.map((d, i) => (
+                                        <tr key={i} className={d.outlier ? 'outlier-row' : ''}>
+                                            <td>{d.time}</td>
+                                            <td>{d.param}</td>
+                                            <td className="outlier-value">{d.value}</td>
+                                            <td>
+                                                <span className={`outlier-status-badge ${d.outlier ? 'is-outlier' : 'is-normal'}`}>
+                                                    {d.outlier ? '⚠ Abnormal' : '✓ Normal'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 );
+            }
 
             case 'audit': // Clinical Audit Checklist
                 if (safeArray.length === 0) {

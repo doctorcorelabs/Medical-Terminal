@@ -2474,8 +2474,8 @@ ATURAN KRUSIAL:
                                             onMouseEnter={() => setSelectedIndex(index)}
                                         >
                                             <div className="item-info">
-                                                <span className="item-name">/{shortcut.id}</span>
-                                                <span className="item-desc">{shortcut.label}</span>
+                                                <span className="item-name">/{shortcut.id} <span className="item-label">{shortcut.label}</span></span>
+                                                <span className="item-desc">{shortcut.description}</span>
                                             </div>
                                         </div>
                                     ))}
