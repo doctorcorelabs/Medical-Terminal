@@ -34,6 +34,8 @@ export function CopilotProvider({ children }) {
         localStorage.setItem('copilot_context_enabled', JSON.stringify(val));
     }, []);
 
+    const [isPdfExportMode, setIsPdfExportMode] = useState(false);
+
     const activeContextEnabled = isIntern ? false : isContextEnabled;
 
     return (
@@ -43,7 +45,9 @@ export function CopilotProvider({ children }) {
             setPageContext: updatePageContext, 
             clearPageContext,
             isContextEnabled: activeContextEnabled,
-            toggleContext
+            toggleContext,
+            isPdfExportMode,
+            setIsPdfExportMode
         }}>
             {children}
         </CopilotContext.Provider>

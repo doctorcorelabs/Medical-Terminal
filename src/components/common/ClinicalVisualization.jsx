@@ -8,10 +8,36 @@ import {
 } from 'recharts';
 import './ClinicalVisualization.css';
 
+import { useCopilotContext } from '../../context/CopilotContext';
+
 const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, exportChartKey, exportChartType, width = 800, height = 220 }) => {
+    const { isPdfExportMode } = useCopilotContext();
     const [activeDashboardFilter, setActiveDashboardFilter] = useState(null);
+    const isPdfMode = typeof window !== 'undefined' && (isPdfExportMode || window.__PDF_EXPORT_MODE__ === true || document.documentElement.getAttribute('data-pdf-export') === 'true');
 
     const safeArray = Array.isArray(data) ? data : [];
+
+    const renderCustomLegend = (props) => {
+        const { payload } = props;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: '4px', gap: '20px' }}>
+                {payload.map((entry, index) => {
+                    let label = entry.value;
+                    if (label === 'vitals') label = 'Vital Signs';
+                    else if (label === 'lab') label = 'Lab';
+                    else if (label === 'actual') label = 'Aktual';
+                    else if (label === 'forecast') label = 'Prediksi';
+
+                    return (
+                        <div key={`item-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: entry.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
 
     const normalizeHeatmapRows = (rows) => {
         if (!Array.isArray(rows)) return [];
@@ -98,7 +124,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                 width={40}
                             />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} formatter={(value) => value === 'vitals' ? 'Vital Signs' : 'Lab'} />
+                            <Legend content={renderCustomLegend} verticalAlign="bottom" height={36} />
                             <Line 
                                 yAxisId="left" 
                                 type="monotone" 
@@ -108,6 +134,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                 strokeWidth={2.5} 
                                 dot={{ r: 3.5, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} 
                                 activeDot={{ r: 5 }} 
+                                isAnimationActive={!isPdfMode}
                                 connectNulls
                             />
                             <Line 
@@ -119,6 +146,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                 strokeWidth={2.5} 
                                 dot={{ r: 3.5, fill: '#fff', stroke: '#10b981', strokeWidth: 2 }} 
                                 activeDot={{ r: 5 }} 
+                                isAnimationActive={!isPdfMode}
                                 connectNulls
                             />
                         </LineChart>
@@ -137,10 +165,10 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                 return (
                     <ResponsiveContainer width={600} height={chartHeight}>
                         <RadarChart cx="50%" cy="50%" outerRadius="65%" data={safeArray} margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
-                            <PolarGrid stroke="rgba(0,0,0,0.1)" />
-                            <PolarAngleAxis dataKey="subject" fontSize={11} fontWeight={600} />
-                            <PolarRadiusAxis angle={30} domain={[0, 10]} fontSize={10} />
-                            <Radar name="Skor Risiko" dataKey="A" stroke="#136dec" fill="#136dec" fillOpacity={0.4} />
+                            <PolarGrid stroke="#cbd5e1" strokeOpacity={0.8} />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: "#475569", fontSize: 11, fontWeight: 700 }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 10]} fontSize={10} stroke="#94a3b8" />
+                            <Radar name="Skor Risiko" dataKey="A" stroke="#136dec" strokeWidth={2} fill="#136dec" fillOpacity={0.6} isAnimationActive={!isPdfMode} />
                             <Tooltip />
                         </RadarChart>
                     </ResponsiveContainer>
@@ -230,6 +258,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                     outerRadius={80}
                                     paddingAngle={0}
                                     dataKey="value"
+                                    isAnimationActive={!isPdfMode}
                                 >
                                     <Cell fill="#136dec" />
                                     <Cell fill="rgba(19, 109, 236, 0.1)" />
@@ -277,7 +306,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                             <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 30, right: 30 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Area type="monotone" dataKey="level" stroke="#136dec" strokeWidth={3} fillOpacity={1} fill="url(#colorConc)" connectNulls />
+                            <Area type="monotone" dataKey="level" stroke="#136dec" strokeWidth={3} fillOpacity={1} fill="url(#colorConc)" isAnimationActive={!isPdfMode} connectNulls />
                         </AreaChart>
                     </ResponsiveContainer>
                 );
@@ -298,7 +327,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                             <XAxis type="number" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} domain={['auto', 'auto']} />
                             <YAxis dataKey="name" type="category" width={100} fontSize={10} axisLine={false} tickLine={false} tickMargin={5} />
                             <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Bar dataKey="delta" radius={[0, 4, 4, 0]} barSize={20}>
+                            <Bar dataKey="delta" radius={[0, 4, 4, 0]} barSize={20} isAnimationActive={!isPdfMode}>
                                 {safeArray.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.delta > 0 ? '#ef4444' : '#10b981'} />
                                 ))}
@@ -336,7 +365,7 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                             <XAxis dataKey="time" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} formatter={(value, name) => [value, name === 'vital' ? 'Vital' : name]} />
-                            <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={renderTimelineDot} activeDot={{ r: 6 }} connectNulls />
+                            <Line type="monotone" dataKey="vital" stroke="#136dec" strokeWidth={3} dot={renderTimelineDot} activeDot={{ r: 6 }} isAnimationActive={!isPdfMode} connectNulls />
                         </LineChart>
                     </ResponsiveContainer>
                 );
@@ -357,9 +386,9 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                             <XAxis dataKey="day" fontSize={10} axisLine={false} tickLine={false} tickMargin={10} padding={{ left: 40, right: 40 }} />
                             <YAxis fontSize={10} axisLine={false} tickLine={false} width={40} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} formatter={(value) => value === 'actual' ? 'Aktual' : 'Prediksi'} />
-                            <Line type="monotone" dataKey="actual" name="actual" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} connectNulls />
-                            <Line type="monotone" dataKey="forecast" name="forecast" stroke="#136dec" strokeDasharray="5 5" strokeOpacity={0.5} dot={false} connectNulls />
+                            <Legend content={renderCustomLegend} verticalAlign="bottom" height={36} />
+                            <Line type="monotone" dataKey="actual" name="actual" stroke="#136dec" strokeWidth={3} dot={{ r: 4, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} isAnimationActive={!isPdfMode} connectNulls />
+                            <Line type="monotone" dataKey="forecast" name="forecast" stroke="#136dec" strokeDasharray="5 5" strokeOpacity={0.5} dot={false} isAnimationActive={!isPdfMode} connectNulls />
                         </LineChart>
                     </ResponsiveContainer>
                 );
@@ -416,9 +445,9 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                         <YAxis type="number" dataKey="y" fontSize={10} axisLine={false} tickLine={false} width={38} domain={['auto', 'auto']} />
                                         <ZAxis range={[NORMAL_POINT_SIZE, NORMAL_POINT_SIZE]} />
                                         <Tooltip content={<OutlierTooltipRenderer />} />
-                                        <Scatter name="Normal" data={normalPoints} fill="#60a5fa" />
+                                        <Scatter name="Normal" data={normalPoints} fill="#60a5fa" isAnimationActive={!isPdfMode} />
                                         <ZAxis range={[OUTLIER_POINT_SIZE, OUTLIER_POINT_SIZE]} />
-                                        <Scatter name="Outlier" data={flaggedPoints} fill="#ef4444" />
+                                        <Scatter name="Outlier" data={flaggedPoints} fill="#ef4444" isAnimationActive={!isPdfMode} />
                                     </ScatterChart>
                                 </ResponsiveContainer>
                             </div>

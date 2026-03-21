@@ -116,7 +116,7 @@ const sanitizeAiResponse = (text) => {
             const attrStr = Object.entries(attrs)
                 .map(([k, v]) => `${k}="${v.toString().replace(/"/g, '&quot;')}"`)
                 .join(' ');
-            return `\n\n<medicalchart ${attrStr} />\n\n`;
+            return `\n\n<medicalchart ${attrStr}></medicalchart>\n\n`;
         }
         if (segment.type === 'malformed-chart') {
             return `\n\n> [!ERROR]\n> Gagal memproses visualisasi (${segment.reasonCode})\n\n`;
@@ -211,30 +211,24 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
                                                     const chartData = safeParseChartData(props.data);
                                                     const isEmptyData = !chartData || (Array.isArray(chartData) && chartData.length === 0);
 
-                                                    if (!rawType || isEmptyData || chartData === null) {
-                                                        // Jika tipe kosong atau data tidak ada, jangan render kontainer visualisasi, tapi tetap render children 
-                                                        // untuk mencegah content swallowing jika tag tidak tertutup sempurna di markdown.
-                                                        return <>{children}</>;
-                                                    }
-
-                                                    const chartKey = `chart-${chartRenderCounter++}`;
-                                                    return (
-                                                        <>
-                                                            <ClinicalVisualization 
-                                                                type={rawType} 
-                                                                data={chartData} 
-                                                                title={props.title || ''}
-                                                                exportChartKey={chartKey}
-                                                                exportChartType={rawType}
-                                                            />
-                                                            {children}
-                                                        </>
-                                                    );
+                                                     const chartKey = `chart-${chartRenderCounter++}`;
+                                                     return (
+                                                         <>
+                                                             <ClinicalVisualization 
+                                                                 type={rawType || 'unknown'} 
+                                                                 data={chartData} 
+                                                                 title={props.title || ''}
+                                                                 exportChartKey={chartKey}
+                                                                 exportChartType={rawType}
+                                                             />
+                                                             {children}
+                                                         </>
+                                                     );
                                                 } catch (e) {
                                                     console.error("Failed to parse chart data:", e);
                                                     return (
-                                                        <div className="chart-error-box">
-                                                            <div className="text-red-500 text-xs font-bold mb-1">Gagal memuat visualisasi</div>
+                                                         <div className="chart-error-box medical-chart-container">
+                                                             <div className="text-red-500 text-xs font-bold mb-1">Gagal memuat visualisasi</div>
                                                             {children}
                                                         </div>
                                                     );
@@ -953,9 +947,9 @@ ATURAN KRUSIAL:
             vizContent?.scrollHeight || 0,
             vizCanvasWrapper?.scrollHeight || 0,
             rect.height || 0,
-            svgHeight + 64,
-            canvasHeight + 64,
-            220,
+            svgHeight + 96,
+            canvasHeight + 96,
+            240,
         );
 
         return {
@@ -990,14 +984,21 @@ ATURAN KRUSIAL:
 
         while ((Date.now() - start) < timeoutMs) {
             const dims = inferChartDimensions(container);
-            const width = dims.width;
-            const height = dims.height;
-            const hasRenderableNode = dims.hasRenderableNode;
+            const { width, height, hasRenderableNode } = dims;
             const childElementCount = container.querySelectorAll('*').length;
+            
+            // Stricter check for SVG charts:
+            // Ensure they have actual content like <path> or <rect> or <circle>
+            const svgEl = container.querySelector('svg');
+            const hasActualData = !hasRenderableNode || (
+                (svgEl ? svgEl.querySelectorAll('path, rect, circle, g.recharts-layer').length > 5 : true) &&
+                (container.querySelector('table') ? container.querySelector('tbody tr') : true)
+            );
+
             lastMetrics = { width, height, hasRenderableNode, childElementCount };
 
-            if (width > 0 && height > 0 && (hasRenderableNode || childElementCount > 5)) {
-                const signature = `${width}x${height}:${hasRenderableNode ? 'r' : 'n'}`;
+            if (width > 0 && height > 0 && hasActualData && (hasRenderableNode || childElementCount > 10)) {
+                const signature = `${width}x${height}:${hasRenderableNode ? 'r' : 'n'}:${childElementCount}`;
                 stableCount = signature === previousSignature ? stableCount + 1 : 1;
                 previousSignature = signature;
 
@@ -1055,23 +1056,51 @@ ATURAN KRUSIAL:
             node.setAttribute(attrName, String(bounded));
         };
 
-        const normalizeSvgForPdf = (svgRoot) => {
+        const normalizeSvgForPdf = (svgRoot, originalRoot = null) => {
             if (!svgRoot) return;
 
             svgRoot.style.background = '#ffffff';
+            svgRoot.style.fontFamily = 'Inter, system-ui, sans-serif';
+
+            // Map styles from live nodes to the clone
+            const targetNodes = Array.from(svgRoot.querySelectorAll('*'));
+            const sourceNodes = originalRoot ? Array.from(originalRoot.querySelectorAll('*')) : [];
+
+            targetNodes.forEach((node, i) => {
+                if (!node || node.nodeType !== 1) return;
+                try {
+                    const sourceNode = sourceNodes[i] || node;
+                    // Only compute style if it's a different node (the source)
+                    const cs = sourceNode !== node ? window.getComputedStyle(sourceNode) : null;
+                    
+                    if (cs) {
+                        const fill = cs.fill;
+                        const stroke = cs.stroke;
+                        const fontSize = cs.fontSize;
+                        const fontWeight = cs.fontWeight;
+                        const opacity = cs.opacity;
+
+                        if (fill && fill !== 'none' && fill !== 'rgba(0, 0, 0, 0)') node.setAttribute('fill', fill);
+                        if (stroke && stroke !== 'none' && stroke !== 'rgba(0, 0, 0, 0)') node.setAttribute('stroke', stroke);
+                        if (fontSize) node.style.fontSize = fontSize;
+                        if (fontWeight) node.style.fontWeight = fontWeight;
+                        if (opacity && opacity !== '1') node.setAttribute('opacity', opacity);
+                    }
+                } catch { /* skip if getComputedStyle fails */ }
+            });
 
             svgRoot.querySelectorAll('.recharts-cartesian-grid line, .recharts-cartesian-grid path').forEach((node) => {
                 node.setAttribute('stroke', '#cbd5e1');
-                node.setAttribute('stroke-opacity', '1');
+                node.setAttribute('stroke-opacity', '0.6');
             });
 
             svgRoot.querySelectorAll('.recharts-polar-grid-angle line, .recharts-polar-grid-concentric circle, .recharts-polar-grid-concentric polygon').forEach((node) => {
                 node.setAttribute('stroke', '#cbd5e1');
-                node.setAttribute('stroke-opacity', '1');
+                node.setAttribute('stroke-opacity', '0.8');
             });
 
             svgRoot.querySelectorAll('.recharts-radar-polygon').forEach((node) => {
-                node.setAttribute('fill-opacity', '0.78');
+                node.setAttribute('fill-opacity', '0.6');
                 node.setAttribute('stroke-opacity', '1');
             });
 
@@ -1081,30 +1110,35 @@ ATURAN KRUSIAL:
             });
 
             svgRoot.querySelectorAll('*').forEach((node) => {
-                normalizeOpacityAttribute(node, 'fill-opacity', 0.55);
-                normalizeOpacityAttribute(node, 'stroke-opacity', 0.8);
-                normalizeOpacityAttribute(node, 'stop-opacity', 0.45);
-                normalizeOpacityAttribute(node, 'opacity', 0.8);
+                // EXEMPTION: Do not crush opacity for text elements
+                const isText = node.tagName.toLowerCase() === 'text' || node.tagName.toLowerCase() === 'tspan';
+                const isRadarPolygon = node.classList.contains('recharts-radar-polygon');
 
-                ['fill', 'stroke', 'stop-color'].forEach((attrName) => {
-                    const raw = node.getAttribute(attrName);
-                    if (!raw) return;
-                    const solid = rgbaToSolidRgb(raw, 0.72);
-                    if (solid) {
-                        node.setAttribute(attrName, solid);
-                    }
-                });
+                if (!isText && !isRadarPolygon) {
+                    normalizeOpacityAttribute(node, 'fill-opacity', 0.55);
+                    normalizeOpacityAttribute(node, 'stroke-opacity', 0.8);
+                    normalizeOpacityAttribute(node, 'stop-opacity', 0.45);
+                    normalizeOpacityAttribute(node, 'opacity', 0.8);
+
+                    ['fill', 'stroke', 'stop-color'].forEach((attrName) => {
+                        const raw = node.getAttribute(attrName);
+                        if (!raw) return;
+                        const solid = rgbaToSolidRgb(raw, 0.72);
+                        if (solid) {
+                            node.setAttribute(attrName, solid);
+                        }
+                    });
+                }
             });
         };
 
-        const normalizeContainerForPdf = (rootNode) => {
+        const normalizeContainerForPdf = (rootNode, originalRoot = null, { width, height } = {}) => {
             if (!rootNode) return;
 
             rootNode.setAttribute('data-export-render-intent', 'pdf');
             rootNode.style.background = '#ffffff';
             rootNode.style.opacity = '1';
             rootNode.style.boxShadow = 'none';
-            // Ensure the container itself doesn't clip chart overflow
             rootNode.style.overflow = 'visible';
 
             const scroller = rootNode.querySelector('.viz-content');
@@ -1132,27 +1166,56 @@ ATURAN KRUSIAL:
                 el.style.width = '100%';
                 el.style.overflow = 'visible';
             });
-            rootNode.querySelectorAll('.heatmap-compact-grid').forEach((el) => {
+            rootNode.querySelectorAll('.heatmap-legend').forEach((el) => {
+                el.style.overflow = 'visible';
+                el.style.width = '100%';
+                el.style.display = 'flex';
+                el.style.justifyContent = 'space-between';
+                el.style.whiteSpace = 'nowrap';
+                el.style.paddingRight = '4px';
+            });
+            rootNode.querySelectorAll('.heatmap-compact-grid, .viz-gantt-list, .viz-audit-list, .viz-dashboard-list').forEach((el) => {
                 el.style.width = '100%';
                 el.style.overflow = 'visible';
             });
-            rootNode.querySelectorAll('.viz-gantt-list, .viz-audit-list, .viz-dashboard-list').forEach((el) => {
-                el.style.width = '100%';
-                el.style.overflow = 'visible';
+
+            // Recharts responsive container width forcing
+            rootNode.querySelectorAll('.recharts-responsive-container').forEach((rc) => {
+                const targetWidth = width || rootNode.offsetWidth || 800; 
+                rc.style.width = `${targetWidth}px`;
+                rc.style.minWidth = `${targetWidth}px`;
             });
+
+            rootNode.querySelectorAll('.viz-canvas-wrapper, .heatmap-compact-wrap, .viz-content').forEach((el) => {
+                el.style.overflow = 'visible';
+                el.style.paddingBottom = '48px';
+            });
+
+            rootNode.querySelectorAll('.recharts-legend-wrapper').forEach((leg) => {
+                leg.style.bottom = '-8px'; 
+            });
+            
+            if (height) {
+                const calculatedMinHeight = height + 48; 
+                rootNode.style.minHeight = `${calculatedMinHeight}px`;
+                rootNode.style.height = 'auto';
+            }
+            rootNode.style.overflow = 'visible';
+            rootNode.setAttribute('data-pdf-export', 'true');
 
             rootNode.querySelectorAll('.heatmap-cell').forEach((cell) => {
                 const raw = cell.style.backgroundColor;
                 const solid = rgbaToSolidRgb(raw, 0.82) || '#3b82f6';
                 cell.style.backgroundColor = solid;
-                cell.style.border = '1px solid #bfdbfe';
-                cell.style.color = '#0f172a';
-                // Remove hover transition so static capture looks clean
-                cell.style.transition = 'none';
-                cell.style.transform = 'none';
+                cell.style.borderColor = rgbaToSolidRgb(cell.style.borderColor, 0.9) || '#fff';
             });
 
-            rootNode.querySelectorAll('.outlier-row').forEach((row) => {
+            rootNode.querySelectorAll('.audit-cell-val').forEach((cell) => {
+                cell.style.whiteSpace = 'nowrap';
+                cell.style.overflow = 'visible';
+            });
+
+            rootNode.querySelectorAll('.viz-outlier-row-high').forEach((row) => {
                 row.style.background = '#fee2e2';
                 row.style.color = '#b91c1c';
             });
@@ -1161,24 +1224,15 @@ ATURAN KRUSIAL:
                 item.style.borderLeftColor = '#60a5fa';
             });
 
-            rootNode.querySelectorAll('.viz-dashboard-btn:not(.is-active)').forEach((btn) => {
-                btn.style.background = '#dbeafe';
-                btn.style.borderColor = '#93c5fd';
-                btn.style.color = '#1d4ed8';
-            });
-
-            rootNode.querySelectorAll('.body-part.highlighted').forEach((part) => {
-                part.style.filter = 'none';
-                part.style.fill = '#136dec';
-            });
-
-            // Unconditionally disable all CSS transitions/animations to get a stable snapshot
             rootNode.querySelectorAll('*').forEach((el) => {
                 el.style.transition = 'none';
                 el.style.animation = 'none';
             });
 
-            rootNode.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
+            const originalSvgs = originalRoot ? originalRoot.querySelectorAll('svg') : [];
+            rootNode.querySelectorAll('svg').forEach((svg, idx) => {
+                normalizeSvgForPdf(svg, originalSvgs[idx] || null);
+            });
         };
 
         const isCanvasMostlyBlank = (canvas) => {
@@ -1189,33 +1243,38 @@ ATURAN KRUSIAL:
             const height = canvas.height;
             if (width < 2 || height < 2) return true;
 
-            // Focus on lower area where chart body should exist (exclude mostly header zone).
-            const startY = Math.floor(height * 0.25);
-            const endY = Math.max(startY + 1, Math.floor(height * 0.95));
+            // Sample from y=120px to avoid headers (title/icon) which are almost 
+            // always colored and cause false-detection for blank charts.
+            const startY = Math.max(120, Math.floor(height * 0.15));
+            const endY = Math.floor(height * 0.9);
             const startX = Math.floor(width * 0.05);
-            const endX = Math.max(startX + 1, Math.floor(width * 0.95));
+            const endX = Math.floor(width * 0.95);
 
-            const stepX = Math.max(1, Math.floor((endX - startX) / 24));
-            const stepY = Math.max(1, Math.floor((endY - startY) / 20));
+            const samplesX = 80;
+            const samplesY = 80;
+            const stepX = Math.max(1, Math.floor((endX - startX) / samplesX));
+            const stepY = Math.max(1, Math.floor((endY - startY) / samplesY));
 
             let colored = 0;
-            let total = 0;
 
             for (let y = startY; y < endY; y += stepY) {
                 for (let x = startX; x < endX; x += stepX) {
                     const p = ctx.getImageData(x, y, 1, 1).data;
-                    total += 1;
-                    const alpha = p[3];
-                    const isNearWhite = p[0] > 245 && p[1] > 245 && p[2] > 245;
-                    if (alpha > 10 && !isNearWhite) {
-                        colored += 1;
-                    }
+                    const r = p[0], g = p[1], b = p[2], a = p[3];
+                    
+                    if (a < 40) continue; 
+                    if (r > 250 && g > 250 && b > 250) continue; 
+
+                    // Skip light grays/grid
+                    const isGray = Math.abs(r - g) < 15 && Math.abs(g - b) < 15 && Math.abs(r - b) < 15;
+                    if (isGray && r > 190) continue;
+
+                    colored++;
+                    if (colored >= 6) return false; 
                 }
             }
 
-            const ratio = total > 0 ? (colored / total) : 0;
-            // Thin-line charts can occupy very small pixel ratio on large white backgrounds.
-            return colored <= 2 && ratio < 0.0005;
+            return colored < 6;
         };
 
         const captureFromChartSvg = async () => {
@@ -1260,7 +1319,7 @@ ATURAN KRUSIAL:
             } else if (!svgClone.getAttribute('viewBox')) {
                 svgClone.setAttribute('viewBox', `0 0 ${naturalWidth} ${naturalHeight}`);
             }
-            normalizeSvgForPdf(svgClone);
+            normalizeSvgForPdf(svgClone, svgNode);
 
             const serialized = new XMLSerializer().serializeToString(svgClone);
             const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
@@ -1372,64 +1431,44 @@ ATURAN KRUSIAL:
 
             const safeWidth = Math.min(COPILOT_PDF_PERF.maxCaptureWidth, Math.max(320, Math.round(width || target.scrollWidth || target.offsetWidth || 0)));
             const safeHeight = Math.min(COPILOT_PDF_PERF.maxCaptureHeight, Math.max(180, Math.round(height || target.scrollHeight || target.offsetHeight || 0)));
+            const captureW = Math.max(safeWidth, COPILOT_PDF_PERF.pdfCloneMinWidth);
 
             let captureTarget = target;
             let sandbox = null;
 
             if (useOffscreenClone) {
-                // Use PDF-quality minimum width for cloned charts
-                const cloneW = Math.max(safeWidth, COPILOT_PDF_PERF.pdfCloneMinWidth);
                 sandbox = document.createElement('div');
-                sandbox.style.position = 'absolute';
-                sandbox.style.left = '0px';
-                sandbox.style.top = '0';
-                sandbox.style.pointerEvents = 'none';
-                sandbox.style.width = `${cloneW}px`;
-                sandbox.style.height = `${safeHeight}px`;
-                sandbox.style.overflow = 'visible';
-                sandbox.style.background = '#ffffff';
-                // opacity must be > 0 so WebKit still processes layout/paint for the element
-                sandbox.style.opacity = '0.01';
+                sandbox.style.cssText = [
+                    'position:absolute', 'left:0', 'top:0', 'pointer-events:none', 'z-index:-9999',
+                    `width:${captureW}px`, `height:${safeHeight}px`, 'overflow:visible',
+                    'background:#fff', 'opacity:0.03'
+                ].join(';');
 
                 const cloned = target.cloneNode(true);
-                cloned.style.width = `${cloneW}px`;
-                cloned.style.minHeight = `${safeHeight}px`;
-                cloned.style.display = 'block';
-
-                const clonedScroller = cloned.querySelector('.viz-content');
-                if (clonedScroller) {
-                    clonedScroller.style.overflow = 'visible';
-                    clonedScroller.style.width = `${cloneW}px`;
-                }
-
-                const clonedContainer = cloned.querySelector('.clinical-viz-container') || cloned;
-                clonedContainer.style.background = '#ffffff';
-                clonedContainer.style.opacity = '1';
-                clonedContainer.style.boxShadow = 'none';
-                normalizeContainerForPdf(clonedContainer);
-
-                const clonedCanvasWrapper = cloned.querySelector('.viz-canvas-wrapper');
-                if (clonedCanvasWrapper) {
-                    clonedCanvasWrapper.style.overflow = 'visible';
-                    clonedCanvasWrapper.style.minWidth = '0';
-                }
-
-                // Force ResponsiveContainer widths for mobile/iPad
-                forceResponsiveContainerWidth(cloned, cloneW);
+                cloned.style.cssText = [
+                    `width:${captureW}px`, `min-width:${captureW}px`, `min-height:${safeHeight}px`,
+                    'background:#fff', 'opacity:1', 'display:block'
+                ].join(';');
 
                 sandbox.appendChild(cloned);
                 document.body.appendChild(sandbox);
-                captureTarget = cloned;
 
-                // Let browser finalize layout + extra time for Recharts to re-render.
-                // Mobile/iPad needs more settle time for WebKit compositor.
-                await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                await new Promise((resolve) => setTimeout(resolve, cloneSettleMs));
+                // Pass original target to normalize styles in clone
+                normalizeContainerForPdf(cloned, target, { width: captureW, height: safeHeight });
+                forceResponsiveContainerWidth(cloned, captureW);
+
+                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                await new Promise(r => setTimeout(r, cloneSettleMs));
+
+                // Extra wait if SVG is still empty
+                const svgInClone = cloned.querySelector('svg');
+                if (svgInClone && svgInClone.childElementCount < 3) {
+                    await new Promise(r => setTimeout(r, 600));
+                }
+                captureTarget = cloned;
             }
 
             try {
-                // Use PDF-quality minimum width for html2canvas capture
-                const captureW = Math.max(safeWidth, COPILOT_PDF_PERF.pdfCloneMinWidth);
                 const canvas = await html2canvas(captureTarget, {
                     backgroundColor: '#ffffff',
                     scale: captureScale,
@@ -1438,8 +1477,6 @@ ATURAN KRUSIAL:
                     allowTaint: false,
                     width: captureW,
                     height: safeHeight,
-                    // Force windowWidth to PDF-quality minimum so CSS media queries
-                    // and ResponsiveContainer treat viewport as desktop-width.
                     windowWidth: Math.max(captureW, COPILOT_PDF_PERF.pdfCloneMinWidth),
                     scrollX: 0,
                     scrollY: 0,
@@ -1447,25 +1484,7 @@ ATURAN KRUSIAL:
                         const selector = `[data-export-chart-key="${chartKey}"]`;
                         const clonedContainer = clonedDoc.querySelector(selector) || clonedDoc.querySelector('.clinical-viz-container');
                         if (clonedContainer) {
-                            clonedContainer.style.background = '#ffffff';
-                            clonedContainer.style.opacity = '1';
-                            clonedContainer.style.boxShadow = 'none';
-                            clonedContainer.style.overflow = 'visible';
-                            clonedContainer.style.width = `${captureW}px`;
-                            normalizeContainerForPdf(clonedContainer);
-                            clonedContainer.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
-                            const scroller = clonedContainer.querySelector('.viz-content');
-                            if (scroller) {
-                                scroller.style.overflow = 'visible';
-                                scroller.style.width = `${captureW}px`;
-                            }
-                            const canvasWrapper = clonedContainer.querySelector('.viz-canvas-wrapper');
-                            if (canvasWrapper) {
-                                canvasWrapper.style.overflow = 'visible';
-                                canvasWrapper.style.minWidth = '0';
-                                canvasWrapper.style.width = `${captureW}px`;
-                            }
-                            // Force ResponsiveContainer widths in the html2canvas clone
+                            normalizeContainerForPdf(clonedContainer, target);
                             forceResponsiveContainerWidth(clonedContainer, captureW);
                         }
                     }
@@ -1493,9 +1512,9 @@ ATURAN KRUSIAL:
         const rechartsWrapper = container.querySelector('.recharts-wrapper');
 
         const originalWidth = container.style.width;
-        const originalPosition = container.style.position;
-        const originalMinHeight = container.style.minHeight;
-        const originalDisplay = container.style.display;
+        const originalPosition = container.style.position || '';
+        const originalMinHeight = container.style.minHeight || '';
+        const originalDisplay = container.style.display || '';
 
         container.style.width = `${dims.width}px`;
         container.style.position = 'relative';
@@ -1513,59 +1532,33 @@ ATURAN KRUSIAL:
             const cloneWidth = Math.max(dims.width, COPILOT_PDF_PERF.pdfCloneMinWidth);
 
             const sandbox = document.createElement('div');
-            // opacity:0.01 (not 0) ensures WebKit processes layout/paint for the element
             sandbox.style.cssText = [
-                'position:absolute', 'left:0', 'top:0', 'pointer-events:none',
-                `width:${cloneWidth}px`, 'min-height:80px',
-                'background:#fff', 'opacity:0.01', 'overflow:visible',
-                'padding:0', 'margin:0', 'box-shadow:none',
-                'font-family:Inter,system-ui,sans-serif',
+                'position:absolute', 'left:0', 'top:0', 'pointer-events:none', 'z-index:-9999',
+                `width:${cloneWidth}px`, 'min-height:80px', 'background:#fff', 'opacity:0.03',
+                'overflow:visible', 'padding:0', 'margin:0', 'font-family:Inter,system-ui,sans-serif',
             ].join(';');
 
             const cloned = container.cloneNode(true);
             cloned.style.cssText = [
-                `width:${cloneWidth}px`, 'max-width:none',
-                'background:#fff', 'box-shadow:none',
-                'border-radius:0', 'overflow:visible',
+                `width:${cloneWidth}px`, `min-width:${cloneWidth}px`, 'background:#fff',
+                'opacity:1', 'display:block', 'box-shadow:none', 'margin:0', 'padding:16px 16px 48px 16px'
             ].join(';');
-
-            // Normalize the cloned container for PDF capture:
-            // - converts RGBA colors to solid, normalizes SVG attributes, etc.
-            normalizeContainerForPdf(cloned);
-
-            // Make ALL internal scrollers visible (both CSS-class-based and inline-style-based)
-            cloned.querySelectorAll('.viz-content, .viz-canvas-wrapper, .table-flow-container').forEach(el => {
-                el.style.overflow = 'visible';
-                el.style.width = `${cloneWidth}px`;
-                el.style.minWidth = '0';
-                el.style.padding = '0';
-            });
-            // Also clear any remaining overflow:hidden/auto set via inline styles
-            cloned.querySelectorAll('[style*="overflow"]').forEach(el => {
-                el.style.overflow = 'visible';
-            });
-
-            // Force all Recharts ResponsiveContainer wrappers to render at
-            // PDF-quality width. Critical on mobile & iPad where the original
-            // containers were rendered at narrow viewport widths.
-            forceResponsiveContainerWidth(cloned, cloneWidth);
-
-            // Normalize SVG elements inside clone for better canvas rendering
-            cloned.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
 
             sandbox.appendChild(cloned);
             document.body.appendChild(sandbox);
 
-            // Wait for RAF + extra settle time so Recharts/ResponsiveContainer can
-            // finish re-measuring the new container and re-rendering chart content.
-            // Mobile/iPad needs more settle time for WebKit compositor.
+            normalizeContainerForPdf(cloned, container, { width: cloneWidth, height: dims.height });
+            forceResponsiveContainerWidth(cloned, cloneWidth);
+
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
             await new Promise(r => setTimeout(r, cloneSettleMs));
 
-            // Measure actual rendered height after layout settles
-            const clonedHeight = Math.max(80, cloned.scrollHeight || cloned.offsetHeight || dims.height);
-
             try {
+                // Wait specifically for SVG content if this is a Recharts chart
+                const svgInClone = cloned.querySelector('svg');
+                if (svgInClone && svgInClone.childElementCount < 3) {
+                    await new Promise(r => setTimeout(r, 800));
+                }
                 const canvas = await html2canvas(cloned, {
                     backgroundColor: '#ffffff',
                     scale: captureScale,
@@ -1573,12 +1566,18 @@ ATURAN KRUSIAL:
                     useCORS: true,
                     allowTaint: false,
                     width: cloneWidth,
-                    height: clonedHeight,
-                    // Force windowWidth to PDF-quality minimum so CSS media queries
-                    // and ResponsiveContainer treat viewport as wide.
+                    height: cloned.offsetHeight || dims.height + 64,
                     windowWidth: Math.max(cloneWidth, COPILOT_PDF_PERF.pdfCloneMinWidth),
                     scrollX: 0,
                     scrollY: 0,
+                    onclone: (clonedDoc) => {
+                        const selector = `[data-export-chart-key="${chartKey}"]`;
+                        const innerCloned = clonedDoc.querySelector(selector) || clonedDoc.querySelector('.medical-chart-container');
+                        if (innerCloned) {
+                            normalizeContainerForPdf(innerCloned, container, { width: cloneWidth, height: dims.height });
+                            forceResponsiveContainerWidth(innerCloned, cloneWidth);
+                        }
+                    },
                 });
 
                 if (isCanvasMostlyBlank(canvas)) {
@@ -1598,13 +1597,25 @@ ATURAN KRUSIAL:
         // If no SVG/recharts element exists, this is a DOM-only chart (gantt, dashboard, audit, etc.)
         // Skip the iframe-based strategies that always fail for pure HTML charts.
         const hasSvg = !!container.querySelector('svg, .recharts-wrapper');
+
+        // On mobile/iPad the iframe-based strategies (container-direct, chart-node-direct) always
+        // fail with "Unable to find element in cloned iframe" due to a Safari/WebKit limitation
+        // in html2canvas. Skip them entirely and go straight to body-clone → svg-serialize.
+        // On desktop, keep the original order for maximum compatibility.
         const strategies = hasSvg
-            ? [
-                { target: container, width: dims.width, height: dims.height, label: 'container-direct', useOffscreenClone: false },
-                { target: vizCanvasWrapper || rechartsWrapper || vizContent || container, width: dims.width, height: dims.height, label: 'chart-node-direct', useOffscreenClone: false },
-                { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
-                { target: container, width: dims.width, height: dims.height, label: 'body-clone', useOffscreenClone: false, customRun: captureFromBodyClone },
-            ]
+            ? isMobileOrTablet
+                ? [
+                    // Mobile/iPad: body-clone first (most reliable), then SVG serialization
+                    { target: container, width: dims.width, height: dims.height, label: 'body-clone', useOffscreenClone: false, customRun: captureFromBodyClone },
+                    { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
+                ]
+                : [
+                    // Desktop: iframe strategies first (fast), then body-clone, then SVG
+                    { target: container, width: dims.width, height: dims.height, label: 'container-direct', useOffscreenClone: false },
+                    { target: vizCanvasWrapper || rechartsWrapper || vizContent || container, width: dims.width, height: dims.height, label: 'chart-node-direct', useOffscreenClone: false },
+                    { target: container, width: dims.width, height: dims.height, label: 'svg-serialize', useOffscreenClone: false, customRun: captureFromChartSvg },
+                    { target: container, width: dims.width, height: dims.height, label: 'body-clone', useOffscreenClone: false, customRun: captureFromBodyClone },
+                ]
             : [
                 // DOM-only: go straight to body-clone
                 { target: container, width: dims.width, height: dims.height, label: 'body-clone', useOffscreenClone: false, customRun: captureFromBodyClone },
@@ -1632,6 +1643,11 @@ ATURAN KRUSIAL:
             container.style.position = originalPosition;
             container.style.minHeight = originalMinHeight;
             container.style.display = originalDisplay;
+            // Cleanup export flag
+            if (typeof window !== 'undefined') {
+                window.__PDF_EXPORT_MODE__ = false;
+                document.documentElement.removeAttribute('data-pdf-export');
+            }
         }
 
         throw lastError || new Error('capture-all-strategies-failed');
@@ -2223,8 +2239,19 @@ ATURAN KRUSIAL:
         }
         return out;
     };
+    const { isPdfExportMode, setIsPdfExportMode } = useCopilotContext();
 
     const handleExportPDF = useCallback(async (msg, msgIdx, triggerEl = null) => {
+        // Flag to disable animations in components
+        if (typeof window !== 'undefined') {
+            window.__PDF_EXPORT_MODE__ = true;
+            document.documentElement.setAttribute('data-pdf-export', 'true');
+            setIsPdfExportMode(true);
+        }
+        
+        // Wait for components to re-render with animations disabled
+        await new Promise(r => setTimeout(r, 400));
+        
         try {
             const exportStart = performance.now();
             const rawContent = getMessageRawText(msg);
@@ -2363,8 +2390,14 @@ ATURAN KRUSIAL:
             // Fallback to regular export if capture fails
             const rawContent = getMessageRawText(msg);
             exportCopilotResponsePDF(rawContent, patientData);
+        } finally {
+            if (typeof window !== 'undefined') {
+                window.__PDF_EXPORT_MODE__ = false;
+                document.documentElement.removeAttribute('data-pdf-export');
+                setIsPdfExportMode(false);
+            }
         }
-    }, [patientData, isContextEnabled]);
+    }, [patientData, isContextEnabled, setIsPdfExportMode]);
 
     return (
         <div className={`copilot-container ${isOpen ? 'is-open' : ''}`}>
