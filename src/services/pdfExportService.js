@@ -156,18 +156,27 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
             const imgProperties = doc.getImageProperties(chartDataUrl);
             const safeWidth = Math.max(1, Number(imgProperties.width) || 1);
             const safeHeight = Math.max(1, Number(imgProperties.height) || 1);
-            const scale = Math.min(mw / safeWidth, 150 / safeHeight);
+            // Use up to 200mm height and full content width for charts
+            const maxPdfHeightMm = 200;
+            const scale = Math.min(mw / safeWidth, maxPdfHeightMm / safeHeight);
             const imgWidth = safeWidth * scale;
             const imgHeight = safeHeight * scale;
 
+            // Add a new page if the chart doesn't fit and would take more than half the remaining space
             if (curY + imgHeight > pageBottomY) {
                 doc.addPage();
                 curY = 20;
             }
 
             const imgX = x + INDENT + ((mw - imgWidth) / 2);
+            // Draw a light background box and border around the chart
+            const pad = 3;
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(219, 234, 254);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(imgX - pad, curY - pad, imgWidth + pad * 2, imgHeight + pad * 2, 2, 2, 'FD');
             doc.addImage(chartDataUrl, 'PNG', imgX, curY, imgWidth, imgHeight, undefined, 'FAST');
-            return curY + imgHeight + LH;
+            return curY + imgHeight + LH * 2;
         } catch (imgErr) {
             console.error('Error adding chart image to PDF:', imgErr);
             const reason = chartDiagnosticsByKey[chartKey]?.reasonCode || 'image-invalid';

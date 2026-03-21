@@ -27,20 +27,20 @@ const CHART_CAPTURE_REASON = {
 };
 
 const COPILOT_PDF_PERF = {
-    waitTimeoutMs: 1500,
+    waitTimeoutMs: 3000,
     waitPollMs: 80,
-    waitStableCycles: 1,
+    waitStableCycles: 2,
     captureScale: 2,
     maxCaptureWidth: 1200,
-    maxCaptureHeight: 1400,
-    maxRetries: 1,
-    retryDelayMs: 150,
+    maxCaptureHeight: 1600,
+    maxRetries: 2,
+    retryDelayMs: 250,
     fallbackCanvasWidth: 1400,
-    fallbackCanvasHeight: 800,
+    fallbackCanvasHeight: 900,
     svgRenderScale: 2,
     // Extra ms to wait after RAF frames so Recharts/ResponsiveContainer can
     // finish re-rendering after being mounted in an off-screen clone container.
-    bodyCloneSettleMs: 300,
+    bodyCloneSettleMs: 600,
     // Set to true to bypass DOM capture entirely and render charts from raw
     // MedicalChart data directly in jsPDF (requires renderCopilotChartToPdf
     // helper in pdfExportService). Currently unused - reserved for future use.
@@ -1112,12 +1112,29 @@ ATURAN KRUSIAL:
             if (canvasWrapper) {
                 canvasWrapper.style.overflow = 'visible';
                 canvasWrapper.style.minWidth = '0';
+                canvasWrapper.style.padding = '0';
+                canvasWrapper.style.alignItems = 'stretch';
+                canvasWrapper.style.width = '100%';
             }
 
             const tableContainer = rootNode.querySelector('.table-flow-container');
             if (tableContainer) {
                 tableContainer.style.overflow = 'visible';
+                tableContainer.style.width = '100%';
             }
+
+            rootNode.querySelectorAll('.heatmap-compact-wrap').forEach((el) => {
+                el.style.width = '100%';
+                el.style.overflow = 'visible';
+            });
+            rootNode.querySelectorAll('.heatmap-compact-grid').forEach((el) => {
+                el.style.width = '100%';
+                el.style.overflow = 'visible';
+            });
+            rootNode.querySelectorAll('.viz-gantt-list, .viz-audit-list, .viz-dashboard-list').forEach((el) => {
+                el.style.width = '100%';
+                el.style.overflow = 'visible';
+            });
 
             rootNode.querySelectorAll('.heatmap-cell').forEach((cell) => {
                 const raw = cell.style.backgroundColor;
@@ -1208,16 +1225,22 @@ ATURAN KRUSIAL:
 
             const rect = svgNode.getBoundingClientRect();
             const viewBox = svgNode.viewBox?.baseVal;
-            const width = Math.max(
+            // Use a minimum width of 700px for good PDF quality regardless of viewport
+            const PDF_SVG_MIN_WIDTH = 700;
+            const naturalWidth = Math.max(
                 Math.round(rect.width || 0),
                 Math.round(viewBox?.width || 0),
                 600,
             );
-            const height = Math.max(
+            const naturalHeight = Math.max(
                 Math.round(rect.height || 0),
                 Math.round(viewBox?.height || 0),
                 260,
             );
+            // Scale up to at least PDF_SVG_MIN_WIDTH for better PDF rendering
+            const upscaleFactor = naturalWidth < PDF_SVG_MIN_WIDTH ? PDF_SVG_MIN_WIDTH / naturalWidth : 1;
+            const width = Math.round(naturalWidth * upscaleFactor);
+            const height = Math.round(naturalHeight * upscaleFactor);
 
             const svgClone = svgNode.cloneNode(true);
             svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -1402,11 +1425,16 @@ ATURAN KRUSIAL:
         // For DOM-only charts (gantt, dashboard, audit, heatmap, outliers) that have no SVG
         // and fail in html2canvas's iframe clone. We mount a styled clone on document.body.
         const captureFromBodyClone = async () => {
+            // Use a minimum width of 640px for DOM-only charts so they render well in PDF.
+            // For SVG-based charts this is the container width (may be small on mobile).
+            const PDF_CLONE_MIN_WIDTH = 640;
+            const cloneWidth = Math.max(dims.width, PDF_CLONE_MIN_WIDTH);
+
             const sandbox = document.createElement('div');
             // opacity:0.01 (not 0) ensures WebKit processes layout/paint for the element
             sandbox.style.cssText = [
                 'position:absolute', 'left:0', 'top:0', 'pointer-events:none',
-                `width:${dims.width}px`, 'min-height:80px',
+                `width:${cloneWidth}px`, 'min-height:80px',
                 'background:#fff', 'opacity:0.01', 'overflow:visible',
                 'padding:0', 'margin:0', 'box-shadow:none',
                 'font-family:Inter,system-ui,sans-serif',
@@ -1414,7 +1442,7 @@ ATURAN KRUSIAL:
 
             const cloned = container.cloneNode(true);
             cloned.style.cssText = [
-                `width:${dims.width}px`, 'max-width:none',
+                `width:${cloneWidth}px`, 'max-width:none',
                 'background:#fff', 'box-shadow:none',
                 'border-radius:0', 'overflow:visible',
             ].join(';');
@@ -1426,8 +1454,9 @@ ATURAN KRUSIAL:
             // Make ALL internal scrollers visible (both CSS-class-based and inline-style-based)
             cloned.querySelectorAll('.viz-content, .viz-canvas-wrapper, .table-flow-container').forEach(el => {
                 el.style.overflow = 'visible';
-                el.style.width = `${dims.width}px`;
+                el.style.width = `${cloneWidth}px`;
                 el.style.minWidth = '0';
+                el.style.padding = '0';
             });
             // Also clear any remaining overflow:hidden/auto set via inline styles
             cloned.querySelectorAll('[style*="overflow"]').forEach(el => {
@@ -1455,9 +1484,9 @@ ATURAN KRUSIAL:
                     logging: false,
                     useCORS: true,
                     allowTaint: false,
-                    width: dims.width,
+                    width: cloneWidth,
                     height: clonedHeight,
-                    windowWidth: dims.width,
+                    windowWidth: cloneWidth,
                     scrollX: 0,
                     scrollY: 0,
                 });
@@ -1751,6 +1780,331 @@ ATURAN KRUSIAL:
             });
         };
 
+        const drawTrend = (xKey = 'time') => {
+            const points = Array.isArray(parsedData) ? parsedData.slice(0, 30) : [];
+            if (points.length === 0) return;
+            const padL = 120, padR = 60, padT = 200, padB = 80;
+            const chartW = canvas.width - padL - padR;
+            const chartH = canvas.height - padT - padB;
+            const vitalsValues = points.map(p => Number(p.vitals ?? p.vital ?? p.level ?? p.actual)).filter(v => Number.isFinite(v));
+            const labValues = points.map(p => Number(p.lab)).filter(v => Number.isFinite(v));
+            const allValues = [...vitalsValues, ...labValues];
+            if (allValues.length === 0) return;
+            const vMin = Math.min(...allValues);
+            const vMax = Math.max(...allValues);
+            const range = vMax === vMin ? 1 : vMax - vMin;
+            // Grid
+            ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const gy = padT + (chartH / 5) * i;
+                ctx.beginPath(); ctx.moveTo(padL, gy); ctx.lineTo(padL + chartW, gy); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '16px Arial'; ctx.textAlign = 'right';
+                const gVal = (vMax - (range / 5) * i).toFixed(1);
+                ctx.fillText(gVal, padL - 8, gy + 5);
+            }
+            // Axes
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + chartH); ctx.lineTo(padL + chartW, padT + chartH); ctx.stroke();
+            // X labels
+            const step = Math.max(1, Math.floor(points.length / 7));
+            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial'; ctx.textAlign = 'center';
+            for (let i = 0; i < points.length; i += step) {
+                const px = padL + (i / Math.max(1, points.length - 1)) * chartW;
+                const label = String(points[i][xKey] || points[i].day || i).slice(0, 8);
+                ctx.fillText(label, px, padT + chartH + 30);
+            }
+            ctx.textAlign = 'left';
+            const plotLine = (key, color) => {
+                const pts = points.map((p, i) => {
+                    const v = Number(p[key]);
+                    if (!Number.isFinite(v)) return null;
+                    return { x: padL + (i / Math.max(1, points.length - 1)) * chartW, y: padT + chartH - ((v - vMin) / range) * chartH };
+                }).filter(Boolean);
+                if (pts.length === 0) return;
+                ctx.strokeStyle = color; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
+                ctx.fillStyle = '#ffffff'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+                pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+            };
+            // Find the primary data key and legend label from the first data point
+            const firstPoint = parsedData[0] || {};
+            const primaryKey = ['vitals', 'vital', 'level', 'actual'].find(k => Object.prototype.hasOwnProperty.call(firstPoint, k)) || 'actual';
+            const primaryLabel = Object.prototype.hasOwnProperty.call(firstPoint, 'lab') ? 'Vitals' : 'Nilai';
+            plotLine(primaryKey, '#136dec');
+            if (labValues.length > 0) plotLine('lab', '#10b981');
+            // Legend
+            const legendY = canvas.height - 40;
+            ctx.fillStyle = '#136dec'; ctx.fillRect(48, legendY - 14, 28, 14);
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 18px Arial';
+            ctx.fillText(primaryLabel, 84, legendY);
+            if (labValues.length > 0) {
+                ctx.fillStyle = '#10b981'; ctx.fillRect(200, legendY - 14, 28, 14);
+                ctx.fillStyle = '#334155'; ctx.fillText('Lab', 236, legendY);
+            }
+        };
+
+        const drawSimulation = () => {
+            const points = Array.isArray(parsedData) ? parsedData.slice(0, 30) : [];
+            if (points.length === 0) return;
+            const padL = 120, padR = 60, padT = 200, padB = 80;
+            const chartW = canvas.width - padL - padR;
+            const chartH = canvas.height - padT - padB;
+            const values = points.map(p => Number(p.level)).filter(v => Number.isFinite(v));
+            if (values.length === 0) return;
+            const vMin = Math.min(0, ...values);
+            const vMax = Math.max(...values);
+            const range = vMax === vMin ? 1 : vMax - vMin;
+            // Grid
+            ctx.strokeStyle = 'rgba(0,0,0,0.04)'; ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const gy = padT + (chartH / 4) * i;
+                ctx.beginPath(); ctx.moveTo(padL, gy); ctx.lineTo(padL + chartW, gy); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '16px Arial'; ctx.textAlign = 'right';
+                ctx.fillText((vMax - (range / 4) * i).toFixed(1), padL - 8, gy + 5);
+            }
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + chartH); ctx.lineTo(padL + chartW, padT + chartH); ctx.stroke();
+            // Area fill
+            const pts = points.map((p, i) => {
+                const v = Number(p.level);
+                if (!Number.isFinite(v)) return null;
+                return { x: padL + (i / Math.max(1, points.length - 1)) * chartW, y: padT + chartH - ((v - vMin) / range) * chartH };
+            }).filter(Boolean);
+            if (pts.length === 0) return;
+            ctx.fillStyle = 'rgba(19, 109, 236, 0.12)';
+            ctx.beginPath(); ctx.moveTo(pts[0].x, padT + chartH);
+            for (const p of pts) ctx.lineTo(p.x, p.y);
+            ctx.lineTo(pts[pts.length - 1].x, padT + chartH);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#136dec'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+            // X labels
+            const step = Math.max(1, Math.floor(points.length / 7));
+            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial'; ctx.textAlign = 'center';
+            for (let i = 0; i < points.length; i += step) {
+                const px = padL + (i / Math.max(1, points.length - 1)) * chartW;
+                ctx.fillText(String(points[i].time || i), px, padT + chartH + 30);
+            }
+            ctx.textAlign = 'left';
+        };
+
+        const drawForecast = () => {
+            const points = Array.isArray(parsedData) ? parsedData.slice(0, 30) : [];
+            if (points.length === 0) return;
+            const padL = 120, padR = 60, padT = 200, padB = 80;
+            const chartW = canvas.width - padL - padR;
+            const chartH = canvas.height - padT - padB;
+            const allV = [...points.map(p => Number(p.actual)), ...points.map(p => Number(p.forecast))].filter(v => Number.isFinite(v));
+            if (allV.length === 0) return;
+            const vMin = Math.min(...allV), vMax = Math.max(...allV);
+            const range = vMax === vMin ? 1 : vMax - vMin;
+            // Grid
+            ctx.strokeStyle = 'rgba(0,0,0,0.04)'; ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const gy = padT + (chartH / 4) * i;
+                ctx.beginPath(); ctx.moveTo(padL, gy); ctx.lineTo(padL + chartW, gy); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '16px Arial'; ctx.textAlign = 'right';
+                ctx.fillText((vMax - (range / 4) * i).toFixed(1), padL - 8, gy + 5);
+            }
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + chartH); ctx.lineTo(padL + chartW, padT + chartH); ctx.stroke();
+            const plotLine = (key, dashed) => {
+                const pts = points.map((p, i) => {
+                    const v = Number(p[key]);
+                    if (!Number.isFinite(v)) return null;
+                    return { x: padL + (i / Math.max(1, points.length - 1)) * chartW, y: padT + chartH - ((v - vMin) / range) * chartH };
+                }).filter(Boolean);
+                if (pts.length === 0) return;
+                if (dashed) ctx.setLineDash([10, 6]); else ctx.setLineDash([]);
+                ctx.strokeStyle = '#136dec'; ctx.lineWidth = dashed ? 2 : 3;
+                ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            };
+            plotLine('actual', false);
+            plotLine('forecast', true);
+            const step = Math.max(1, Math.floor(points.length / 7));
+            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial'; ctx.textAlign = 'center';
+            for (let i = 0; i < points.length; i += step) {
+                const px = padL + (i / Math.max(1, points.length - 1)) * chartW;
+                ctx.fillText(String(points[i].day || i), px, padT + chartH + 30);
+            }
+            ctx.textAlign = 'left';
+            // Legend
+            const legendY = canvas.height - 40;
+            ctx.setLineDash([]); ctx.strokeStyle = '#136dec'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(48, legendY - 7); ctx.lineTo(76, legendY - 7); ctx.stroke();
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 18px Arial'; ctx.fillText('Aktual', 84, legendY);
+            ctx.setLineDash([8, 5]); ctx.strokeStyle = '#136dec'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(180, legendY - 7); ctx.lineTo(208, legendY - 7); ctx.stroke();
+            ctx.setLineDash([]); ctx.fillStyle = '#334155'; ctx.fillText('Prediksi', 216, legendY);
+        };
+
+        const drawTimeline = () => {
+            // Drug-response timeline: use vital as primary line
+            const points = Array.isArray(parsedData) ? parsedData.slice(0, 30) : [];
+            if (points.length === 0) return;
+            const padL = 120, padR = 60, padT = 200, padB = 80;
+            const chartW = canvas.width - padL - padR;
+            const chartH = canvas.height - padT - padB;
+            const values = points.map(p => Number(p.vital ?? p.value)).filter(v => Number.isFinite(v));
+            if (values.length === 0) return;
+            const vMin = Math.min(...values), vMax = Math.max(...values);
+            const range = vMax === vMin ? 1 : vMax - vMin;
+            ctx.strokeStyle = 'rgba(0,0,0,0.04)'; ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const gy = padT + (chartH / 4) * i;
+                ctx.beginPath(); ctx.moveTo(padL, gy); ctx.lineTo(padL + chartW, gy); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '16px Arial'; ctx.textAlign = 'right';
+                ctx.fillText((vMax - (range / 4) * i).toFixed(1), padL - 8, gy + 5);
+            }
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + chartH); ctx.lineTo(padL + chartW, padT + chartH); ctx.stroke();
+            const pts = points.map((p, i) => {
+                const v = Number(p.vital ?? p.value);
+                if (!Number.isFinite(v)) return null;
+                return { x: padL + (i / Math.max(1, points.length - 1)) * chartW, y: padT + chartH - ((v - vMin) / range) * chartH, drug: p.drug || null };
+            }).filter(Boolean);
+            ctx.strokeStyle = '#136dec'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+            pts.forEach(p => {
+                ctx.fillStyle = p.drug ? '#ef4444' : '#ffffff';
+                ctx.strokeStyle = p.drug ? '#ef4444' : '#136dec';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.drug ? 7 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                if (p.drug) {
+                    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+                    ctx.fillText(String(p.drug).slice(0, 10), p.x, p.y - 14);
+                }
+            });
+            const step = Math.max(1, Math.floor(points.length / 7));
+            ctx.fillStyle = '#64748b'; ctx.font = '16px Arial'; ctx.textAlign = 'center';
+            for (let i = 0; i < points.length; i += step) {
+                const px = padL + (i / Math.max(1, points.length - 1)) * chartW;
+                ctx.fillText(String(points[i].time || i), px, padT + chartH + 30);
+            }
+            ctx.textAlign = 'left';
+        };
+
+        const drawRadar = () => {
+            const points = Array.isArray(parsedData) ? parsedData.slice(0, 10) : [];
+            if (points.length < 3) return;
+            const cx = canvas.width / 2;
+            const cy = Math.round(canvas.height * 0.60);
+            const radius = Math.min(canvas.width, canvas.height - 250) * 0.35;
+            const n = points.length;
+            // Grid circles
+            ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+            [0.25, 0.5, 0.75, 1.0].forEach(r => {
+                ctx.beginPath(); ctx.arc(cx, cy, radius * r, 0, Math.PI * 2); ctx.stroke();
+            });
+            // Axis lines
+            ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+            for (let i = 0; i < n; i++) {
+                const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+                ctx.beginPath(); ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius); ctx.stroke();
+            }
+            // Labels
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 17px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            for (let i = 0; i < n; i++) {
+                const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+                const lx = cx + Math.cos(angle) * radius * 1.18;
+                const ly = cy + Math.sin(angle) * radius * 1.18;
+                ctx.fillText(String(points[i].subject || `S${i + 1}`).slice(0, 12), lx, ly);
+            }
+            // Data polygon
+            ctx.strokeStyle = '#136dec'; ctx.fillStyle = 'rgba(19, 109, 236, 0.22)'; ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let i = 0; i < n; i++) {
+                const val = Math.max(0, Math.min(10, Number(points[i].A || points[i].value || 0)));
+                const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+                const px = cx + Math.cos(angle) * radius * (val / 10);
+                const py = cy + Math.sin(angle) * radius * (val / 10);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            // Dots
+            ctx.fillStyle = '#136dec';
+            for (let i = 0; i < n; i++) {
+                const val = Math.max(0, Math.min(10, Number(points[i].A || points[i].value || 0)));
+                const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+                const px = cx + Math.cos(angle) * radius * (val / 10);
+                const py = cy + Math.sin(angle) * radius * (val / 10);
+                ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        };
+
+        const drawComparison = () => {
+            const points = Array.isArray(parsedData) ? parsedData.slice(0, 12) : [];
+            if (points.length === 0) return;
+            const padL = 210, padR = 100, padT = 190, padB = 50;
+            const chartW = canvas.width - padL - padR;
+            const chartH = canvas.height - padT - padB;
+            const deltas = points.map(p => Number(p.delta)).filter(v => Number.isFinite(v));
+            if (deltas.length === 0) return;
+            const maxAbs = Math.max(1, Math.max(...deltas.map(Math.abs)));
+            const barH = Math.max(22, Math.floor(chartH / Math.max(1, points.length)) - 10);
+            const zeroX = padL + chartW / 2;
+            // Zero line
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(zeroX, padT - 10); ctx.lineTo(zeroX, padT + chartH); ctx.stroke();
+            // Bars
+            points.forEach((p, i) => {
+                const delta = Number(p.delta);
+                if (!Number.isFinite(delta)) return;
+                const bY = padT + i * (chartH / Math.max(1, points.length)) + 4;
+                const bW = Math.abs(delta / maxAbs) * (chartW / 2);
+                const isPos = delta > 0;
+                ctx.fillStyle = isPos ? '#ef4444' : '#10b981';
+                ctx.fillRect(isPos ? zeroX : zeroX - bW, bY, bW, barH);
+                ctx.fillStyle = '#334155'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'right';
+                ctx.fillText(String(p.name || `Item ${i + 1}`).slice(0, 22), padL - 10, bY + barH / 2 + 6);
+                ctx.fillStyle = isPos ? '#ef4444' : '#10b981'; ctx.font = 'bold 14px Arial';
+                ctx.textAlign = isPos ? 'left' : 'right';
+                ctx.fillText((delta > 0 ? '+' : '') + delta.toFixed(1) + '%', isPos ? zeroX + bW + 4 : zeroX - bW - 4, bY + barH / 2 + 4);
+            });
+            ctx.textAlign = 'left';
+            // Legend
+            const legendY = canvas.height - 36;
+            ctx.fillStyle = '#ef4444'; ctx.fillRect(48, legendY - 14, 24, 14);
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 18px Arial'; ctx.fillText('Naik', 80, legendY);
+            ctx.fillStyle = '#10b981'; ctx.fillRect(160, legendY - 14, 24, 14);
+            ctx.fillStyle = '#334155'; ctx.fillText('Turun', 192, legendY);
+        };
+
+        const drawGauge = () => {
+            const value = Math.max(0, Math.min(100, Number((Array.isArray(parsedData) ? parsedData[0] : parsedData)?.value || 0)));
+            const cx = canvas.width / 2;
+            const cy = Math.round(canvas.height * 0.60);
+            const radius = Math.min(canvas.width * 0.35, (canvas.height - 250) * 0.6);
+            // Background arc (light gray)
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = radius * 0.22; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI); ctx.stroke();
+            // Value arc
+            const endAngle = Math.PI + (value / 100) * Math.PI;
+            const color = value >= 75 ? '#ef4444' : value >= 50 ? '#f59e0b' : '#136dec';
+            ctx.strokeStyle = color; ctx.lineWidth = radius * 0.22;
+            ctx.beginPath(); ctx.arc(cx, cy, radius, Math.PI, endAngle); ctx.stroke();
+            ctx.lineCap = 'butt';
+            // Center value
+            ctx.fillStyle = '#1e293b'; ctx.font = `bold ${Math.round(radius * 0.46)}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(`${value}%`, cx, cy - radius * 0.05);
+            ctx.font = `bold 18px Arial`; ctx.fillStyle = '#64748b';
+            ctx.fillText('Score', cx, cy + radius * 0.3);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        };
+
         drawHeader();
 
         if (type === 'outlier' || type === 'outliers') drawOutliers();
@@ -1758,6 +2112,13 @@ ATURAN KRUSIAL:
         else if (type === 'gantt' || type === 'plan') drawGantt();
         else if (type === 'heatmap') drawHeatmap();
         else if (type === 'dashboard') drawDashboard();
+        else if (type === 'trend') drawTrend('time');
+        else if (type === 'simulation') drawSimulation();
+        else if (type === 'forecast') drawForecast();
+        else if (type === 'timeline') drawTimeline();
+        else if (type === 'radar') drawRadar();
+        else if (type === 'comparison') drawComparison();
+        else if (type === 'gauge') drawGauge();
         else {
             ctx.fillStyle = '#475569';
             ctx.font = '24px Arial';
