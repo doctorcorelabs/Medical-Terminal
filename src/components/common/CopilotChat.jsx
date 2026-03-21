@@ -40,7 +40,12 @@ const COPILOT_PDF_PERF = {
     svgRenderScale: 2,
     // Extra ms to wait after RAF frames so Recharts/ResponsiveContainer can
     // finish re-rendering after being mounted in an off-screen clone container.
-    bodyCloneSettleMs: 600,
+    bodyCloneSettleMsDesktop: 600,
+    bodyCloneSettleMsMobile: 1200,
+    // Minimum width for cloned chart containers. Ensures Recharts
+    // ResponsiveContainer renders at a PDF-quality width even on narrow
+    // mobile/iPad viewports.
+    pdfCloneMinWidth: 640,
     // Set to true to bypass DOM capture entirely and render charts from raw
     // MedicalChart data directly in jsPDF (requires renderCopilotChartToPdf
     // helper in pdfExportService). Currently unused - reserved for future use.
@@ -1230,11 +1235,13 @@ ATURAN KRUSIAL:
             const naturalWidth = Math.max(
                 Math.round(rect.width || 0),
                 Math.round(viewBox?.width || 0),
+                Number(svgNode.getAttribute('width')) || 0,
                 600,
             );
             const naturalHeight = Math.max(
                 Math.round(rect.height || 0),
                 Math.round(viewBox?.height || 0),
+                Number(svgNode.getAttribute('height')) || 0,
                 260,
             );
             // Scale up to at least PDF_SVG_MIN_WIDTH for better PDF rendering
@@ -1247,6 +1254,12 @@ ATURAN KRUSIAL:
             svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
             svgClone.setAttribute('width', String(width));
             svgClone.setAttribute('height', String(height));
+            // Ensure viewBox is set so the SVG scales properly
+            if (!svgClone.getAttribute('viewBox') && viewBox) {
+                svgClone.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+            } else if (!svgClone.getAttribute('viewBox')) {
+                svgClone.setAttribute('viewBox', `0 0 ${naturalWidth} ${naturalHeight}`);
+            }
             normalizeSvgForPdf(svgClone);
 
             const serialized = new XMLSerializer().serializeToString(svgClone);
@@ -1292,8 +1305,65 @@ ATURAN KRUSIAL:
         // WebKit memory limits that cause blank captures on iOS/iPadOS.
         // Phones get scale 1, iPads/large tablets get scale 1.5 for better PDF quality.
         const isPhone = window.innerWidth < 768 || /iPhone|iPod/.test(navigator.userAgent);
-        const isMobileOrTablet = window.innerWidth <= 1024 || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+        const isTablet = (window.innerWidth >= 768 && window.innerWidth <= 1024) || /iPad/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+        const isMobileOrTablet = isPhone || isTablet || window.innerWidth <= 1024 || /Android/.test(navigator.userAgent);
         const captureScale = isPhone ? 1 : (isMobileOrTablet ? 1.5 : COPILOT_PDF_PERF.captureScale);
+        const cloneSettleMs = isMobileOrTablet ? COPILOT_PDF_PERF.bodyCloneSettleMsMobile : COPILOT_PDF_PERF.bodyCloneSettleMsDesktop;
+
+        /**
+         * Force all Recharts ResponsiveContainer wrappers and their children
+         * to render at the given target width. This is critical on mobile/iPad
+         * because cloned DOM nodes retain their original narrow viewport
+         * dimensions, and ResponsiveContainer's ResizeObserver doesn't fire
+         * on detached/cloned nodes.
+         */
+        const forceResponsiveContainerWidth = (cloneRoot, targetWidth) => {
+            if (!cloneRoot) return;
+            // ResponsiveContainer renders a wrapper div with class "recharts-responsive-container"
+            cloneRoot.querySelectorAll('.recharts-responsive-container').forEach(rc => {
+                rc.style.width = `${targetWidth}px`;
+                rc.style.maxWidth = 'none';
+                rc.style.minWidth = `${targetWidth}px`;
+                rc.style.height = rc.style.height || '300px';
+            });
+            // Also force the recharts-wrapper (actual SVG container)
+            cloneRoot.querySelectorAll('.recharts-wrapper').forEach(rw => {
+                rw.style.width = `${targetWidth}px`;
+                rw.style.minWidth = `${targetWidth}px`;
+                const svg = rw.querySelector('svg');
+                if (svg) {
+                    svg.setAttribute('width', String(targetWidth));
+                    // Preserve aspect ratio by scaling height proportionally
+                    const origW = Number(svg.getAttribute('width')) || targetWidth;
+                    const origH = Number(svg.getAttribute('height')) || 300;
+                    if (origW > 0 && origW < targetWidth) {
+                        const scaledH = Math.round(origH * (targetWidth / origW));
+                        svg.setAttribute('height', String(scaledH));
+                    }
+                }
+            });
+            // Force viz-canvas-wrapper children to expand
+            cloneRoot.querySelectorAll('.viz-canvas-wrapper > div').forEach(el => {
+                el.style.width = `${targetWidth}px`;
+                el.style.minWidth = `${targetWidth}px`;
+            });
+            // Force viz-canvas-wrapper itself
+            cloneRoot.querySelectorAll('.viz-canvas-wrapper').forEach(el => {
+                el.style.width = `${targetWidth}px`;
+                el.style.minWidth = '0';
+                el.style.padding = '0';
+            });
+            // Force gauge-container to have proper dimensions
+            cloneRoot.querySelectorAll('.gauge-container').forEach(el => {
+                el.style.width = `${targetWidth}px`;
+                el.style.minWidth = `${Math.min(targetWidth, 400)}px`;
+                el.style.minHeight = '200px';
+            });
+            // Force outlier-container to expand
+            cloneRoot.querySelectorAll('.outlier-container, .outlier-chart-wrap').forEach(el => {
+                el.style.width = `${targetWidth}px`;
+            });
+        };
 
         const captureElement = async (target, { width, height, label, useOffscreenClone = false }) => {
             if (!target) {
@@ -1307,12 +1377,14 @@ ATURAN KRUSIAL:
             let sandbox = null;
 
             if (useOffscreenClone) {
+                // Use PDF-quality minimum width for cloned charts
+                const cloneW = Math.max(safeWidth, COPILOT_PDF_PERF.pdfCloneMinWidth);
                 sandbox = document.createElement('div');
                 sandbox.style.position = 'absolute';
                 sandbox.style.left = '0px';
                 sandbox.style.top = '0';
                 sandbox.style.pointerEvents = 'none';
-                sandbox.style.width = `${safeWidth}px`;
+                sandbox.style.width = `${cloneW}px`;
                 sandbox.style.height = `${safeHeight}px`;
                 sandbox.style.overflow = 'visible';
                 sandbox.style.background = '#ffffff';
@@ -1320,14 +1392,14 @@ ATURAN KRUSIAL:
                 sandbox.style.opacity = '0.01';
 
                 const cloned = target.cloneNode(true);
-                cloned.style.width = `${safeWidth}px`;
+                cloned.style.width = `${cloneW}px`;
                 cloned.style.minHeight = `${safeHeight}px`;
                 cloned.style.display = 'block';
 
                 const clonedScroller = cloned.querySelector('.viz-content');
                 if (clonedScroller) {
                     clonedScroller.style.overflow = 'visible';
-                    clonedScroller.style.width = `${safeWidth}px`;
+                    clonedScroller.style.width = `${cloneW}px`;
                 }
 
                 const clonedContainer = cloned.querySelector('.clinical-viz-container') || cloned;
@@ -1342,25 +1414,33 @@ ATURAN KRUSIAL:
                     clonedCanvasWrapper.style.minWidth = '0';
                 }
 
+                // Force ResponsiveContainer widths for mobile/iPad
+                forceResponsiveContainerWidth(cloned, cloneW);
+
                 sandbox.appendChild(cloned);
                 document.body.appendChild(sandbox);
                 captureTarget = cloned;
 
                 // Let browser finalize layout + extra time for Recharts to re-render.
+                // Mobile/iPad needs more settle time for WebKit compositor.
                 await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                await new Promise((resolve) => setTimeout(resolve, COPILOT_PDF_PERF.bodyCloneSettleMs));
+                await new Promise((resolve) => setTimeout(resolve, cloneSettleMs));
             }
 
             try {
+                // Use PDF-quality minimum width for html2canvas capture
+                const captureW = Math.max(safeWidth, COPILOT_PDF_PERF.pdfCloneMinWidth);
                 const canvas = await html2canvas(captureTarget, {
                     backgroundColor: '#ffffff',
                     scale: captureScale,
                     logging: false,
                     useCORS: true,
                     allowTaint: false,
-                    width: safeWidth,
+                    width: captureW,
                     height: safeHeight,
-                    windowWidth: safeWidth,
+                    // Force windowWidth to PDF-quality minimum so CSS media queries
+                    // and ResponsiveContainer treat viewport as desktop-width.
+                    windowWidth: Math.max(captureW, COPILOT_PDF_PERF.pdfCloneMinWidth),
                     scrollX: 0,
                     scrollY: 0,
                     onclone: (clonedDoc) => {
@@ -1371,18 +1451,22 @@ ATURAN KRUSIAL:
                             clonedContainer.style.opacity = '1';
                             clonedContainer.style.boxShadow = 'none';
                             clonedContainer.style.overflow = 'visible';
+                            clonedContainer.style.width = `${captureW}px`;
                             normalizeContainerForPdf(clonedContainer);
                             clonedContainer.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
                             const scroller = clonedContainer.querySelector('.viz-content');
                             if (scroller) {
                                 scroller.style.overflow = 'visible';
-                                scroller.style.width = `${safeWidth}px`;
+                                scroller.style.width = `${captureW}px`;
                             }
                             const canvasWrapper = clonedContainer.querySelector('.viz-canvas-wrapper');
                             if (canvasWrapper) {
                                 canvasWrapper.style.overflow = 'visible';
                                 canvasWrapper.style.minWidth = '0';
+                                canvasWrapper.style.width = `${captureW}px`;
                             }
+                            // Force ResponsiveContainer widths in the html2canvas clone
+                            forceResponsiveContainerWidth(clonedContainer, captureW);
                         }
                     }
                 });
@@ -1425,10 +1509,8 @@ ATURAN KRUSIAL:
         // For DOM-only charts (gantt, dashboard, audit, heatmap, outliers) that have no SVG
         // and fail in html2canvas's iframe clone. We mount a styled clone on document.body.
         const captureFromBodyClone = async () => {
-            // Use a minimum width of 640px for DOM-only charts so they render well in PDF.
-            // For SVG-based charts this is the container width (may be small on mobile).
-            const PDF_CLONE_MIN_WIDTH = 640;
-            const cloneWidth = Math.max(dims.width, PDF_CLONE_MIN_WIDTH);
+            // Use PDF-quality minimum width so charts render well on mobile/iPad.
+            const cloneWidth = Math.max(dims.width, COPILOT_PDF_PERF.pdfCloneMinWidth);
 
             const sandbox = document.createElement('div');
             // opacity:0.01 (not 0) ensures WebKit processes layout/paint for the element
@@ -1463,6 +1545,11 @@ ATURAN KRUSIAL:
                 el.style.overflow = 'visible';
             });
 
+            // Force all Recharts ResponsiveContainer wrappers to render at
+            // PDF-quality width. Critical on mobile & iPad where the original
+            // containers were rendered at narrow viewport widths.
+            forceResponsiveContainerWidth(cloned, cloneWidth);
+
             // Normalize SVG elements inside clone for better canvas rendering
             cloned.querySelectorAll('svg').forEach((svg) => normalizeSvgForPdf(svg));
 
@@ -1471,8 +1558,9 @@ ATURAN KRUSIAL:
 
             // Wait for RAF + extra settle time so Recharts/ResponsiveContainer can
             // finish re-measuring the new container and re-rendering chart content.
+            // Mobile/iPad needs more settle time for WebKit compositor.
             await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-            await new Promise(r => setTimeout(r, COPILOT_PDF_PERF.bodyCloneSettleMs));
+            await new Promise(r => setTimeout(r, cloneSettleMs));
 
             // Measure actual rendered height after layout settles
             const clonedHeight = Math.max(80, cloned.scrollHeight || cloned.offsetHeight || dims.height);
@@ -1486,7 +1574,9 @@ ATURAN KRUSIAL:
                     allowTaint: false,
                     width: cloneWidth,
                     height: clonedHeight,
-                    windowWidth: cloneWidth,
+                    // Force windowWidth to PDF-quality minimum so CSS media queries
+                    // and ResponsiveContainer treat viewport as wide.
+                    windowWidth: Math.max(cloneWidth, COPILOT_PDF_PERF.pdfCloneMinWidth),
                     scrollX: 0,
                     scrollY: 0,
                 });
