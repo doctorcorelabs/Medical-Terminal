@@ -1229,6 +1229,10 @@ ATURAN KRUSIAL:
             }
         };
 
+        // Detect mobile/tablet once; used to lower canvas scale and avoid
+        // WebKit memory limits that cause blank captures on iOS/iPadOS.
+        const isMobileOrTablet = window.innerWidth <= 1024 || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+
         const captureElement = async (target, { width, height, label, useOffscreenClone = false }) => {
             if (!target) {
                 throw new Error(`capture-target-missing:${label}`);
@@ -1242,7 +1246,7 @@ ATURAN KRUSIAL:
 
             if (useOffscreenClone) {
                 sandbox = document.createElement('div');
-                sandbox.style.position = 'fixed';
+                sandbox.style.position = 'absolute';
                 sandbox.style.left = '0px';
                 sandbox.style.top = '0';
                 sandbox.style.pointerEvents = 'none';
@@ -1250,7 +1254,8 @@ ATURAN KRUSIAL:
                 sandbox.style.height = `${safeHeight}px`;
                 sandbox.style.overflow = 'visible';
                 sandbox.style.background = '#ffffff';
-                sandbox.style.zIndex = '-9999';
+                // opacity must be > 0 so WebKit still processes layout/paint for the element
+                sandbox.style.opacity = '0.01';
 
                 const cloned = target.cloneNode(true);
                 cloned.style.width = `${safeWidth}px`;
@@ -1280,7 +1285,7 @@ ATURAN KRUSIAL:
             try {
                 const canvas = await html2canvas(captureTarget, {
                     backgroundColor: '#ffffff',
-                    scale: COPILOT_PDF_PERF.captureScale,
+                    scale: isMobileOrTablet ? 1 : COPILOT_PDF_PERF.captureScale,
                     logging: false,
                     useCORS: true,
                     allowTaint: false,
@@ -1345,10 +1350,11 @@ ATURAN KRUSIAL:
         // and fail in html2canvas's iframe clone. We mount a styled clone on document.body.
         const captureFromBodyClone = async () => {
             const sandbox = document.createElement('div');
+            // opacity:0.01 (not 0) ensures WebKit processes layout/paint for the element
             sandbox.style.cssText = [
-                'position:fixed', 'left:0', 'top:0', 'pointer-events:none',
+                'position:absolute', 'left:0', 'top:0', 'pointer-events:none',
                 `width:${dims.width}px`, 'min-height:80px',
-                'background:#fff', 'z-index:-9999', 'overflow:visible',
+                'background:#fff', 'opacity:0.01', 'overflow:visible',
                 'padding:0', 'margin:0', 'box-shadow:none',
                 'font-family:Inter,system-ui,sans-serif',
             ].join(';');
@@ -1373,7 +1379,7 @@ ATURAN KRUSIAL:
             try {
                 const canvas = await html2canvas(cloned, {
                     backgroundColor: '#ffffff',
-                    scale: COPILOT_PDF_PERF.captureScale,
+                    scale: isMobileOrTablet ? 1 : COPILOT_PDF_PERF.captureScale,
                     logging: false,
                     useCORS: true,
                     allowTaint: false,
