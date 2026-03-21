@@ -1243,13 +1243,14 @@ ATURAN KRUSIAL:
             if (useOffscreenClone) {
                 sandbox = document.createElement('div');
                 sandbox.style.position = 'fixed';
-                sandbox.style.left = '-100000px';
+                sandbox.style.left = '0px';
                 sandbox.style.top = '0';
+                sandbox.style.pointerEvents = 'none';
                 sandbox.style.width = `${safeWidth}px`;
                 sandbox.style.height = `${safeHeight}px`;
                 sandbox.style.overflow = 'visible';
                 sandbox.style.background = '#ffffff';
-                sandbox.style.zIndex = '-1';
+                sandbox.style.zIndex = '-9999';
 
                 const cloned = target.cloneNode(true);
                 cloned.style.width = `${safeWidth}px`;
@@ -1282,7 +1283,7 @@ ATURAN KRUSIAL:
                     scale: COPILOT_PDF_PERF.captureScale,
                     logging: false,
                     useCORS: true,
-                    allowTaint: true,
+                    allowTaint: false,
                     width: safeWidth,
                     height: safeHeight,
                     windowWidth: safeWidth,
@@ -1345,9 +1346,9 @@ ATURAN KRUSIAL:
         const captureFromBodyClone = async () => {
             const sandbox = document.createElement('div');
             sandbox.style.cssText = [
-                'position:fixed', 'left:-99999px', 'top:0',
+                'position:fixed', 'left:0', 'top:0', 'pointer-events:none',
                 `width:${dims.width}px`, 'min-height:80px',
-                'background:#fff', 'z-index:-999', 'overflow:visible',
+                'background:#fff', 'z-index:-9999', 'overflow:visible',
                 'padding:0', 'margin:0', 'box-shadow:none',
                 'font-family:Inter,system-ui,sans-serif',
             ].join(';');
@@ -1375,7 +1376,7 @@ ATURAN KRUSIAL:
                     scale: COPILOT_PDF_PERF.captureScale,
                     logging: false,
                     useCORS: true,
-                    allowTaint: true,
+                    allowTaint: false,
                     width: dims.width,
                     height: Math.max(80, cloned.scrollHeight || cloned.offsetHeight || dims.height),
                     windowWidth: dims.width,
