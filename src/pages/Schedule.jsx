@@ -45,6 +45,12 @@ const VIEWS = [
     { id: 'selesai',   label: 'Selesai',   icon: 'task_alt'       },
 ];
 
+const SCHEDULE_VIEW_KEY = 'medterminal_schedule_view';
+
+function getScheduleViewStorageKey(userId) {
+    return userId ? `${SCHEDULE_VIEW_KEY}:${userId}` : SCHEDULE_VIEW_KEY;
+}
+
 // ─────────────────────────────────────────────
 // Utility helpers
 // ─────────────────────────────────────────────
@@ -947,7 +953,12 @@ export default function Schedule() {
     const { user } = useAuth();
     const { addToast } = useToast();
 
-    const [view,         setView]         = useState(() => localStorage.getItem('medterminal_schedule_view') || 'bulanan');
+    const [view,         setView]         = useState(() => {
+        const scopedKey = getScheduleViewStorageKey(user?.id);
+        const scopedValue = localStorage.getItem(scopedKey);
+        if (scopedValue) return scopedValue;
+        return localStorage.getItem(SCHEDULE_VIEW_KEY) || 'bulanan';
+    });
     const [currentDate,  setCurrentDate]  = useState(new Date());
     const [showModal,    setShowModal]    = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
@@ -976,6 +987,34 @@ export default function Schedule() {
         }
         setIsPollingTelegram(false);
     }, []);
+
+    useEffect(() => {
+        const scopedKey = getScheduleViewStorageKey(user?.id);
+        const scopedValue = localStorage.getItem(scopedKey);
+        const legacyValue = localStorage.getItem(SCHEDULE_VIEW_KEY);
+
+        if (scopedValue) {
+            setView(scopedValue);
+            if (user?.id) {
+                localStorage.removeItem(SCHEDULE_VIEW_KEY);
+            }
+            return;
+        }
+
+        if (user?.id && legacyValue) {
+            localStorage.setItem(scopedKey, legacyValue);
+            localStorage.removeItem(SCHEDULE_VIEW_KEY);
+            setView(legacyValue);
+            return;
+        }
+
+        if (!user?.id && legacyValue) {
+            setView(legacyValue);
+            return;
+        }
+
+        setView('bulanan');
+    }, [user?.id]);
 
     const loadTelegramChannel = useCallback(async () => {
         if (!user?.id) {
@@ -1546,7 +1585,13 @@ export default function Schedule() {
                     {VIEWS.map(v => (
                         <button
                             key={v.id}
-                            onClick={() => { setView(v.id); localStorage.setItem('medterminal_schedule_view', v.id); }}
+                            onClick={() => {
+                                setView(v.id);
+                                localStorage.setItem(getScheduleViewStorageKey(user?.id), v.id);
+                                if (user?.id) {
+                                    localStorage.removeItem(SCHEDULE_VIEW_KEY);
+                                }
+                            }}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                 view === v.id
                                     ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'

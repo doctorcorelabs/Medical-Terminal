@@ -1077,17 +1077,17 @@ export function exportPatientPDF(patient, options = {}) {
 // ================================================================
 // EXPORT MULTIPLE PATIENTS DETAIL PDF (one patient per set of pages)
 // ================================================================
-export function exportMultiplePatientsPDF(patients) {
+export function exportMultiplePatientsPDF(patients, options = {}) {
     try {
         if (!patients || patients.length === 0) {
             alert('Tidak ada pasien yang dipilih.');
             return;
         }
-        console.log('[PDF Export] Starting multi-patient PDF for', patients.length, 'patients');
+        console.log('[PDF Export] Starting multi-patient PDF for', patients.length, 'patients with options:', options);
         const doc = new jsPDF('p', 'mm', 'a4');
         patients.forEach((patient, idx) => {
             if (idx > 0) doc.addPage();
-            _renderPatientToDoc(doc, patient);
+            _renderPatientToDoc(doc, patient, options);
         });
         addFooters(doc);
         const dateStr = new Date().toISOString().slice(0, 10);

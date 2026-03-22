@@ -77,25 +77,6 @@ export default function Login() {
 
     // Remove automated remount on focus/visibility as it can be too aggressive and clears valid tokens.
     // Cloudflare Turnstile's own expiration is already handled by onExpire callback.
-    /*
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && requiresCaptcha) {
-                remountCaptcha('page_visible');
-            }
-        };
-        const handleFocus = () => {
-            if (requiresCaptcha) remountCaptcha('window_focus');
-        };
-
-        window.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('focus', handleFocus);
-        return () => {
-            window.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('focus', handleFocus);
-        };
-    }, [requiresCaptcha, remountCaptcha]);
-    */
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -289,6 +270,7 @@ export default function Login() {
                                             logCaptchaTelemetry('unsupported_browser');
                                         }}
                                         scriptOptions={{
+                                            onload: 'onloadTurnstileCallback',
                                             onError: () => {
                                                 setCaptchaLoadError('Script captcha gagal dimuat. Periksa koneksi atau pemblokir konten.');
                                                 logCaptchaTelemetry('script_error');

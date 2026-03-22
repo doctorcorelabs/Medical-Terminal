@@ -12,21 +12,36 @@ export function PatientProvider({ children }) {
     // Initial load when user logs in
     useEffect(() => {
         if (user) {
+            dataService.setDataStorageScope(user.id);
             dataService.fetchFromSupabase(user.id).then(data => {
                 setPatients(data);
             });
+        } else {
+            dataService.setDataStorageScope(null);
+            setPatients([]);
+            setSelectedPatientId(null);
         }
     }, [user]);
 
-    const refreshPatients = useCallback(() => {
+    const refreshPatients = useCallback((skipSync = false) => {
         setPatients(dataService.getAllPatients());
-        if (user) {
+        if (!skipSync && user) {
             dataService.syncToSupabase(user.id).catch(() => {}); // Sync in background
         }
     }, [user]);
 
+
     const selectedPatient = patients.find(p => p.id === selectedPatientId) || null;
-    const canAddPatient = isAdmin || isSpecialist || (isIntern && !isExpiredSpecialist && patients.length < 2);
+    
+    const canAddXPatients = useCallback((count = 1) => {
+        if (isAdmin || isSpecialist) return true;
+        if (isIntern && !isExpiredSpecialist) {
+            return (patients.length + count) <= 2;
+        }
+        return false;
+    }, [isAdmin, isSpecialist, isIntern, isExpiredSpecialist, patients.length]);
+
+    const canAddPatient = canAddXPatients(1);
     const canEditPatient = !isExpiredSpecialist;
 
     const addPatient = useCallback((patient) => {
@@ -168,6 +183,7 @@ export function PatientProvider({ children }) {
             selectedPatient,
             selectedPatientId,
             canAddPatient,
+            canAddXPatients,
             canEditPatient,
             setSelectedPatientId,
             addPatient,

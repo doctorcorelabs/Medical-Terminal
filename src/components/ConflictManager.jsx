@@ -54,7 +54,7 @@ function DiffRow({ field, local, server, choice, onChoose }) {
                     <span className="text-[10px] text-slate-400 uppercase font-bold">Lokal</span>
                     {choice === 'local' && <span className="material-symbols-outlined text-[13px] text-primary ml-auto">check_circle</span>}
                 </div>
-                <div className="break-words">{formatValue(localVal)}</div>
+                <div className="wrap-break-word">{formatValue(localVal)}</div>
             </button>
             {/* Server */}
             <button
@@ -69,7 +69,7 @@ function DiffRow({ field, local, server, choice, onChoose }) {
                     <span className="text-[10px] text-slate-400 uppercase font-bold">Server</span>
                     {choice === 'server' && <span className="material-symbols-outlined text-[13px] text-emerald-500 ml-auto">check_circle</span>}
                 </div>
-                <div className="break-words">{formatValue(serverVal)}</div>
+                <div className="wrap-break-word">{formatValue(serverVal)}</div>
             </button>
         </div>
     );

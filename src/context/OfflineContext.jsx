@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { pendingSync } from '../services/offlineQueue';
+import { pendingSync, setPendingSyncScope } from '../services/offlineQueue';
 import { syncToSupabase, syncStasesToSupabase, syncSchedulesToSupabase } from '../services/dataService';
 import { useAuth } from './AuthContext';
 import { countConflicts } from '../services/idbQueue';
@@ -15,9 +15,29 @@ export function OfflineProvider({ children }) {
     const [lastSyncAt, setLastSyncAt] = useState(null);
     const [syncFailed, setSyncFailed] = useState(false);
     const [conflictCount, setConflictCount] = useState(0);
+    const getPendingStatus = () => {
+        const patients = pendingSync.hasPatients();
+        const stases = pendingSync.hasStases();
+        const schedules = pendingSync.hasSchedules();
+        const count = Number(patients) + Number(stases) + Number(schedules);
+        return {
+            patients,
+            stases,
+            schedules,
+            count,
+            any: count > 0,
+        };
+    };
+    const [pendingStatus, setPendingStatus] = useState(() => getPendingStatus());
     // Keep user ref so the `online` event handler can always access the latest user
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
+
+    useEffect(() => {
+        setPendingSyncScope(user?.id || null);
+        refreshPendingStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
 
     // Store Supabase config + session into IDB for the service worker
     useEffect(() => { 
@@ -37,9 +57,15 @@ export function OfflineProvider({ children }) {
         countConflicts().then(setConflictCount).catch(() => {});
     }, []);
 
+    const refreshPendingStatus = useCallback(() => {
+        setPendingStatus(getPendingStatus());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         refreshConflictCount();
-    }, [refreshConflictCount]);
+        refreshPendingStatus();
+    }, [refreshConflictCount, refreshPendingStatus]);
 
     // Listen to SYNC_COMPLETE messages from the service worker
     useEffect(() => {
@@ -52,14 +78,21 @@ export function OfflineProvider({ children }) {
             }
             setIsSyncing(false);
             refreshConflictCount();
+            refreshPendingStatus();
         });
         return unsub;
-    }, [refreshConflictCount]);
+    }, [refreshConflictCount, refreshPendingStatus]);
 
     const flushPendingSync = useCallback(async (uid) => {
         const id = uid || userRef.current?.id;
-        if (!id || !navigator.onLine) return;
-        if (!pendingSync.hasAny()) return;
+        if (!id || !navigator.onLine) {
+            refreshPendingStatus();
+            return;
+        }
+        if (!pendingSync.hasAny()) {
+            refreshPendingStatus();
+            return;
+        }
 
         setIsSyncing(true);
         setSyncFailed(false);
@@ -92,7 +125,8 @@ export function OfflineProvider({ children }) {
         setSyncFailed(failed);
         if (!failed) setLastSyncAt(new Date());
         setIsSyncing(false);
-    }, []);
+        refreshPendingStatus();
+    }, [refreshPendingStatus]);
 
     // Listen to browser online/offline events
     useEffect(() => {
@@ -122,7 +156,17 @@ export function OfflineProvider({ children }) {
     }, [user?.id]);
 
     return (
-        <OfflineContext.Provider value={{ isOnline, isSyncing, lastSyncAt, syncFailed, flushPendingSync, conflictCount, refreshConflictCount }}>
+        <OfflineContext.Provider value={{
+            isOnline,
+            isSyncing,
+            lastSyncAt,
+            syncFailed,
+            flushPendingSync,
+            conflictCount,
+            refreshConflictCount,
+            pendingStatus,
+            refreshPendingStatus,
+        }}>
             {children}
         </OfflineContext.Provider>
     );

@@ -1,46 +1,99 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePatients } from '../context/PatientContext';
+import { useStase } from '../context/StaseContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { deleteAllPatientsData, deleteAllStasesData, deleteAllSchedulesData, syncToSupabase, getAllStases, syncStasesToSupabase } from '../services/dataService';
+import { deleteAllPatientsData, deleteAllStasesData, deleteAllSchedulesData, syncToSupabase, getAllStases, syncStasesToSupabase, bulkSavePatients, bulkSaveStases, getAllSchedules, getAllPatients, upsertSchedulesBulk, syncSchedulesToSupabase, setScheduleStorageScope } from '../services/dataService';
 import StaseMappingModal from '../components/StaseMappingModal';
 import ConflictManager from '../components/ConflictManager';
 import { supabase } from '../services/supabaseClient';
 import { generateReceiptPDF } from '../services/receiptService';
+import { parseBackupPayload, validateBackupPayload, buildBackupPayload } from '../utils/backupFormat';
+import ImportWindowBox from '../components/ImportWindowBox';
+
+const PDF_PREFS_LEGACY_KEY = 'medterminal_pdf_prefs';
+const DEFAULT_PDF_PREFS = {
+    includeSummary: true,
+    includeVitals: true,
+    includeSymptoms: true,
+    includePhysical: true,
+    includeLabs: true,
+    includeMedicine: true,
+    includeDaily: true,
+    includeAiSummary: true,
+    includeAiSoap: true,
+    includeAiSymptoms: true,
+    includeAiRadar: true,
+    includeAiPhysical: true,
+    includeAiLabs: true,
+    includeAiMedicine: true,
+    includeAiDaily: true
+};
+
+function getPdfPrefsStorageKey(userId) {
+    return userId ? `${PDF_PREFS_LEGACY_KEY}_${userId}` : PDF_PREFS_LEGACY_KEY;
+}
+
+function parseStoredPdfPrefs(rawValue) {
+    if (!rawValue) return null;
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (!parsed || typeof parsed !== 'object') return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
 
 export default function Settings() {
     const { user, profile, updateProfile, isUsernameAvailable, isAdmin, isSpecialist } = useAuth();
+    const { patients, canAddXPatients, refreshPatients } = usePatients();
+    const { refreshStases } = useStase();
     const navigate = useNavigate();
     const { addToast } = useToast();
 
     // PDF Export Preferences State
-    const [pdfPrefs, setPdfPrefs] = useState(() => {
-        const defaultPrefs = {
-            includeSummary: true,
-            includeVitals: true,
-            includeSymptoms: true,
-            includePhysical: true,
-            includeLabs: true,
-            includeMedicine: true,
-            includeDaily: true,
-            includeAiSummary: true,
-            includeAiSoap: true,
-            includeAiSymptoms: true,
-            includeAiRadar: true,
-            includeAiPhysical: true,
-            includeAiLabs: true,
-            includeAiMedicine: true,
-            includeAiDaily: true
-        };
-        const savedMetaData = user?.user_metadata?.pdf_export_prefs;
-        if (savedMetaData) return { ...defaultPrefs, ...savedMetaData };
-        
-        // Fallback to local storage if not in metadata (optional, but good for local-first feel)
-        const local = localStorage.getItem('medterminal_pdf_prefs');
-        return local ? { ...defaultPrefs, ...JSON.parse(local) } : defaultPrefs;
-    });
+    const [pdfPrefs, setPdfPrefs] = useState(DEFAULT_PDF_PREFS);
     const [savingPrefs, setSavingPrefs] = useState(false);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setPdfPrefs(DEFAULT_PDF_PREFS);
+            return;
+        }
+
+        const metadataPrefs = user?.user_metadata?.pdf_export_prefs;
+        const scopedKey = getPdfPrefsStorageKey(user.id);
+
+        if (metadataPrefs && typeof metadataPrefs === 'object') {
+            const merged = { ...DEFAULT_PDF_PREFS, ...metadataPrefs };
+            setPdfPrefs(merged);
+            localStorage.setItem(scopedKey, JSON.stringify(merged));
+            localStorage.removeItem(PDF_PREFS_LEGACY_KEY);
+            return;
+        }
+
+        const scopedPrefs = parseStoredPdfPrefs(localStorage.getItem(scopedKey));
+        if (scopedPrefs) {
+            setPdfPrefs({ ...DEFAULT_PDF_PREFS, ...scopedPrefs });
+            localStorage.removeItem(PDF_PREFS_LEGACY_KEY);
+            return;
+        }
+
+        // One-time migration from legacy global key into active user scope.
+        const legacyPrefs = parseStoredPdfPrefs(localStorage.getItem(PDF_PREFS_LEGACY_KEY));
+        if (legacyPrefs) {
+            const migrated = { ...DEFAULT_PDF_PREFS, ...legacyPrefs };
+            localStorage.setItem(scopedKey, JSON.stringify(migrated));
+            localStorage.removeItem(PDF_PREFS_LEGACY_KEY);
+            setPdfPrefs(migrated);
+            return;
+        }
+
+        setPdfPrefs(DEFAULT_PDF_PREFS);
+    }, [user?.id, user?.user_metadata?.pdf_export_prefs]);
 
     // Use effect to handle hash scrolling
     useEffect(() => {
@@ -57,7 +110,18 @@ export default function Settings() {
     const [showFinalConfirm, setShowFinalConfirm] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [pendingImport, setPendingImport] = useState(null); // { patients: [] } while mapping modal is open
+    const isApplyingImportRef = useRef(false);
+    const [pendingImport, setPendingImport] = useState(null); // { patients: [], stases: [], schedules: [], version }
+    const [importDialog, setImportDialog] = useState({
+        open: false,
+        variant: 'info',
+        title: '',
+        message: '',
+        highlights: [],
+        primaryLabel: 'OK',
+        secondaryLabel: null,
+        onPrimary: null,
+    });
 
     // Step 1: user typed the phrase → advance to final warning
     const handleConfirmTyped = () => {
@@ -109,11 +173,16 @@ export default function Settings() {
     };
 
     const savePdfPrefs = async () => {
+        if (!user?.id) {
+            addToast('Sesi user tidak ditemukan. Silakan login ulang.', 'error');
+            return;
+        }
         setSavingPrefs(true);
         try {
             const { error } = await updateProfile({ pdf_export_prefs: pdfPrefs });
             if (error) throw error;
-            localStorage.setItem('medterminal_pdf_prefs', JSON.stringify(pdfPrefs));
+            localStorage.setItem(getPdfPrefsStorageKey(user.id), JSON.stringify(pdfPrefs));
+            localStorage.removeItem(PDF_PREFS_LEGACY_KEY);
             addToast('Pengaturan PDF berhasil disimpan', 'success');
         } catch (err) {
             addToast(err.message || 'Gagal menyimpan pengaturan PDF', 'error');
@@ -126,9 +195,56 @@ export default function Settings() {
         setPdfPrefs(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    const getTs = (item) => {
+        const raw = item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at || 0;
+        const ts = new Date(raw).getTime();
+        return Number.isFinite(ts) ? ts : 0;
+    };
+
+    const patientContentKey = (patient) => {
+        if (!patient || typeof patient !== 'object') return '';
+        const clone = { ...patient };
+        delete clone.updatedAt;
+        delete clone.updated_at;
+        delete clone.createdAt;
+        delete clone.created_at;
+        return JSON.stringify(clone);
+    };
+
+    const mergeStasesById = (base, incoming) => {
+        const map = new Map((base || []).filter(Boolean).map(s => [s.id, s]));
+        for (const item of (incoming || [])) {
+            if (!item || typeof item !== 'object') continue;
+            const id = item.id || crypto.randomUUID();
+            const prev = map.get(id);
+            if (!prev) {
+                map.set(id, {
+                    ...item,
+                    id,
+                    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+                });
+                continue;
+            }
+            const shouldUseIncoming = getTs(item) > getTs(prev);
+            map.set(id, shouldUseIncoming ? { ...prev, ...item, id } : prev);
+        }
+        return Array.from(map.values());
+    };
+
+    const localStasesForImport = useMemo(() => {
+        if (!pendingImport?.stases?.length) return getAllStases();
+        return mergeStasesById(getAllStases(), pendingImport.stases);
+    }, [pendingImport]);
+
     const exportData = () => {
-        const data = localStorage.getItem('medterminal_patients') || '[]';
-        const blob = new Blob([data], { type: 'application/json' });
+        setScheduleStorageScope(user?.id || null);
+        const payload = buildBackupPayload({
+            patients: getAllPatients(),
+            stases: getAllStases(),
+            schedules: getAllSchedules(),
+            userId: user?.id || null,
+        });
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `medterminal_backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
         URL.revokeObjectURL(url);
@@ -143,45 +259,243 @@ export default function Settings() {
         reader.onload = (ev) => {
             try {
                 const imported = JSON.parse(ev.target.result);
-                if (!Array.isArray(imported)) throw new Error('Bukan array');
+                const parsed = parseBackupPayload(imported);
+                const validated = validateBackupPayload(parsed);
+                const skippedInfo = [];
+
+                if (validated.totalInvalid > 0) {
+                    if (validated.invalid.patients > 0) skippedInfo.push(`${validated.invalid.patients} pasien invalid dilewati`);
+                    if (validated.invalid.stases > 0) skippedInfo.push(`${validated.invalid.stases} stase invalid dilewati`);
+                    if (validated.invalid.schedules > 0) skippedInfo.push(`${validated.invalid.schedules} jadwal invalid dilewati`);
+                }
+
+                if (
+                    validated.patients.length === 0 &&
+                    validated.stases.length === 0 &&
+                    validated.schedules.length === 0
+                ) {
+                    throw new Error('Tidak ada item valid di file backup.');
+                }
+
                 // Ensure every patient has an id
-                const normalized = imported.map(p => ({ ...p, id: p.id || crypto.randomUUID() }));
+                const normalizedPatients = validated.patients.map(p => ({ ...p, id: p.id || crypto.randomUUID() }));
+                const normalizedStases = validated.stases.map(s => ({
+                    ...s,
+                    id: s.id || crypto.randomUUID(),
+                    createdAt: s.createdAt || s.created_at || new Date().toISOString(),
+                }));
+                const normalizedSchedules = validated.schedules.map(sc => ({
+                    ...sc,
+                    id: sc.id || crypto.randomUUID(),
+                }));
                 // Open mapping modal (it auto-skips if no unknown stases)
-                setPendingImport({ patients: normalized });
-            } catch { addToast('File JSON tidak valid atau format tidak didukung', 'error'); }
+                setPendingImport({
+                    version: validated.version,
+                    patients: normalizedPatients,
+                    stases: normalizedStases,
+                    schedules: normalizedSchedules,
+                    skippedInfo,
+                });
+            } catch (err) {
+                setImportDialog({
+                    open: true,
+                    variant: 'error',
+                    title: 'Impor JSON gagal',
+                    message: 'File tidak bisa diproses. Pastikan format backup sesuai.',
+                    highlights: [err?.message || 'Format JSON tidak valid atau tidak didukung.'],
+                    primaryLabel: 'Mengerti',
+                    secondaryLabel: null,
+                    onPrimary: null,
+                });
+            }
         };
         reader.readAsText(file);
     };
 
     const applyImport = async (mappedPatients, newStases) => {
+        if (isApplyingImportRef.current) return;
+        isApplyingImportRef.current = true;
+        const importBundle = pendingImport;
         setPendingImport(null);
         setImporting(true);
         try {
-            // 1. Create new stases locally first
-            if (newStases.length > 0) {
-                const current = getAllStases();
-                const merged = [...current, ...newStases];
-                localStorage.setItem('medterminal_stases', JSON.stringify(merged));
+            const importedStases = importBundle?.stases || [];
+            const importedSchedules = importBundle?.schedules || [];
+
+            // 1. Merge stases from local + backup + mapping-created stases
+            const mergedStases = mergeStasesById(getAllStases(), [...importedStases, ...newStases]);
+            if (mergedStases.length > 0) {
+                bulkSaveStases(mergedStases);
             }
-            // 2. Merge patients (deduplicated by id)
-            const existing = JSON.parse(localStorage.getItem('medterminal_patients') || '[]');
-            const existingIds = new Set(existing.map(p => p.id));
-            const incoming = mappedPatients.filter(p => !existingIds.has(p.id));
-            const mergedPatients = [...existing, ...incoming];
-            localStorage.setItem('medterminal_patients', JSON.stringify(mergedPatients));
-            addToast(`${incoming.length} pasien berhasil diimpor.`, 'success');
-            // 3. Sync to Supabase
-            if (user?.id) {
-                addToast('Menyinkronkan data ke server…', 'info');
-                try {
-                    if (newStases.length > 0) await syncStasesToSupabase(user.id);
-                    await syncToSupabase(user.id);
-                } catch {
-                    addToast('Data tersimpan lokal, tapi gagal sinkron ke server.', 'error');
+            // 2. Smart Merge patients
+            const existing = getAllPatients();
+            const existingMap = new Map(existing.map(p => [p.id, p]));
+            
+            const incoming = [];
+            const updated = [];
+            const skipped = [];
+            let contentConflictUpdatedCount = 0;
+
+            for (const p of mappedPatients) {
+                const local = existingMap.get(p.id);
+                if (!local) {
+                    // Stamp with current time so merge algorithm won't delete it
+                    incoming.push({ ...p, updatedAt: new Date().toISOString() });
+                } else {
+                    // Compare timestamps to decide whether to update
+                    const localTs = getTs(local);
+                    const importTs = getTs(p);
+                    
+                    if (importTs > localTs) {
+                        // Stamp with current time so merge algorithm keeps the updated version
+                        updated.push({ ...p, updatedAt: new Date().toISOString() });
+                    } else if (importTs === localTs && patientContentKey(local) !== patientContentKey(p)) {
+                        // If timestamps tie but content differs (manual edited JSON), accept import.
+                        updated.push({ ...p, updatedAt: new Date().toISOString() });
+                        contentConflictUpdatedCount += 1;
+                    } else {
+                        skipped.push(p);
+                    }
                 }
             }
+
+            if (incoming.length > 0 && !canAddXPatients(incoming.length)) {
+                setImportDialog({
+                    open: true,
+                    variant: 'error',
+                    title: 'Kuota pasien tidak cukup',
+                    message: `Impor menambahkan ${incoming.length} pasien baru dan akan melewati batas paket saat ini.`,
+                    highlights: ['Upgrade paket untuk melanjutkan impor skala besar.', 'Data lokal saat ini tidak diubah.'],
+                    primaryLabel: 'Upgrade Specialist',
+                    secondaryLabel: 'Tutup',
+                    onPrimary: () => {
+                        setImportDialog(prev => ({ ...prev, open: false }));
+                        navigate('/subscription');
+                    },
+                });
+                setImporting(false);
+                return;
+            }
+
+            // Construct new array: 
+            // 1. Existing patients that were NOT updated
+            // 2. Updated patients
+            // 3. New incoming patients
+            const updatedIds = new Set(updated.map(p => p.id));
+            const finalPatients = [
+                ...existing.filter(p => !updatedIds.has(p.id)),
+                ...updated,
+                ...incoming
+            ];
+
+            bulkSavePatients(finalPatients);
+
+            if (importedSchedules.length > 0) {
+                setScheduleStorageScope(user?.id || null);
+                upsertSchedulesBulk(importedSchedules);
+            }
+
+            // 3. Sync to Supabase with isolated per-entity attempts to prevent chain abort.
+            let syncStatus = {
+                stases: mergedStases.length === 0 ? 'skip' : 'pending',
+                patients: finalPatients.length === 0 ? 'skip' : 'pending',
+                schedules: importedSchedules.length === 0 ? 'skip' : 'pending',
+            };
+
+            if (user?.id) {
+                if (mergedStases.length > 0) {
+                    try {
+                        await syncStasesToSupabase(user.id);
+                        syncStatus.stases = 'ok';
+                    } catch {
+                        syncStatus.stases = 'failed';
+                    }
+                }
+
+                if (finalPatients.length > 0) {
+                    try {
+                        await syncToSupabase(user.id);
+                        syncStatus.patients = 'ok';
+                    } catch {
+                        syncStatus.patients = 'failed';
+                    }
+                }
+
+                if (importedSchedules.length > 0) {
+                    try {
+                        await syncSchedulesToSupabase(user.id);
+                        syncStatus.schedules = 'ok';
+                    } catch {
+                        syncStatus.schedules = 'failed';
+                    }
+                }
+
+                if (Object.values(syncStatus).includes('failed')) {
+                    const failedTargets = Object.entries(syncStatus)
+                        .filter(([, state]) => state === 'failed')
+                        .map(([key]) => key);
+                    const failedLabels = {
+                        stases: 'stase',
+                        patients: 'pasien',
+                        schedules: 'jadwal',
+                    };
+                    const failedReadable = failedTargets.map(key => failedLabels[key] || key).join(', ');
+                    importBundle.syncWarning = `Sinkron server parsial gagal pada: ${failedReadable}. Data lokal tetap tersimpan.`;
+                }
+            }
+
+            // Update context AFTER sync attempts (skip background sync since we just did it manually)
+            refreshStases();
+            refreshPatients(true);
+
+            if (incoming.length === 0 && updated.length === 0) {
+                const highlights = [
+                    `Total pasien lokal tetap ${finalPatients.length}.`,
+                ];
+                if (importBundle?.skippedInfo?.length) highlights.push(...importBundle.skippedInfo);
+                if (importBundle?.syncWarning) highlights.push(importBundle.syncWarning);
+                setImportDialog({
+                    open: true,
+                    variant: 'info',
+                    title: 'Tidak ada data baru untuk diimpor',
+                    message: 'Semua data pasien pada file sudah sinkron dengan data lokal Anda.',
+                    highlights,
+                    primaryLabel: 'OK',
+                    secondaryLabel: null,
+                    onPrimary: null,
+                });
+            } else {
+                let msg = [];
+                if (incoming.length > 0) msg.push(`${incoming.length} baru`);
+                if (updated.length > 0) msg.push(`${updated.length} diperbarui`);
+                if (importedSchedules.length > 0) msg.push(`${importedSchedules.length} jadwal diproses`);
+
+                const highlights = [
+                    `Ringkasan impor: ${msg.join(', ')}.`,
+                    `Total pasien lokal sekarang ${finalPatients.length}.`,
+                ];
+                if (contentConflictUpdatedCount > 0) {
+                    highlights.push(`${contentConflictUpdatedCount} pasien diperbarui karena konten berbeda meski timestamp sama.`);
+                }
+                if (importBundle?.skippedInfo?.length) highlights.push(...importBundle.skippedInfo);
+                if (importBundle?.syncWarning) highlights.push(importBundle.syncWarning);
+
+                setImportDialog({
+                    open: true,
+                    variant: importBundle?.syncWarning ? 'warning' : 'success',
+                    title: importBundle?.syncWarning ? 'Impor selesai dengan catatan' : 'Impor JSON berhasil',
+                    message: importBundle?.syncWarning
+                        ? 'Sebagian sinkronisasi server mengalami kendala, namun data lokal sudah diperbarui.'
+                        : 'Semua data valid berhasil diproses dan disimpan.',
+                    highlights,
+                    primaryLabel: 'Mengerti',
+                    secondaryLabel: null,
+                    onPrimary: null,
+                });
+            }
         } finally {
-            window.location.reload();
+            isApplyingImportRef.current = false;
+            setImporting(false);
         }
     };
 
@@ -261,7 +575,7 @@ export default function Settings() {
 
     return (
         <div className="flex-1 overflow-y-auto">
-            <div className="p-4 md:p-6 lg:p-10 max-w-[1400px] mx-auto animate-[fadeIn_0.3s_ease-out]">
+            <div className="p-4 md:p-6 lg:p-10 max-w-350 mx-auto animate-[fadeIn_0.3s_ease-out]">
                 <div className="mb-6 lg:mb-10">
                     <h1 className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Pengaturan</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base mt-1">Konfigurasi aplikasi dan manajemen data.</p>
@@ -275,7 +589,7 @@ export default function Settings() {
                             <div className="px-5 lg:px-8 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                                 <div className="flex items-center gap-3">
                                     <span className="material-symbols-outlined text-primary">account_circle</span>
-                                    <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Profil Akun</h3>
+                                    <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Profil Akun — {patients.length} Pasien</h3>
                                 </div>
                             </div>
                             <div className="p-5 lg:p-8 space-y-6">
@@ -339,7 +653,7 @@ export default function Settings() {
                                             
                                             <div className="flex flex-col md:flex-row gap-8 items-center relative z-10">
                                                 {/* Unique Countdown Visual: Ring/Circle */}
-                                                <div className="relative size-32 flex-shrink-0">
+                                                <div className="relative size-32 shrink-0">
                                                     <svg className="size-full -rotate-90" viewBox="0 0 100 100">
                                                         {/* Background circle */}
                                                         <circle 
@@ -615,6 +929,50 @@ export default function Settings() {
                     <ConflictManager />
                 </div>
             </div>
+
+            {/* Modal-modal */}
+            <ConfirmDialog 
+                open={showConfirm} 
+                onCancel={() => setShowConfirm(false)} 
+                onConfirm={handleConfirmTyped}
+                title="Hapus Semua Data?"
+                message="Anda akan menghapus seluruh data pasien, stase, dan jadwal secara permanen. Ketik 'HAPUS' untuk melanjutkan."
+                confirmLabel="HAPUS"
+                requireTypedConfirmation="HAPUS"
+            />
+
+            <ConfirmDialog 
+                open={showFinalConfirm} 
+                onCancel={() => setShowFinalConfirm(false)} 
+                onConfirm={handleFinalDelete}
+                title="Peringatan Terakhir"
+                message="Apakah Anda benar-benar yakin? Data yang sudah dihapus tidak dapat dipulihkan kembali dari server."
+                confirmLabel={deleting ? "Menghapus..." : "Ya, Hapus Permanen"}
+                danger={true}
+            />
+
+            {pendingImport && (
+                <StaseMappingModal
+                    open={!!pendingImport}
+                    importedPatients={pendingImport.patients}
+                    localStases={localStasesForImport}
+                    onApply={applyImport}
+                    onCancel={() => setPendingImport(null)}
+                />
+            )}
+
+            <ImportWindowBox
+                open={importDialog.open}
+                variant={importDialog.variant}
+                title={importDialog.title}
+                message={importDialog.message}
+                highlights={importDialog.highlights}
+                primaryLabel={importDialog.primaryLabel}
+                secondaryLabel={importDialog.secondaryLabel}
+                onPrimary={importDialog.onPrimary || (() => setImportDialog(prev => ({ ...prev, open: false })))}
+                onSecondary={() => setImportDialog(prev => ({ ...prev, open: false }))}
+                onClose={() => setImportDialog(prev => ({ ...prev, open: false }))}
+            />
         </div>
     );
 }

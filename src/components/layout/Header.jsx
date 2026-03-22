@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAdminAlerts } from '../../context/AdminAlertContext';
 
 export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
-    const { isOnline, isSyncing, syncFailed, lastSyncAt, conflictCount } = useOffline();
+    const { isOnline, isSyncing, syncFailed, lastSyncAt, conflictCount, pendingStatus } = useOffline();
     const { isAdmin, profile, isSpecialist } = useAuth();
     const { openAlertsCount } = useAdminAlerts();
     const navigate = useNavigate();
@@ -140,6 +140,20 @@ export default function Header({ onMenuToggle, searchQuery, onSearchChange }) {
                     >
                         <span className="material-symbols-outlined text-[14px]">cloud_done</span>
                         <span>Tersinkron</span>
+                    </div>
+                )}
+
+                {pendingStatus?.any && (
+                    <div
+                        title={`Menunggu sinkronisasi: ${[
+                            pendingStatus.patients ? 'pasien' : null,
+                            pendingStatus.stases ? 'stase' : null,
+                            pendingStatus.schedules ? 'jadwal' : null,
+                        ].filter(Boolean).join(', ')}`}
+                        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-[11px] font-bold whitespace-nowrap"
+                    >
+                        <span className="material-symbols-outlined text-[14px]">pending_actions</span>
+                        <span>Pending {pendingStatus.count}</span>
                     </div>
                 )}
 

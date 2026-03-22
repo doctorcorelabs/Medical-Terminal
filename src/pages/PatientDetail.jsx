@@ -17,6 +17,21 @@ import BloodGroupPicker from '../components/BloodGroupPicker';
 import FornasDrugPicker from '../components/FornasDrugPicker';
 import { useCopilotContext } from '../context/CopilotContext';
 
+const PATIENT_DETAIL_TAB_KEY = 'patientDetailActiveTab';
+
+const AI_SECTION_COLLAPSE_KEY_PREFIX = 'ai-section';
+const AI_CARD_COLLAPSE_KEY_PREFIX = 'ai-kartu';
+
+function getScopedAIPreferenceKey(prefix, storageKey, userId) {
+    if (!storageKey) return null;
+    if (userId) return `${prefix}:${storageKey}:${userId}`;
+    return `${prefix}-${storageKey}`;
+}
+
+function getPatientDetailTabStorageKey(userId) {
+    return userId ? `${PATIENT_DETAIL_TAB_KEY}:${userId}` : PATIENT_DETAIL_TAB_KEY;
+}
+
 function getNowLocalISO() {
     const now = new Date();
     return new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -29,12 +44,47 @@ export default function PatientDetail() {
     const { patients, canEditPatient, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState(() => {
-        return localStorage.getItem('patientDetailActiveTab') || 'overview';
+        const scopedKey = getPatientDetailTabStorageKey(user?.id);
+        const scopedValue = localStorage.getItem(scopedKey);
+        if (scopedValue) return scopedValue;
+        return localStorage.getItem(PATIENT_DETAIL_TAB_KEY) || 'overview';
     });
 
     useEffect(() => {
-        localStorage.setItem('patientDetailActiveTab', activeTab);
-    }, [activeTab]);
+        const scopedKey = getPatientDetailTabStorageKey(user?.id);
+        const scopedValue = localStorage.getItem(scopedKey);
+        const legacyValue = localStorage.getItem(PATIENT_DETAIL_TAB_KEY);
+
+        if (scopedValue) {
+            setActiveTab(scopedValue);
+            if (user?.id) {
+                localStorage.removeItem(PATIENT_DETAIL_TAB_KEY);
+            }
+            return;
+        }
+
+        if (user?.id && legacyValue) {
+            localStorage.setItem(scopedKey, legacyValue);
+            localStorage.removeItem(PATIENT_DETAIL_TAB_KEY);
+            setActiveTab(legacyValue);
+            return;
+        }
+
+        if (!user?.id && legacyValue) {
+            setActiveTab(legacyValue);
+            return;
+        }
+
+        setActiveTab('overview');
+    }, [user?.id]);
+
+    useEffect(() => {
+        localStorage.setItem(getPatientDetailTabStorageKey(user?.id), activeTab);
+        if (user?.id) {
+            localStorage.removeItem(PATIENT_DETAIL_TAB_KEY);
+        }
+    }, [activeTab, user?.id]);
+
     const [aiLoading, setAiLoading] = useState({});
     const [aiResults, setAiResults] = useState(patient?.aiInsights || {});
 
@@ -248,7 +298,7 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                     onAdd={(e) => { e.preventDefault(); if (!examInput.findings.trim()) return; addPhysicalExam(patient.id, { ...examInput, date: examInput.date ? new Date(examInput.date).toISOString() : new Date().toISOString() }); setExamInput({ findings: '', system: 'umum', date: getNowLocalISO() }); }}
                     onRemove={(examId) => removePhysicalExam(patient.id, examId)}
                     onUpdate={(examId, updates) => updatePhysicalExam(patient.id, examId, updates)}
-                    renderItem={(item) => <div className="min-w-0"><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1 break-words leading-relaxed">{item.findings}</p></div>}
+                    renderItem={(item) => <div className="min-w-0"><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1 wrap-break-word leading-relaxed">{item.findings}</p></div>}
                     onAI={() => callAI('physical', () => getPhysicalExamInsight((patient.physicalExams || []).map(e => e.findings).join('; '), (patient.symptoms || []).map(s => s.name).join(', ')))}
                     aiResult={aiResults.physical} aiLoading={aiLoading.physical} />}
                 {activeTab === 'labs' && <TabLab patient={patient} input={labInput} setInput={setLabInput}
@@ -431,7 +481,7 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient, canEditPati
                 {(patient.symptoms || []).length > 0 && (
                     <>
                         <Kartu judul="Peta Gejala" headerIcon="hub" id="grafik-gejala">
-                            <div className="h-75 lg:h-87.5"><SymptomGraph symptoms={patient.symptoms} aiResult={patient.aiInsights?.symptoms} /></div>
+                            <div className="h-75 lg:h-87-5"><SymptomGraph symptoms={patient.symptoms} aiResult={patient.aiInsights?.symptoms} /></div>
                         </Kartu>
                         <Kartu judul="Timeline Gejala" headerIcon="timeline" id="timeline-gejala">
                             <TimelineChart symptoms={patient.symptoms} admissionDate={patient.admissionDate} />
@@ -464,7 +514,7 @@ function TabRingkasan({ patient, navigate: _navigate, updatePatient, canEditPati
                         ].map(item => (
                             <div key={item.label} className="flex justify-between items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm">
                                 <span className="text-slate-500 shrink-0 text-xs">{item.label}</span>
-                                <span className="font-semibold text-right break-words min-w-0 max-w-[60%] text-xs leading-snug">{item.value}</span>
+                                <span className="font-semibold text-right wrap-break-word min-w-0 max-w-[60%] text-xs leading-snug">{item.value}</span>
                             </div>
                         ))}
                     </div>
@@ -785,7 +835,7 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
             {/* Riwayat */}
             <Kartu judul={`Riwayat Vital Signs (${sorted.length})`} headerIcon="history">
                 {sorted.length === 0 ? <Kosong /> : (
-                    <div className="max-h-[360px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                    <div className="max-h-90 overflow-y-auto custom-scrollbar pr-2 space-y-3">
                         {sorted.map(vs => (
                             <div key={vs.id}>
                                 {editingId === vs.id ? (
@@ -934,7 +984,7 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, 
                 </div>
                 <div className="space-y-5 min-w-0">
                     <Kartu judul={`Daftar Gejala (${(patient.symptoms || []).length})`}>
-                        <div className="max-h-[360px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                        <div className="max-h-90 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                             {(patient.symptoms || []).length === 0 ? <Kosong /> :
                                 [...(patient.symptoms || [])].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt)).map(s => (
                                     <div key={s.id}>
@@ -977,9 +1027,9 @@ function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, 
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-start gap-2.5 mb-1">
                                                             <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
-                                                            <span className="text-sm font-bold flex-1 min-w-0 break-words leading-snug">{s.name}</span>
+                                                            <span className="text-sm font-bold flex-1 min-w-0 wrap-break-word leading-snug">{s.name}</span>
                                                         </div>
-                                                        {s.notes && <p className="text-xs text-slate-500 ml-4.5 mb-2 break-words leading-relaxed">{s.notes}</p>}
+                                                        {s.notes && <p className="text-xs text-slate-500 ml-4.5 mb-2 wrap-break-word leading-relaxed">{s.notes}</p>}
                                                         <div className="flex items-center gap-2.5 ml-4.5 mt-2">
                                                             <BadgeKeparahan keparahan={s.severity} />
                                                             <span className="text-[10px] font-medium text-slate-400">{formatDateTime(s.recordedAt)}</span>
@@ -1057,7 +1107,7 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
         <div className="space-y-5 lg:space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
-                    <Kartu judul={`Tambah ${judul}`} className="border-secondary/20 bg-secondary/5">
+                    <Kartu judul={`Tambah ${judul}`} className="border-primary/20 bg-primary/5">
                         <form onSubmit={onAdd} className="space-y-4">
                             <div className="space-y-4">
                                 {fields.map(f => f.type === 'select' ? (
@@ -1087,15 +1137,15 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
                                 </div>
                             </div>
                             <button type="submit" 
-                                className="w-full bg-secondary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-secondary/25 hover:shadow-secondary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                                <span className="material-symbols-outlined font-bold">save</span> Simpan {judul}
+                                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined font-bold">add_circle</span> Simpan {judul}
                             </button>
                         </form>
                     </Kartu>
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Riwayat (${items.length})`}>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                        <div className="max-h-90 overflow-y-auto custom-scrollbar pr-2 space-y-3">
                             {items.length === 0 ? <Kosong /> : [...items].sort((a, b) => new Date(a.date) - new Date(b.date)).map(item => (
                                 <div key={item.id}>
                                     {editingId === item.id ? (
@@ -1132,13 +1182,13 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm relative group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="flex items-center gap-1 text-[10px] text-slate-400">
+                                        <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
+                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-2">
+                                                <span className="flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
                                                     <span className="material-symbols-outlined text-[11px]">schedule</span>
                                                     {formatDateTime(item.date)}
                                                 </span>
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
                                                     <button type="button" onClick={() => startEdit(item)}
                                                         className="p-1 rounded text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors">
                                                         <span className="material-symbols-outlined text-sm">edit</span>
@@ -1166,7 +1216,7 @@ function TabDataUmum({ judul, items, input, setInput, fields, onAdd, onRemove, o
 
             {items.length > 0 && (
                 <Kartu judul={`Timeline ${judul}`} headerIcon="timeline">
-                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="relative max-h-100 overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sorted.map((item, index) => (
@@ -1251,11 +1301,11 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
             {showRefModal && <LabReferenceModal onClose={() => setShowRefModal(false)} />}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
                 <div className="space-y-5 min-w-0">
-                    <Kartu judul="Input Hasil Lab" className="border-indigo-500/20 bg-indigo-50/5" aksi={
+                    <Kartu judul="Input Hasil Lab" className="border-primary/20 bg-primary/5" aksi={
                         <button
                             type="button"
                             onClick={() => setShowRefModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-500/10 hover:text-indigo-600 border border-slate-200 dark:border-slate-700 hover:border-indigo-500/30 transition-all text-[11px] font-black uppercase tracking-wider shadow-xs"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary border border-slate-200 dark:border-slate-700 hover:border-primary/30 transition-all text-[11px] font-black uppercase tracking-wider shadow-xs"
                             title="Lihat tabel nilai rujukan resmi"
                         >
                             <span className="material-symbols-outlined text-[16px]">fact_check</span>
@@ -1269,13 +1319,13 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                                     <div className="flex gap-1 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
                                         {labCategories.map(cat => (
                                             <button key={cat.key} type="button" onClick={() => setActiveLabCat(cat.key)}
-                                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-indigo-500 text-white border-indigo-500 shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-750'}`}>
+                                                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === cat.key ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-750'}`}>
                                                 <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
                                                 {cat.label}
                                             </button>
                                         ))}
                                         <button type="button" onClick={() => setActiveLabCat('custom')}
-                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-indigo-500 text-white border-indigo-500 shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
+                                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap shrink-0 transition-all border ${activeLabCat === 'custom' ? 'bg-primary text-white border-primary shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-transparent hover:bg-slate-100'}`}>
                                             <span className="material-symbols-outlined text-[14px]">add_circle</span>
                                             Lainnya
                                         </button>
@@ -1302,12 +1352,12 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                                 )}
 
                                 {selectedRef && refDisplay && (
-                                    <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800/30 animate-[slideUp_0.2s_ease-out]">
+                                    <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-primary/10 dark:bg-primary/15 border border-primary/25 dark:border-primary/30 animate-[slideUp_0.2s_ease-out]">
                                         <div className="p-1.5 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                            <span className="material-symbols-outlined text-indigo-500 text-[16px] block">info</span>
+                                            <span className="material-symbols-outlined text-primary text-[16px] block">info</span>
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-wider">Nilai Rujukan</p>
+                                            <p className="text-[9px] text-primary font-black uppercase tracking-wider">Nilai Rujukan</p>
                                             <p className="text-sm text-slate-700 dark:text-slate-200 font-bold mt-0.5">{refDisplay.text}</p>
                                             {selectedRef.metode && <p className="text-[10px] text-slate-400 mt-0.5 font-medium italic">Metode: {selectedRef.metode}</p>}
                                         </div>
@@ -1348,7 +1398,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                             </div>
 
                             <button type="submit" disabled={!input.value || (!input.testName && activeLabCat !== 'custom')} 
-                                className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider">
+                                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider">
                                 <span className="material-symbols-outlined font-bold">add_chart</span> Simpan Hasil Laboratorium
                             </button>
                         </form>
@@ -1362,7 +1412,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                             Rujukan
                         </button>
                     }>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                        <div className="max-h-90 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                             {(patient.supportingExams || []).length === 0 ? <Kosong /> : [...(patient.supportingExams || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map(e => (
                                 <div key={e.id}>
                                     {editingId === e.id ? (
@@ -1394,7 +1444,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                                         <div className="p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm group hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all">
                                             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold leading-snug break-words mb-1.5">{e.testName}</p>
+                                                    <p className="text-sm font-bold leading-snug wrap-break-word mb-1.5">{e.testName}</p>
                                                     <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                                         <span className="text-sm font-black">{e.value}</span>
                                                         {e.unit && <span className="text-[10px] font-medium text-slate-500">{e.unit}</span>}
@@ -1438,7 +1488,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
 
             {(patient.supportingExams || []).length > 0 && (
                 <Kartu judul="Timeline Hasil Lab" headerIcon="timeline">
-                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="relative max-h-100 overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sortedLab.map((e, index) => (
@@ -1448,7 +1498,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
                                     }`} />
                                     <div className="ml-6 flex-1 p-4 rounded-xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-sm hover:border-primary/30 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all min-w-0">
                                         <div className="flex items-start justify-between gap-2 mb-1">
-                                            <span className="text-sm font-bold leading-snug break-words min-w-0 flex-1">{e.testName}</span>
+                                            <span className="text-sm font-bold leading-snug wrap-break-word min-w-0 flex-1">{e.testName}</span>
                                             <span className="text-[10px] text-slate-400 shrink-0">{formatDateTime(e.date)}</span>
                                         </div>
                                         <div className="flex items-center gap-2 flex-wrap">
@@ -1587,7 +1637,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Daftar Obat (${(patient.prescriptions || []).length})`}>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                        <div className="max-h-90 overflow-y-auto custom-scrollbar pr-2 space-y-3">
                             {(patient.prescriptions || []).length === 0 ? <Kosong /> : [...(patient.prescriptions || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map(p => (
                                 <div key={p.id}>
                                     {editingId === p.id ? (
@@ -1650,7 +1700,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
                                             <div className="flex items-start justify-between gap-2 mb-1">
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                                        <p className="font-semibold text-sm break-words leading-snug">{p.name}{p.dosage ? ` ${p.dosage}` : ''}</p>
+                                                        <p className="font-semibold text-sm wrap-break-word leading-snug">{p.name}{p.dosage ? ` ${p.dosage}` : ''}</p>
                                                         {p.fornas_source && (
                                                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800/40 rounded-full px-1.5 py-0.5 uppercase shrink-0">
                                                                 <span className="material-symbols-outlined text-[10px]">verified</span>
@@ -1687,7 +1737,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
 
             {(patient.prescriptions || []).length > 0 && (
                 <Kartu judul="Timeline Pemberian Obat" headerIcon="timeline">
-                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="relative max-h-100 overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sortedPresc.map((p, index) => (
@@ -1801,7 +1851,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
                 </div>
                 <div className="min-w-0">
                     <Kartu judul={`Riwayat Laporan (${(patient.dailyReports || []).length})`}>
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar pr-2 space-y-3">
+                        <div className="max-h-90 overflow-y-auto custom-scrollbar pr-2 space-y-3">
                             {(patient.dailyReports || []).length === 0 ? <Kosong /> : [...(patient.dailyReports || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map(r => (
                                 <div key={r.id}>
                                     {editingId === r.id ? (
@@ -1841,7 +1891,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
                                                             r.condition === 'urgent' ? 'bg-amber-500' : 
                                                             r.condition === 'improving' ? 'bg-green-500' : 'bg-primary'
                                                         }`} />
-                                                        <p className="text-sm font-bold leading-relaxed break-words flex-1 text-slate-700 dark:text-slate-200">{r.notes}</p>
+                                                        <p className="text-sm font-bold leading-relaxed wrap-break-word flex-1 text-slate-700 dark:text-slate-200">{r.notes}</p>
                                                     </div>
                                                     <div className="flex items-center gap-2.5 ml-4.5 mt-2">
                                                         {r.condition && <KondisiBadge kondisi={r.condition} />}
@@ -1878,7 +1928,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
 
             {(patient.dailyReports || []).length > 0 && (
                 <Kartu judul="Timeline Laporan Harian" headerIcon="timeline">
-                    <div className="relative max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="relative max-h-100 overflow-y-auto custom-scrollbar pr-2">
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-700" />
                         <div className="space-y-3">
                             {sortedReports.map((r, index) => {
@@ -1983,14 +2033,49 @@ function Kartu({ judul, headerIcon, aksi, children, id, className = "" }) {
 }
 
 function TombolAI({ label, onGenerate, loading, result, disabled, storageKey }) {
-    const [isMinimized, setIsMinimized] = useState(() =>
-        storageKey ? localStorage.getItem(`ai-section-${storageKey}`) === 'true' : false
-    );
+    const { user } = useAuth();
+    const [isMinimized, setIsMinimized] = useState(() => false);
+
+    useEffect(() => {
+        if (!storageKey) return;
+        
+        const scopedKey = getScopedAIPreferenceKey(AI_SECTION_COLLAPSE_KEY_PREFIX, storageKey, user?.id);
+        const legacyKey = `ai-section-${storageKey}`;
+        
+        const scopedValue = scopedKey ? localStorage.getItem(scopedKey) : null;
+        const legacyValue = localStorage.getItem(legacyKey);
+        
+        if (scopedValue !== null) {
+            setIsMinimized(scopedValue === 'true');
+            if (user?.id) {
+                localStorage.removeItem(legacyKey);
+            }
+            return;
+        }
+        
+        if (user?.id && legacyValue !== null) {
+            localStorage.setItem(scopedKey, legacyValue);
+            localStorage.removeItem(legacyKey);
+            setIsMinimized(legacyValue === 'true');
+            return;
+        }
+        
+        if (!user?.id && legacyValue !== null) {
+            setIsMinimized(legacyValue === 'true');
+            return;
+        }
+        
+        setIsMinimized(false);
+    }, [storageKey, user?.id]);
 
     const handleToggle = () => {
         const next = !isMinimized;
         setIsMinimized(next);
-        if (storageKey) localStorage.setItem(`ai-section-${storageKey}`, String(next));
+        if (storageKey) {
+            const scopedKey = getScopedAIPreferenceKey(AI_SECTION_COLLAPSE_KEY_PREFIX, storageKey, user?.id);
+            if (scopedKey) localStorage.setItem(scopedKey, String(next));
+            if (user?.id) localStorage.removeItem(`ai-section-${storageKey}`);
+        }
     };
 
     return (
@@ -2034,11 +2119,42 @@ function TombolAI({ label, onGenerate, loading, result, disabled, storageKey }) 
 }
 
 function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey }) {
-    const [isMinimized, setIsMinimized] = useState(() =>
-        storageKey ? localStorage.getItem(`ai-kartu-${storageKey}`) === 'true' : false
-    );
+    const { user } = useAuth();
+    const [isMinimized, setIsMinimized] = useState(() => false);
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(result || '');
+
+    useEffect(() => {
+        if (!storageKey) return;
+        
+        const scopedKey = getScopedAIPreferenceKey(AI_CARD_COLLAPSE_KEY_PREFIX, storageKey, user?.id);
+        const legacyKey = `ai-kartu-${storageKey}`;
+        
+        const scopedValue = scopedKey ? localStorage.getItem(scopedKey) : null;
+        const legacyValue = localStorage.getItem(legacyKey);
+        
+        if (scopedValue !== null) {
+            setIsMinimized(scopedValue === 'true');
+            if (user?.id) {
+                localStorage.removeItem(legacyKey);
+            }
+            return;
+        }
+        
+        if (user?.id && legacyValue !== null) {
+            localStorage.setItem(scopedKey, legacyValue);
+            localStorage.removeItem(legacyKey);
+            setIsMinimized(legacyValue === 'true');
+            return;
+        }
+        
+        if (!user?.id && legacyValue !== null) {
+            setIsMinimized(legacyValue === 'true');
+            return;
+        }
+        
+        setIsMinimized(false);
+    }, [storageKey, user?.id]);
 
     useEffect(() => {
         setEditText(result || '');
@@ -2047,7 +2163,11 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey })
     const handleToggle = () => {
         const next = !isMinimized;
         setIsMinimized(next);
-        if (storageKey) localStorage.setItem(`ai-kartu-${storageKey}`, String(next));
+        if (storageKey) {
+            const scopedKey = getScopedAIPreferenceKey(AI_CARD_COLLAPSE_KEY_PREFIX, storageKey, user?.id);
+            if (scopedKey) localStorage.setItem(scopedKey, String(next));
+            if (user?.id) localStorage.removeItem(`ai-kartu-${storageKey}`);
+        }
     };
 
     return (
@@ -2104,7 +2224,7 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey })
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
                             placeholder="Ketik detail diagnosis/catatan di sini..."
-                            className="w-full min-h-[350px] p-5 text-sm rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 leading-relaxed shadow-sm transition-all resize-y"
+                            className="w-full min-h-87-5 p-5 text-sm rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 font-semibold text-slate-800 dark:text-slate-200 leading-relaxed shadow-sm transition-all resize-y"
                         />
                     ) : (
                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:my-0.5 text-justify">

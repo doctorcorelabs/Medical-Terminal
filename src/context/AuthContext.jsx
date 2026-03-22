@@ -118,14 +118,40 @@ export function AuthProvider({ children }) {
             if (user?.id) {
                 logUserActivity({ userId: user.id, eventType: 'auth_signed_out' });
             }
+            if (user?.id) {
+                localStorage.removeItem(`medterminal_pdf_prefs_${user.id}`);
+                localStorage.removeItem(`medterminal_patients:${user.id}`);
+                localStorage.removeItem(`medterminal_deleted_patients:${user.id}`);
+                localStorage.removeItem(`medterminal_stases:${user.id}`);
+                localStorage.removeItem(`medterminal_deleted_stases:${user.id}`);
+                localStorage.removeItem(`medterminal_pinned_stase:${user.id}`);
+                localStorage.removeItem(`medterminal_schedules:${user.id}`);
+                localStorage.removeItem(`medterminal_pending_patients_sync:${user.id}`);
+                localStorage.removeItem(`medterminal_pending_stases_sync:${user.id}`);
+                localStorage.removeItem(`medterminal_pending_schedules_sync:${user.id}`);
+                localStorage.removeItem(`medterminal_theme:${user.id}`);
+                localStorage.removeItem(`copilot_context_enabled:${user.id}`);
+                localStorage.removeItem(`patientDetailActiveTab:${user.id}`);
+                localStorage.removeItem(`addPatientActiveTab:${user.id}`);
+                localStorage.removeItem(`medterminal_schedule_view:${user.id}`);
+            }
+            localStorage.removeItem('medterminal_pdf_prefs');
             localStorage.removeItem('medterminal_user_cache');
             localStorage.removeItem('medterminal_profile_cache');
             localStorage.removeItem('medterminal_patients');
+            localStorage.removeItem('medterminal_deleted_patients');
             localStorage.removeItem('medterminal_stases');
+            localStorage.removeItem('medterminal_deleted_stases');
             localStorage.removeItem('medterminal_pinned_stase');
+            localStorage.removeItem('medterminal_schedules');
             localStorage.removeItem('medterminal_pending_patients_sync');
             localStorage.removeItem('medterminal_pending_stases_sync');
             localStorage.removeItem('medterminal_pending_schedules_sync');
+            localStorage.removeItem('medterminal_theme');
+            localStorage.removeItem('copilot_context_enabled');
+            localStorage.removeItem('patientDetailActiveTab');
+            localStorage.removeItem('addPatientActiveTab');
+            localStorage.removeItem('medterminal_schedule_view');
             setProfile(null);
             setUser(null);
             return supabase.auth.signOut();

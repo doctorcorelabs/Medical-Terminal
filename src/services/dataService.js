@@ -1,6 +1,6 @@
 // Data management with localStorage and Supabase sync
 import { supabase } from './supabaseClient';
-import { pendingSync } from './offlineQueue';
+import { pendingSync, setPendingSyncScope } from './offlineQueue';
 import { enqueue, clearQueueByType } from './idbQueue';
 import {
     getScheduleStorageKey,
@@ -10,12 +10,51 @@ import {
     schedulesDiffer,
 } from '../utils/scheduleSync';
 const STORAGE_KEY = 'medterminal_patients';
+const DELETED_PATIENTS_KEY = 'medterminal_deleted_patients'; // Tombstones for sync
 const STASE_KEY = 'medterminal_stases';
+const DELETED_STASES_KEY = 'medterminal_deleted_stases'; // Tombstones for sync
 const PINNED_KEY = 'medterminal_pinned_stase';
+
+let activeDataUserId = null;
+
+function getScopedDataKey(baseKey, userId = activeDataUserId) {
+    return userId ? `${baseKey}:${userId}` : baseKey;
+}
+
+function migrateLegacyDataStorage(userId) {
+    if (!userId) return;
+
+    const scopedBases = [
+        STORAGE_KEY,
+        STASE_KEY,
+        PINNED_KEY,
+        DELETED_PATIENTS_KEY,
+        DELETED_STASES_KEY,
+    ];
+
+    for (const baseKey of scopedBases) {
+        const scopedKey = getScopedDataKey(baseKey, userId);
+        const scopedValue = localStorage.getItem(scopedKey);
+        const legacyValue = localStorage.getItem(baseKey);
+
+        if (scopedValue == null && legacyValue != null) {
+            localStorage.setItem(scopedKey, legacyValue);
+        }
+
+        // Remove legacy global key so it cannot leak to another user session.
+        localStorage.removeItem(baseKey);
+    }
+}
+
+export function setDataStorageScope(userId) {
+    activeDataUserId = userId || null;
+    migrateLegacyDataStorage(activeDataUserId);
+    setPendingSyncScope(activeDataUserId);
+}
 
 function getStoredData() {
     try {
-        const data = localStorage.getItem(STORAGE_KEY);
+        const data = localStorage.getItem(getScopedDataKey(STORAGE_KEY));
         const parsed = data ? JSON.parse(data) : [];
         // Normalize legacy combined bloodType values like 'A+' into { bloodType: 'A', rhesus: '+' }
         if (Array.isArray(parsed)) {
@@ -47,8 +86,22 @@ function getStoredData() {
     }
 }
 
+function getDeletedState(key) {
+    try {
+        return JSON.parse(localStorage.getItem(getScopedDataKey(key)) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function recordDeletion(id, key) {
+    const deleted = getDeletedState(key);
+    deleted[id] = new Date().toISOString();
+    localStorage.setItem(getScopedDataKey(key), JSON.stringify(deleted));
+}
+
 function saveData(patients) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
+    localStorage.setItem(getScopedDataKey(STORAGE_KEY), JSON.stringify(patients));
 }
 
 // ----- Per-item merge helper (shared by patients & stases foreground sync) -----
@@ -58,7 +111,7 @@ function getItemTimestamp(item) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr) {
+function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr, deletedKey) {
     const serverTimestamp = serverUpdatedAtStr ? Date.parse(serverUpdatedAtStr) : 0;
     const serverMap = new Map();
     for (const item of serverItems) {
@@ -87,8 +140,19 @@ function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr) {
         mergedIds.add(local.id);
     }
 
+    const deletedMap = deletedKey ? getDeletedState(deletedKey) : {};
     for (const server of serverItems) {
-        if (server?.id && !mergedIds.has(server.id)) merged.push(server);
+        if (!server?.id || mergedIds.has(server.id)) continue;
+        
+        // Tombstone check: If it's on server but deleted locally, keep it deleted IF our tombstone is newer
+        const serverTs = getItemTimestamp(server);
+        const localDeleteTs = deletedMap[server.id] ? Date.parse(deletedMap[server.id]) : 0;
+        
+        if (localDeleteTs > serverTs) {
+            continue; // Keep it deleted
+        }
+        
+        merged.push(server);
     }
     return merged;
 }
@@ -96,6 +160,7 @@ function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr) {
 // ----- Supabase Sync Functions -----
 export async function syncToSupabase(userId) {
     if (!userId) return;
+    setDataStorageScope(userId);
     const localPatients = getStoredData();
     await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: localPatients } }).catch(() => {});
     
@@ -109,7 +174,7 @@ export async function syncToSupabase(userId) {
 
         const serverPatients = Array.isArray(serverRow?.patients_data) ? serverRow.patients_data : [];
         const finalPatients = serverRow
-            ? mergeItemsByIdForeground(localPatients, serverPatients, serverRow.updated_at)
+            ? mergeItemsByIdForeground(localPatients, serverPatients, serverRow.updated_at, DELETED_PATIENTS_KEY)
             : localPatients;
 
         const { error } = await supabase.from('user_patients').upsert({
@@ -130,8 +195,12 @@ export async function syncToSupabase(userId) {
 }
 
 export async function deleteAllPatientsData(userId) {
+    if (userId) {
+        setDataStorageScope(userId);
+    }
     // 1. Wipe local cache
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getScopedDataKey(STORAGE_KEY));
+    localStorage.removeItem(getScopedDataKey(DELETED_PATIENTS_KEY));
     pendingSync.clearPatients();
     // 2. Perform the remote reset by upserting an empty array instead of deleting the row.
     // This ensures other devices see an "empty but newer" state.
@@ -152,7 +221,11 @@ export async function deleteAllPatientsData(userId) {
 }
 
 export async function fetchFromSupabase(userId) {
-    if (!userId) return getStoredData();
+    if (!userId) {
+        setDataStorageScope(null);
+        return getStoredData();
+    }
+    setDataStorageScope(userId);
     try {
         const { data } = await supabase
             .from('user_patients')
@@ -166,7 +239,7 @@ export async function fetchFromSupabase(userId) {
             const localPatients = getStoredData();
 
             if (pendingSync.hasPatients() && localPatients.length > 0) {
-                const merged = mergeItemsByIdForeground(localPatients, serverPatients, data.updated_at);
+                const merged = mergeItemsByIdForeground(localPatients, serverPatients, data.updated_at, DELETED_PATIENTS_KEY);
                 saveData(merged);
                 return merged;
             }
@@ -184,7 +257,7 @@ export async function fetchFromSupabase(userId) {
 // ----- Stase localStorage Helpers -----
 function getStoredStases() {
     try {
-        const data = localStorage.getItem(STASE_KEY);
+        const data = localStorage.getItem(getScopedDataKey(STASE_KEY));
         return data ? JSON.parse(data) : [];
     } catch {
         return [];
@@ -192,24 +265,25 @@ function getStoredStases() {
 }
 
 function saveStases(stases) {
-    localStorage.setItem(STASE_KEY, JSON.stringify(stases));
+    localStorage.setItem(getScopedDataKey(STASE_KEY), JSON.stringify(stases));
 }
 
 export function getPinnedStaseId() {
-    return localStorage.getItem(PINNED_KEY) || null;
+    return localStorage.getItem(getScopedDataKey(PINNED_KEY)) || null;
 }
 
 export function setPinnedStaseId(id) {
     if (id === null) {
-        localStorage.removeItem(PINNED_KEY);
+        localStorage.removeItem(getScopedDataKey(PINNED_KEY));
     } else {
-        localStorage.setItem(PINNED_KEY, id);
+        localStorage.setItem(getScopedDataKey(PINNED_KEY), id);
     }
 }
 
 // ----- Stase Supabase Sync -----
 export async function syncStasesToSupabase(userId) {
     if (!userId) return;
+    setDataStorageScope(userId);
     const localStases = getStoredStases();
     const pinnedStaseId = getPinnedStaseId();
     
@@ -225,7 +299,7 @@ export async function syncStasesToSupabase(userId) {
 
         const serverStases = Array.isArray(serverRow?.stases_data) ? serverRow.stases_data : [];
         const finalStases = serverRow
-            ? mergeItemsByIdForeground(localStases, serverStases, serverRow.updated_at)
+            ? mergeItemsByIdForeground(localStases, serverStases, serverRow.updated_at, DELETED_STASES_KEY)
             : localStases;
 
         let finalPinned = pinnedStaseId;
@@ -259,7 +333,11 @@ export async function syncStasesToSupabase(userId) {
 }
 
 export async function fetchStasesFromSupabase(userId) {
-    if (!userId) return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
+    if (!userId) {
+        setDataStorageScope(null);
+        return { stases: getStoredStases(), pinnedStaseId: getPinnedStaseId() };
+    }
+    setDataStorageScope(userId);
     try {
         const { data } = await supabase
             .from('user_stases')
@@ -292,8 +370,12 @@ export async function fetchStasesFromSupabase(userId) {
 }
 
 export async function deleteAllStasesData(userId) {
+    if (userId) {
+        setDataStorageScope(userId);
+    }
     saveStases([]);
     setPinnedStaseId(null);
+    localStorage.removeItem(getScopedDataKey(DELETED_STASES_KEY));
     pendingSync.clearStases();
     if (userId) {
         try {
@@ -342,8 +424,12 @@ export function updateStase(id, updates) {
 export function deleteStase(id) {
     // Remove the stase
     const stases = getStoredStases();
-    const filtered = stases.filter(s => s.id !== id);
-    saveStases(filtered);
+    const filteredSorted = stases.filter(s => s.id !== id);
+    saveStases(filteredSorted);
+    recordDeletion(id, DELETED_STASES_KEY); // Record tombstone
+    if (typeof pendingSync !== 'undefined' && pendingSync.markStases) {
+        pendingSync.markStases();
+    }
 
     // Also delete all patients belonging to this stase
     const patients = getStoredData();
@@ -372,6 +458,27 @@ export function reorderStase(id, direction) {
 
 export function getAllPatients() {
     return getStoredData();
+}
+
+/**
+ * Replace entire patient list locally and mark as dirty for sync.
+ * This is used for imports to avoid race conditions with remote sync.
+ */
+export function bulkSavePatients(patients) {
+    saveData(patients);
+    if (typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
+        pendingSync.markPatients();
+    }
+}
+
+/**
+ * Replace entire stase list locally and mark as dirty for sync.
+ */
+export function bulkSaveStases(stases) {
+    localStorage.setItem(getScopedDataKey(STASE_KEY), JSON.stringify(stases));
+    if (typeof pendingSync !== 'undefined' && pendingSync.markStases) {
+        pendingSync.markStases();
+    }
 }
 
 export function getPatientById(id) {
@@ -411,6 +518,9 @@ export function addPatient(patient) {
     };
     patients.push(newPatient);
     saveData(patients);
+    if (typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
+        pendingSync.markPatients();
+    }
     return newPatient;
 }
 
@@ -425,6 +535,9 @@ export function updatePatient(id, updates) {
         updatedAt: new Date().toISOString(),
     };
     saveData(patients);
+    if (typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
+        pendingSync.markPatients();
+    }
     return patients[index];
 }
 
@@ -432,6 +545,10 @@ export function deletePatient(id) {
     const patients = getStoredData();
     const filtered = patients.filter(p => p.id !== id);
     saveData(filtered);
+    recordDeletion(id, DELETED_PATIENTS_KEY); // Record tombstone for sync
+    if (typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
+        pendingSync.markPatients();
+    }
     return true;
 }
 
@@ -901,6 +1018,9 @@ export function upsertSchedulesBulk(importedSchedules = []) {
 
     const merged = Array.from(byId.values());
     saveSchedules(merged);
+    if (importedSchedules.length > 0) {
+        pendingSync.markSchedules();
+    }
     return merged;
 }
 

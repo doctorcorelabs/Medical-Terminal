@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 
 const COLOR_PALETTE = [
     '#3b82f6', '#22c55e', '#ef4444', '#a855f7',
@@ -26,6 +26,7 @@ const CONDITION_STYLES = {
 
 export default function StaseMappingModal({ open, importedPatients, localStases, onApply, onCancel }) {
     const [expandedPreviews, setExpandedPreviews] = useState({});
+    const hasAutoAppliedRef = useRef(false);
     const togglePreview = (id) => setExpandedPreviews(prev => ({ ...prev, [id]: !prev[id] }));
 
     // Collect unique stase_id values that appear in the imported file
@@ -55,6 +56,20 @@ export default function StaseMappingModal({ open, importedPatients, localStases,
             )
         );
     }, [unknownStaseIds]);
+
+    useEffect(() => {
+        // Reset one-shot guard every time modal closes.
+        if (!open) {
+            hasAutoAppliedRef.current = false;
+        }
+    }, [open]);
+
+    useEffect(() => {
+        // Auto-apply only once per modal session when no mapping is needed.
+        if (!open || unknownStaseIds.length !== 0 || hasAutoAppliedRef.current) return;
+        hasAutoAppliedRef.current = true;
+        onApply(importedPatients, []);
+    }, [open, unknownStaseIds.length, onApply, importedPatients]);
 
     const setField = (staseId, field, value) =>
         setMapping(prev => ({ ...prev, [staseId]: { ...prev[staseId], [field]: value } }));
@@ -98,10 +113,8 @@ export default function StaseMappingModal({ open, importedPatients, localStases,
 
     if (!open) return null;
 
-    // If there are no unknown stases, skip the modal and apply directly
+    // If there are no unknown stases, auto-apply is handled by effect above.
     if (unknownStaseIds.length === 0) {
-        // Defer the call to avoid updating state during render
-        setTimeout(() => onApply(importedPatients, []), 0);
         return null;
     }
 

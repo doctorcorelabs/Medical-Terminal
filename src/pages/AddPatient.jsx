@@ -1,28 +1,84 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
+import { useAuth } from '../context/AuthContext';
 import { useStase } from '../context/StaseContext';
 import { checkLabValue, labReferences, labCategories, getComprehensiveTemplate } from '../services/dataService';
-import { useToast } from '../context/ToastContext';
 import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
 import BloodGroupPicker from '../components/BloodGroupPicker';
 import FornasDrugPicker from '../components/FornasDrugPicker';
 import CustomSelect from '../components/common/CustomSelect';
+import ImportWindowBox from '../components/ImportWindowBox';
+
+const ADD_PATIENT_TAB_KEY = 'addPatientActiveTab';
+const PATIENT_DETAIL_TAB_KEY = 'patientDetailActiveTab';
+
+function getAddPatientTabStorageKey(userId) {
+    return userId ? `${ADD_PATIENT_TAB_KEY}:${userId}` : ADD_PATIENT_TAB_KEY;
+}
+
+function getPatientDetailTabStorageKey(userId) {
+    return userId ? `${PATIENT_DETAIL_TAB_KEY}:${userId}` : PATIENT_DETAIL_TAB_KEY;
+}
 
 export default function AddPatient() {
     const navigate = useNavigate();
-    const { addPatient, patients, canAddPatient } = usePatients();
-    const { addToast } = useToast();
+    const { user } = useAuth();
+    const { addPatient, patients, canAddPatient, canAddXPatients } = usePatients();
     const { stases, pinnedStaseId } = useStase();
+    const [importDialog, setImportDialog] = useState({
+        open: false,
+        variant: 'info',
+        title: '',
+        message: '',
+        highlights: [],
+        primaryLabel: 'OK',
+        secondaryLabel: null,
+        onPrimary: null,
+    });
 
     const [activeTab, setActiveTab] = useState(() => {
-        return localStorage.getItem('addPatientActiveTab') || 'ringkasan';
+        const scopedKey = getAddPatientTabStorageKey(user?.id);
+        const scopedValue = localStorage.getItem(scopedKey);
+        if (scopedValue) return scopedValue;
+        return localStorage.getItem(ADD_PATIENT_TAB_KEY) || 'ringkasan';
     });
 
     useEffect(() => {
-        localStorage.setItem('addPatientActiveTab', activeTab);
-    }, [activeTab]);
+        const scopedKey = getAddPatientTabStorageKey(user?.id);
+        const scopedValue = localStorage.getItem(scopedKey);
+        const legacyValue = localStorage.getItem(ADD_PATIENT_TAB_KEY);
+
+        if (scopedValue) {
+            setActiveTab(scopedValue);
+            if (user?.id) {
+                localStorage.removeItem(ADD_PATIENT_TAB_KEY);
+            }
+            return;
+        }
+
+        if (user?.id && legacyValue) {
+            localStorage.setItem(scopedKey, legacyValue);
+            localStorage.removeItem(ADD_PATIENT_TAB_KEY);
+            setActiveTab(legacyValue);
+            return;
+        }
+
+        if (!user?.id && legacyValue) {
+            setActiveTab(legacyValue);
+            return;
+        }
+
+        setActiveTab('ringkasan');
+    }, [user?.id]);
+
+    useEffect(() => {
+        localStorage.setItem(getAddPatientTabStorageKey(user?.id), activeTab);
+        if (user?.id) {
+            localStorage.removeItem(ADD_PATIENT_TAB_KEY);
+        }
+    }, [activeTab, user?.id]);
     const [form, setForm] = useState({
         name: '', age: '', gender: 'male', room: '', bloodType: '', admissionDate: new Date().toISOString().split('T')[0],
         rhesus: '',
@@ -71,10 +127,32 @@ export default function AddPatient() {
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                const patients = Array.isArray(data) ? data : [data];
+                const importedPatients = Array.isArray(data) ? data : [data];
+                const importHighlights = [];
+
+                if (importedPatients.length > 1) {
+                    importHighlights.push('File berisi lebih dari satu pasien. Hanya pasien pertama yang diproses di halaman ini.');
+                    importHighlights.push('Untuk impor massal, gunakan menu Pengaturan > Impor JSON.');
+                }
                 
-                if (patients.length > 0) {
-                    const p = patients[0]; // Take first patient as template for current form
+                if (importedPatients.length > 0) {
+                    if (!canAddXPatients(1)) {
+                        setImportDialog({
+                            open: true,
+                            variant: 'error',
+                            title: 'Kuota tidak mencukupi',
+                            message: 'Menambah pasien baru dari file JSON akan melebihi batas paket Anda.',
+                            highlights: ['Akun Intern dibatasi maksimal 2 pasien aktif.', 'Upgrade ke Specialist untuk impor tanpa batas.'],
+                            primaryLabel: 'Upgrade Specialist',
+                            secondaryLabel: 'Nanti saja',
+                            onPrimary: () => {
+                                setImportDialog(prev => ({ ...prev, open: false }));
+                                navigate('/subscription');
+                            },
+                        });
+                        return;
+                    }
+                    const p = importedPatients[0]; // Take first patient as template for current form
                     
                     // Map patient data to form state
                     setForm(prev => ({
@@ -109,11 +187,69 @@ export default function AddPatient() {
                         dailyReports: (p.dailyReports || []).map(r => ({ ...r, id: crypto.randomUUID() })),
                     }));
 
-                    addToast('Data berhasil dimuat dari JSON', 'success');
+                    // To save the user the confusion of having to click 'Save' again, 
+                    // we immediately process and add this patient to the DB if the name exists.
+                    if (p.name?.trim()) {
+                        const newPatientData = {
+                            ...p,
+                            id: crypto.randomUUID(), // always generate new ID for AddPatient to prevent collisions
+                            age: parseInt(p.age) || null,
+                            targetDays: parseInt(p.targetDays) || null,
+                            updatedAt: new Date().toISOString()
+                        };
+                        const savedPatient = addPatient(newPatientData);
+                        if (savedPatient) {
+                            setImportDialog({
+                                open: true,
+                                variant: 'success',
+                                title: 'Pasien berhasil diimpor',
+                                message: `Data ${p.name} sudah ditambahkan ke daftar pasien.`,
+                                highlights: importHighlights,
+                                primaryLabel: 'Buka Detail Pasien',
+                                secondaryLabel: 'Tutup',
+                                onPrimary: () => {
+                                    localStorage.setItem(getPatientDetailTabStorageKey(user?.id), 'overview');
+                                    setImportDialog(prev => ({ ...prev, open: false }));
+                                    navigate(`/patient/${savedPatient.id}`);
+                                },
+                            });
+                        } else {
+                            setImportDialog({
+                                open: true,
+                                variant: 'info',
+                                title: 'Data dimuat ke form',
+                                message: 'Tekan Simpan Registrasi untuk menambahkan pasien ke daftar.',
+                                highlights: importHighlights,
+                                primaryLabel: 'Lanjut Edit Form',
+                                secondaryLabel: null,
+                                onPrimary: null,
+                            });
+                        }
+                    } else {
+                        setImportDialog({
+                            open: true,
+                            variant: 'warning',
+                            title: 'Data JSON belum lengkap',
+                            message: 'Data sudah dimuat ke form, namun nama pasien belum tersedia.',
+                            highlights: [...importHighlights, 'Lengkapi nama pasien lalu tekan Simpan Registrasi.'],
+                            primaryLabel: 'Isi Data Sekarang',
+                            secondaryLabel: null,
+                            onPrimary: null,
+                        });
+                    }
                 }
             } catch (err) {
                 console.error('Import error:', err);
-                addToast('Gagal membaca file JSON', 'error');
+                setImportDialog({
+                    open: true,
+                    variant: 'error',
+                    title: 'Gagal membaca file JSON',
+                    message: 'Periksa format file lalu coba impor kembali.',
+                    highlights: [err?.message || 'Format file tidak didukung.'],
+                    primaryLabel: 'Mengerti',
+                    secondaryLabel: null,
+                    onPrimary: null,
+                });
             }
         };
         reader.readAsText(file);
@@ -141,7 +277,7 @@ export default function AddPatient() {
             targetDays: parseInt(form.targetDays) || null,
             updatedAt: new Date().toISOString()
         });
-        localStorage.setItem('patientDetailActiveTab', 'overview');
+        localStorage.setItem(getPatientDetailTabStorageKey(user?.id), 'overview');
         navigate(`/patient/${newPatient.id}`);
     };
 
@@ -209,7 +345,7 @@ export default function AddPatient() {
                             </label>
                         </div>
                         <button onClick={handleSubmit}
-                            className="bg-slate-950 dark:bg-slate-50 text-white dark:text-slate-950 px-6 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-slate-900/20 dark:shadow-none active:scale-[0.98]">
+                            className="bg-primary text-white px-6 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-xl shadow-primary/25 active:scale-[0.98]">
                             <span className="material-symbols-outlined text-lg">save</span>
                             Simpan Registrasi
                         </button>
@@ -256,8 +392,11 @@ export default function AddPatient() {
                                         <InputGroup label="Kamar / Bed" name="room" value={form.room} onChange={handleChange} placeholder="Mawar - Bed 3" icon="bed" />
                                         <div className="grid grid-cols-2 gap-4">
                                             <InputGroup label="Umur" name="age" type="number" value={form.age} onChange={handleChange} placeholder="Tahun" icon="numbers" />
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1 tracking-widest">J. Kelamin</label>
+                                            <div className="space-y-2 ml-0.5">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                                                    <span className="material-symbols-outlined text-[15px] opacity-80">wc</span>
+                                                    J. Kelamin
+                                                </label>
                                                 <div className="flex p-1 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 h-11">
                                                     {[{ v: 'male', l: 'Laki-laki', i: 'male' }, { v: 'female', l: 'Perempuan', i: 'female' }].map(opt => (
                                                         <button key={opt.v} type="button" onClick={() => setForm(p => ({ ...p, gender: opt.v }))}
@@ -275,10 +414,10 @@ export default function AddPatient() {
                                     <div className="space-y-4 lg:space-y-5">
                                         <CustomSelect 
                                             label="Kondisi Pasien" 
+                                            labelIcon="monitoring"
                                             name="condition" 
                                             value={form.condition} 
                                             onChange={handleChange} 
-                                            icon="monitoring"
                                             options={[
                                                 { v: 'stable', l: 'Stabil', name: 'condition' },
                                                 { v: 'improving', l: 'Membaik', name: 'condition' },
@@ -290,28 +429,25 @@ export default function AddPatient() {
                                             <InputGroup label="BB (kg)" name="weight" type="number" value={form.weight} onChange={handleChange} placeholder="70" icon="weight" />
                                             <InputGroup label="TB (cm)" name="height" type="number" value={form.height} onChange={handleChange} placeholder="170" icon="height" />
                                         </div>
-                                        <div className="grid grid-cols-12 gap-3">
-                                            <div className="col-span-5">
-                                                <CustomSelect 
-                                                    label="Gol. Darah" 
-                                                    value={form.bloodType} 
-                                                    onChange={(e) => setForm(p => ({ ...p, bloodType: e.target.value }))} 
-                                                    icon="bloodtype"
-                                                    options={[
-                                                        { v: '', l: '-' }, { v: 'A', l: 'A' }, { v: 'B', l: 'B' }, { v: 'AB', l: 'AB' }, { v: 'O', l: 'O' }
-                                                    ]} 
-                                                />
-                                            </div>
-                                            <div className="col-span-7">
-                                                <CustomSelect 
-                                                    label="Rhesus" 
-                                                    value={form.rhesus} 
-                                                    onChange={(e) => setForm(p => ({ ...p, rhesus: e.target.value }))} 
-                                                    options={[
-                                                        { v: '', l: '(no rhesus)' }, { v: '+', l: '+' }, { v: '-', l: '-' }
-                                                    ]} 
-                                                />
-                                            </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <CustomSelect 
+                                                label="Gol. Darah" 
+                                                labelIcon="bloodtype"
+                                                value={form.bloodType} 
+                                                onChange={(e) => setForm(p => ({ ...p, bloodType: e.target.value }))} 
+                                                options={[
+                                                    { v: '', l: '-' }, { v: 'A', l: 'A' }, { v: 'B', l: 'B' }, { v: 'AB', l: 'AB' }, { v: 'O', l: 'O' }
+                                                ]} 
+                                            />
+                                            <CustomSelect 
+                                                label="Rhesus" 
+                                                labelIcon="rebase_edit"
+                                                value={form.rhesus} 
+                                                onChange={(e) => setForm(p => ({ ...p, rhesus: e.target.value }))} 
+                                                options={[
+                                                    { v: '', l: '(no rhesus)' }, { v: '+', l: '+' }, { v: '-', l: '-' }
+                                                ]} 
+                                            />
                                         </div>
                                     </div>
                                 </FormSection>
@@ -324,12 +460,12 @@ export default function AddPatient() {
                                         {stases.length > 0 && (
                                             <CustomSelect
                                                 label="Stase Aktif"
+                                                labelIcon="push_pin"
                                                 name="stase_id"
                                                 value={form.stase_id}
                                                 onChange={handleChange}
                                                 placeholder="Pilih stase"
                                                 options={stases.map(s => ({ v: s.id, l: s.name, name: 'stase_id' }))}
-                                                icon="push_pin"
                                             />
                                         )}
                                         <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-3">
@@ -346,7 +482,7 @@ export default function AddPatient() {
                                     <VitalInput label="Tek. Darah" name="bloodPressure" value={form.bloodPressure} unit="mmHg" onChange={handleChange} icon="rebase_edit" color="text-blue-500" />
                                     <VitalInput label="Suhu" name="temperature" value={form.temperature} unit="°C" onChange={handleChange} icon="thermostat" color="text-amber-500" />
                                     <VitalInput label="Napas" name="respRate" value={form.respRate} unit="/min" onChange={handleChange} icon="air" color="text-teal-500" />
-                                    <VitalInput label="SpO2" name="spO2" value={form.spO2} unit="%" onChange={handleChange} icon="lungs" color="text-indigo-500" />
+                                    <VitalInput label="SpO2" name="spO2" value={form.spO2} unit="%" onChange={handleChange} icon="pulmonology" color="text-indigo-500" />
                                 </div>
                             </FormSection>
 
@@ -354,7 +490,7 @@ export default function AddPatient() {
                                 <TextAreaGroup label="Keluhan Utama" name="chiefComplaint" value={form.chiefComplaint} onChange={handleChange} rows={4} placeholder="Jelaskan alasan utama pasien masuk..." icon="history_edu" />
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between mb-1 px-1">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">diagnosis</span> Diagnosis / Riwayat</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">diagnosis</span> Diagnosis / Riwayat</label>
                                         <button type="button" onClick={() => setShowDiagnosisPicker(true)}
                                             className="flex items-center gap-1.5 text-[10px] text-primary hover:text-primary hover:bg-primary/10 font-black uppercase transition-all px-2.5 py-1 rounded-xl border border-primary/20">
                                             <span className="material-symbols-outlined text-[14px]">qr_code_2</span>
@@ -411,10 +547,10 @@ export default function AddPatient() {
                                 <div className="w-full min-w-0">
                                     <div className="flex items-start gap-2 w-full min-w-0 mb-0.5">
                                         <div className={`size-2 rounded-full shrink-0 mt-1.5 ${s.severity === 'berat' ? 'bg-red-500' : s.severity === 'sedang' ? 'bg-amber-500' : 'bg-green-500'}`} />
-                                        <span className="text-sm font-bold flex-1 min-w-0 break-words leading-snug">{s.name}</span>
+                                        <span className="text-sm font-bold flex-1 min-w-0 wrap-break-word leading-snug">{s.name}</span>
                                         <span className={`text-[9px] uppercase font-black px-1.5 py-0.5 rounded shrink-0 ${s.severity === 'berat' ? 'bg-red-50 text-red-600' : s.severity === 'sedang' ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>{s.severity}</span>
                                     </div>
-                                    {s.notes && <p className="text-xs text-slate-400 ml-4 break-words leading-snug">{s.notes}</p>}
+                                    {s.notes && <p className="text-xs text-slate-400 ml-4 wrap-break-word leading-snug">{s.notes}</p>}
                                 </div>
                             )}
                         />
@@ -443,12 +579,12 @@ export default function AddPatient() {
                                         </div>
                                     </div>
                                     <button onClick={() => { if (!examInput.findings) return; addItem('physicalExams', examInput, setExamInput, { findings: '', system: 'umum' }) }} type="button" 
-                                        className="w-full bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98] shadow-xl shadow-slate-900/10">
+                                        className="w-full bg-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110 transition-all active:scale-[0.98] shadow-xl shadow-primary/25">
                                         <span className="material-symbols-outlined text-sm">add_circle</span> Tambah Temuan Fisik
                                     </button>
                                 </div>
                             }
-                            renderItem={(e) => <div className="text-sm min-w-0 break-words"><span className="font-bold text-primary mr-1 uppercase">{e.system}:</span><span className="text-slate-600 dark:text-slate-400">{e.findings}</span></div>}
+                            renderItem={(e) => <div className="text-sm min-w-0 wrap-break-word"><span className="font-bold text-primary mr-1 uppercase">{e.system}:</span><span className="text-slate-600 dark:text-slate-400">{e.findings}</span></div>}
                         />
                     )}
 
@@ -541,7 +677,7 @@ export default function AddPatient() {
                             renderItem={(o) => (
                                 <div className="text-sm min-w-0">
                                     <div className="flex items-start gap-1.5 flex-wrap">
-                                        <p className="font-bold break-words leading-snug">{o.name}{o.dosage ? ` ${o.dosage}` : ''}</p>
+                                        <p className="font-bold wrap-break-word leading-snug">{o.name}{o.dosage ? ` ${o.dosage}` : ''}</p>
                                         {o.fornas_source && (
                                             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800/40 rounded-full px-1.5 py-0.5 uppercase shrink-0">
                                                 <span className="material-symbols-outlined text-[10px]">verified</span>
@@ -572,17 +708,30 @@ export default function AddPatient() {
                                             <textarea value={reportInput.notes} onChange={e => setReportInput(p => ({ ...p, notes: e.target.value }))} rows={4} placeholder="Tuliskan catatan perkembangan harian atau laporan awal..." className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 transition-all py-4 px-4 placeholder:text-slate-400 shadow-sm leading-relaxed" />
                                         </div>
                                     </div>
-                                    <button onClick={() => addItem('dailyReports', reportInput, setReportInput, { notes: '', condition: '' })} type="button" 
-                                        className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm">
+                                    <button onClick={() => { if (!reportInput.notes) return; addItem('dailyReports', reportInput, setReportInput, { notes: '', condition: '' }) }} type="button" 
+                                        className="w-full bg-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-xl shadow-primary/25 hover:brightness-110">
                                         <span className="material-symbols-outlined text-sm">post_add</span> Simpan Catatan Harian
                                     </button>
                                 </div>
                             }
-                            renderItem={(r) => <p className="text-sm italic text-slate-600 break-words leading-snug">"{r.notes}"</p>}
+                            renderItem={(r) => <p className="text-sm italic text-slate-600 wrap-break-word leading-snug">"{r.notes}"</p>}
                         />
                     )}
                 </div>
             </div>
+
+            <ImportWindowBox
+                open={importDialog.open}
+                variant={importDialog.variant}
+                title={importDialog.title}
+                message={importDialog.message}
+                highlights={importDialog.highlights}
+                primaryLabel={importDialog.primaryLabel}
+                secondaryLabel={importDialog.secondaryLabel}
+                onPrimary={importDialog.onPrimary || (() => setImportDialog(prev => ({ ...prev, open: false })))}
+                onSecondary={() => setImportDialog(prev => ({ ...prev, open: false }))}
+                onClose={() => setImportDialog(prev => ({ ...prev, open: false }))}
+            />
         </div>
     );
 }
@@ -604,7 +753,7 @@ function FormSection({ title, icon, children }) {
 function InputGroup({ label, icon, ...props }) {
     return (
         <div className="space-y-2 ml-0.5">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span> {label}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span> {label}</label>
             <div className="relative group">
                 <input {...props} className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 transition-all px-4 py-3 placeholder:text-slate-400 placeholder:font-medium shadow-sm hover:shadow-md" />
             </div>
@@ -615,7 +764,7 @@ function InputGroup({ label, icon, ...props }) {
 function TextAreaGroup({ label, icon, ...props }) {
     return (
         <div className="space-y-2 ml-1">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span> {label}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span> {label}</label>
             <div className="relative group">
                 <textarea {...props} className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 transition-all px-4 py-3 placeholder:text-slate-400 placeholder:font-medium shadow-sm hover:shadow-md leading-relaxed" />
             </div>
@@ -626,7 +775,7 @@ function TextAreaGroup({ label, icon, ...props }) {
 function SelectGroup({ label, options, icon, ...props }) {
     return (
         <div className="space-y-2 ml-0.5">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span> {label}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-1"><span className="material-symbols-outlined text-[15px] opacity-80">{icon}</span> {label}</label>
             <div className="relative group">
                 <select {...props} className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold text-slate-800 dark:text-slate-200 transition-all px-4 py-3 shadow-sm hover:shadow-md appearance-none">
                     {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
@@ -839,7 +988,7 @@ function LabTabAddPatient({ form, labInput, setLabInput, addItem, removeItem }) 
                         <div key={l.id} className="group relative p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 transition-all">
                             {/* Row 1: name + delete */}
                             <div className="flex items-start justify-between gap-2 mb-1.5">
-                                <span className="text-sm font-bold break-words leading-snug min-w-0 flex-1">{l.testName}</span>
+                                <span className="text-sm font-bold wrap-break-word leading-snug min-w-0 flex-1">{l.testName}</span>
                                 <button type="button" onClick={() => removeItem('supportingExams', l.id)}
                                     className="opacity-0 group-hover:opacity-100 p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all shrink-0">
                                     <span className="material-symbols-outlined text-sm">delete</span>

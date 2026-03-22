@@ -2,13 +2,16 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePatients } from '../context/PatientContext';
 import { useStase } from '../context/StaseContext';
+import { useAuth } from '../context/AuthContext';
 import { calculateDaysInHospital, getRelativeTime } from '../services/dataService';
 import { exportPatientListPDF, exportMultiplePatientsPDF } from '../services/pdfExportService';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function PatientList() {
     const navigate = useNavigate();
     const { patients, deletePatient, updatePatient } = usePatients();
     const { stases, pinnedStaseId } = useStase();
+    const { user } = useAuth();
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('updatedAt');
@@ -38,6 +41,7 @@ export default function PatientList() {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showReorderModal, setShowReorderModal] = useState(false);
     const [reorderList, setReorderList] = useState([]);
+    const [deleteTargetPatient, setDeleteTargetPatient] = useState(null);
 
     useEffect(() => {
         if (!transferPatientId) return;
@@ -168,6 +172,14 @@ export default function PatientList() {
             return next;
         });
     };
+    const openDeleteDialog = (patient) => setDeleteTargetPatient(patient);
+    const closeDeleteDialog = () => setDeleteTargetPatient(null);
+    const confirmDeletePatient = () => {
+        if (!deleteTargetPatient?.id) return;
+        deletePatient(deleteTargetPatient.id);
+        setDeleteTargetPatient(null);
+    };
+
     const selectAll = () => setSelectedIds(new Set(filteredPatients.map(p => p.id)));
     const clearAll = () => setSelectedIds(new Set());
     const exitSelection = () => { setSelectionMode(false); setSelectedIds(new Set()); };
@@ -302,11 +314,19 @@ export default function PatientList() {
                                 {/* 3. Export JSON — instant raw data */}
                                 <button
                                     onClick={() => {
-                                        const data = JSON.stringify(filteredPatients, null, 2);
+                                        const isSelective = selectionMode && selectedIds.size > 0;
+                                        const exportList = isSelective
+                                            ? filteredPatients.filter(p => selectedIds.has(p.id))
+                                            : filteredPatients;
+
+                                        const data = JSON.stringify(exportList, null, 2);
                                         const blob = new Blob([data], { type: 'application/json' });
                                         const url = URL.createObjectURL(blob);
                                         const a = document.createElement('a');
-                                        a.href = url; a.download = `medterminal_export_${new Date().toISOString().split('T')[0]}.json`; a.click();
+                                        a.href = url; 
+                                        const dateStr = new Date().toISOString().split('T')[0];
+                                        a.download = isSelective ? `medterminal_selective_export_${dateStr}.json` : `medterminal_export_${dateStr}.json`;
+                                        a.click();
                                         URL.revokeObjectURL(url);
                                         setShowExportMenu(false);
                                         setExportMenuPos(null);
@@ -591,7 +611,7 @@ export default function PatientList() {
                                                         </button>
                                                     )}
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) deletePatient(p.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); openDeleteDialog(p); }}
                                                         className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"
                                                         title="Hapus Pasien"
                                                     >
@@ -670,7 +690,7 @@ export default function PatientList() {
                                             {openCardMenuId === p.id && (
                                                 <div ref={cardMenuRef} className="absolute top-9 right-0 w-40 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-lg z-40 overflow-hidden">
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Hapus pasien ini?')) { deletePatient(p.id); } setOpenCardMenuId(null); }}
+                                                        onClick={(e) => { e.stopPropagation(); openDeleteDialog(p); setOpenCardMenuId(null); }}
                                                         className="w-full text-left px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/10 text-sm text-red-600"
                                                     >
                                                         Hapus
@@ -760,6 +780,17 @@ export default function PatientList() {
                         setReorderList(ordered);
                         setShowReorderModal(true);
                     }}
+                    onExportJSON={() => {
+                        const selectedPatients = filteredPatients.filter(p => selectedIds.has(p.id));
+                        const data = JSON.stringify(selectedPatients, null, 2);
+                        const blob = new Blob([data], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `medterminal_selective_export_${new Date().toISOString().split('T')[0]}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}
                     onExit={exitSelection}
                 />
             )}
@@ -772,13 +803,26 @@ export default function PatientList() {
                     setReorderList={setReorderList}
                     onConfirm={() => {
                         const ordered = reorderList.map(id => patients.find(p => p.id === id)).filter(Boolean);
-                        exportMultiplePatientsPDF(ordered);
+                        exportMultiplePatientsPDF(ordered, user?.user_metadata?.pdf_export_prefs || {});
                         setShowReorderModal(false);
                         exitSelection();
                     }}
                     onClose={() => setShowReorderModal(false)}
                 />
             )}
+
+            <ConfirmDialog
+                open={Boolean(deleteTargetPatient)}
+                title="Hapus pasien dari daftar?"
+                message={deleteTargetPatient
+                    ? `Data pasien ${deleteTargetPatient.name || 'tanpa nama'} akan dihapus permanen dari daftar pasien. Tindakan ini tidak bisa dibatalkan.`
+                    : ''}
+                confirmLabel="Ya, Hapus"
+                cancelLabel="Batal"
+                danger
+                onCancel={closeDeleteDialog}
+                onConfirm={confirmDeletePatient}
+            />
         </div>
     );
 }
@@ -923,7 +967,7 @@ function ReorderModal({ patients, reorderList, setReorderList, onConfirm, onClos
     );
 }
 
-function SelectionActionBar({ selectedCount, totalCount, onSelectAll, onClear, onExport, onExit }) {
+function SelectionActionBar({ selectedCount, totalCount, onSelectAll, onClear, onExport, onExportJSON, onExit }) {
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 animate-[fadeIn_0.2s_ease-out]">
             <div className="bg-white dark:bg-slate-900 border-t-2 border-primary/30 shadow-2xl shadow-slate-900/20">
@@ -971,7 +1015,19 @@ function SelectionActionBar({ selectedCount, totalCount, onSelectAll, onClear, o
                                 }`}
                             >
                                 <span className="material-symbols-outlined text-base">picture_as_pdf</span>
-                                <span>Export PDF Detail{selectedCount > 0 ? ` (${selectedCount})` : ''}</span>
+                                <span>PDF ({selectedCount})</span>
+                            </button>
+                            <button
+                                onClick={onExportJSON}
+                                disabled={selectedCount === 0}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all flex-1 sm:flex-none justify-center whitespace-nowrap ${
+                                    selectedCount > 0
+                                        ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-lg shadow-blue-500/25 active:scale-95'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined text-base">data_object</span>
+                                <span>JSON ({selectedCount})</span>
                             </button>
                         </div>
                     </div>

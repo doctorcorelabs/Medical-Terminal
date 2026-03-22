@@ -12,11 +12,13 @@ export function StaseProvider({ children }) {
     // Load stases from Supabase on login, reset on logout
     useEffect(() => {
         if (user) {
+            dataService.setDataStorageScope(user.id);
             dataService.fetchStasesFromSupabase(user.id).then(({ stases: s, pinnedStaseId: pinId }) => {
                 setStases(s);
                 setPinnedStaseIdState(pinId);
             });
         } else {
+            dataService.setDataStorageScope(null);
             setStases([]);
             setPinnedStaseIdState(null);
         }

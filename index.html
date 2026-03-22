@@ -1,7 +1,18 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 
 <head>
+  <script>
+    // Define global callback for Cloudflare Turnstile as early as possible
+    (function() {
+      var callback = function() {
+        // console.debug('[Turnstile] Global onload callback triggered');
+      };
+      window.onloadTurnstileCallback = callback;
+      if (typeof globalThis !== 'undefined') globalThis.onloadTurnstileCallback = callback;
+      if (typeof self !== 'undefined') self.onloadTurnstileCallback = callback;
+    })();
+  </script>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="/Favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />

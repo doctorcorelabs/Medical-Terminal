@@ -8,6 +8,12 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 const statusOptions = ['open', 'ack', 'resolved', 'snoozed'];
 const tabs = ['monitoring', 'broadcast'];
 
+const ALERT_SIMULATION_KEY = 'medterminal_alert_sim_key';
+
+function getScopedAlertSimulationKey(userId) {
+    return userId ? `${ALERT_SIMULATION_KEY}:${userId}` : ALERT_SIMULATION_KEY;
+}
+
 const BROADCAST_INITIAL_FORM = {
   title: '',
   message: '',
@@ -28,7 +34,12 @@ export default function AdminAlerts() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('open');
   const [simulating, setSimulating] = useState(false);
-  const [simulationKey, setSimulationKey] = useState(() => localStorage.getItem('medterminal_alert_sim_key') || '');
+  const [simulationKey, setSimulationKey] = useState(() => {
+    const scopedKey = getScopedAlertSimulationKey(user?.id);
+    const scopedValue = localStorage.getItem(scopedKey);
+    if (scopedValue) return scopedValue;
+    return localStorage.getItem(ALERT_SIMULATION_KEY) || '';
+  });
   const [keyTestResult, setKeyTestResult] = useState(null);
   const [activeTab, setActiveTab] = useState('monitoring');
   const [broadcastForm, setBroadcastForm] = useState(BROADCAST_INITIAL_FORM);
@@ -65,12 +76,34 @@ export default function AdminAlerts() {
   useEffect(() => { fetchRows(); }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (simulationKey) {
-      localStorage.setItem('medterminal_alert_sim_key', simulationKey);
-    } else {
-      localStorage.removeItem('medterminal_alert_sim_key');
+    if (!user?.id) return;
+    
+    const scopedKey = getScopedAlertSimulationKey(user.id);
+    const legacyKey = ALERT_SIMULATION_KEY;
+    const legacyValue = localStorage.getItem(legacyKey);
+    
+    if (legacyValue && !localStorage.getItem(scopedKey)) {
+      localStorage.setItem(scopedKey, legacyValue);
+      localStorage.removeItem(legacyKey);
+      setSimulationKey(legacyValue);
     }
-  }, [simulationKey]);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (simulationKey) {
+      const scopedKey = getScopedAlertSimulationKey(user?.id);
+      localStorage.setItem(scopedKey, simulationKey);
+      if (user?.id) {
+        localStorage.removeItem(ALERT_SIMULATION_KEY);
+      }
+    } else {
+      const scopedKey = getScopedAlertSimulationKey(user?.id);
+      localStorage.removeItem(scopedKey);
+      if (user?.id) {
+        localStorage.removeItem(ALERT_SIMULATION_KEY);
+      }
+    }
+  }, [simulationKey, user?.id]);
 
   const fetchBroadcastRows = async () => {
     setBroadcastLoading(true);

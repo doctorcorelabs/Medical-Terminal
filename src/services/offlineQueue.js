@@ -8,25 +8,53 @@ const KEYS = {
     schedules: 'medterminal_pending_schedules_sync',
 };
 
+let activePendingUserId = null;
+
+function getScopedPendingKey(baseKey, userId = activePendingUserId) {
+    return userId ? `${baseKey}:${userId}` : baseKey;
+}
+
+function migrateLegacyPendingFlags(userId) {
+    if (!userId) return;
+
+    for (const baseKey of Object.values(KEYS)) {
+        const scopedKey = getScopedPendingKey(baseKey, userId);
+        const hasScoped = localStorage.getItem(scopedKey) === '1';
+        const hasLegacy = localStorage.getItem(baseKey) === '1';
+
+        if (!hasScoped && hasLegacy) {
+            localStorage.setItem(scopedKey, '1');
+        }
+
+        // Remove legacy global key to avoid leaking pending state across users.
+        localStorage.removeItem(baseKey);
+    }
+}
+
+export function setPendingSyncScope(userId) {
+    activePendingUserId = userId || null;
+    migrateLegacyPendingFlags(activePendingUserId);
+}
+
 export const pendingSync = {
     // Patients
-    markPatients:    () => localStorage.setItem(KEYS.patients,  '1'),
-    clearPatients:   () => localStorage.removeItem(KEYS.patients),
-    hasPatients:     () => localStorage.getItem(KEYS.patients)   === '1',
+    markPatients:    () => localStorage.setItem(getScopedPendingKey(KEYS.patients),  '1'),
+    clearPatients:   () => localStorage.removeItem(getScopedPendingKey(KEYS.patients)),
+    hasPatients:     () => localStorage.getItem(getScopedPendingKey(KEYS.patients))   === '1',
 
     // Stases
-    markStases:      () => localStorage.setItem(KEYS.stases,    '1'),
-    clearStases:     () => localStorage.removeItem(KEYS.stases),
-    hasStases:       () => localStorage.getItem(KEYS.stases)     === '1',
+    markStases:      () => localStorage.setItem(getScopedPendingKey(KEYS.stases),    '1'),
+    clearStases:     () => localStorage.removeItem(getScopedPendingKey(KEYS.stases)),
+    hasStases:       () => localStorage.getItem(getScopedPendingKey(KEYS.stases))     === '1',
 
     // Schedules
-    markSchedules:   () => localStorage.setItem(KEYS.schedules,  '1'),
-    clearSchedules:  () => localStorage.removeItem(KEYS.schedules),
-    hasSchedules:    () => localStorage.getItem(KEYS.schedules)  === '1',
+    markSchedules:   () => localStorage.setItem(getScopedPendingKey(KEYS.schedules),  '1'),
+    clearSchedules:  () => localStorage.removeItem(getScopedPendingKey(KEYS.schedules)),
+    hasSchedules:    () => localStorage.getItem(getScopedPendingKey(KEYS.schedules))  === '1',
 
     // Any pending
     hasAny: () =>
-        localStorage.getItem(KEYS.patients)  === '1' ||
-        localStorage.getItem(KEYS.stases)    === '1' ||
-        localStorage.getItem(KEYS.schedules) === '1',
+        localStorage.getItem(getScopedPendingKey(KEYS.patients))  === '1' ||
+        localStorage.getItem(getScopedPendingKey(KEYS.stases))    === '1' ||
+        localStorage.getItem(getScopedPendingKey(KEYS.schedules)) === '1',
 };
