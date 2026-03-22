@@ -83,13 +83,13 @@ const getMessageRawText = (msg) => {
 const safeParseChartData = (raw) => {
     if (typeof raw !== 'string') return raw;
     // Try 1: Direct parse
-    try { return JSON.parse(raw); } catch (_) {}
+    try { return JSON.parse(raw); } catch (_) { /* ignore */ }
     // Try 2: Replace curly/smart quotes
-    try { return JSON.parse(raw.replace(/[\u2018\u2019]/g, "\\'").replace(/[\u201C\u201D]/g, '"')); } catch (_) {}
+    try { return JSON.parse(raw.replace(/[\u2018\u2019]/g, "\\'").replace(/[\u201C\u201D]/g, '"')); } catch (_) { /* ignore */ }
     // Try 3: Escape lone apostrophes inside string values
-    try { return JSON.parse(raw.replace(/(?<=[^\\])'/g, "'")); } catch (_) {}
+    try { return JSON.parse(raw.replace(/(?<=[^\\])'/g, "'")); } catch (_) { /* ignore */ }
     // Try 4: Strip trailing comma before } or ]
-    try { return JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); } catch (_) {}
+    try { return JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); } catch (_) { /* ignore */ }
     return null; // All repairs failed
 };
 
@@ -178,12 +178,12 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
                                         remarkPlugins={[remarkGfm]}
                                         rehypePlugins={[rehypeRaw]}
                                         components={{
-                                            table: ({node, ...props}) => (
+                                            table: ({node: _node, ...props}) => (
                                                 <div className="table-container">
                                                     <table {...props} />
                                                 </div>
                                             ),
-                                            p: ({node, children, ...props}) => {
+                                            p: ({node: _node, children, ...props}) => {
                                                 const isBlockContent = (content) => {
                                                     return React.Children.toArray(content).some(child => {
                                                         if (!React.isValidElement(child)) return false;
@@ -205,11 +205,11 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
                                                 }
                                                 return <p {...props}>{children}</p>;
                                             },
-                                            medicalchart: ({node, children, ...props}) => {
+                                            medicalchart: ({node: _node, children, ...props}) => {
                                                 try {
                                                     const rawType = (props.type || '').toString().trim().toLowerCase();
                                                     const chartData = safeParseChartData(props.data);
-                                                    const isEmptyData = !chartData || (Array.isArray(chartData) && chartData.length === 0);
+                                                    const _isEmptyData = !chartData || (Array.isArray(chartData) && chartData.length === 0);
 
                                                      const chartKey = `chart-${chartRenderCounter++}`;
                                                      return (
@@ -234,8 +234,8 @@ const MessageRow = React.memo(function MessageRow({ msg, idx, patientData, onExp
                                                     );
                                                 }
                                             },
-                                            strong: ({node, ...props}) => <strong className="md-bold" {...props} />,
-                                            em: ({node, ...props}) => <em className="md-italic" {...props} />
+                                            strong: ({node: _node, ...props}) => <strong className="md-bold" {...props} />,
+                                            em: ({node: _node, ...props}) => <em className="md-italic" {...props} />
                                         }}
                                     >
                                         {msg.displayContent || (() => {
@@ -343,7 +343,7 @@ const CopilotChat = () => {
         }
     }, []);
 
-    const scrollToBottom = () => {
+    const _scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
@@ -553,7 +553,7 @@ const CopilotChat = () => {
           )
         : shortcuts;
 
-    const handleShortcutClick = (shortcut) => {
+    const _handleShortcutClick = (shortcut) => {
         if (activeShortcut?.id === shortcut.id) {
             setActiveShortcut(null);
         } else {
@@ -609,7 +609,7 @@ const CopilotChat = () => {
     const handleInputChange = (val) => {
         setInput(val);
         
-        const lastChar = val[val.length - 1];
+        const _lastChar = val[val.length - 1];
         const lastSlashIndex = val.lastIndexOf('/');
         
         if (lastSlashIndex !== -1 && lastSlashIndex >= val.lastIndexOf(' ') && isContextEnabled && pageContext) {
@@ -918,7 +918,7 @@ ATURAN KRUSIAL:
         }
     };
 
-    const inferChartDimensions = (container) => {
+    const inferChartDimensions = useCallback((container) => {
         const rect = container.getBoundingClientRect();
         const vizContent = container.querySelector('.viz-content');
         const vizCanvasWrapper = container.querySelector('.viz-canvas-wrapper');
@@ -965,9 +965,9 @@ ATURAN KRUSIAL:
                 container.querySelector('.viz-dashboard-list')
             ),
         };
-    };
+    }, []);
 
-    const waitForChartReady = async (container, {
+    const waitForChartReady = useCallback(async (container, {
         timeoutMs = COPILOT_PDF_PERF.waitTimeoutMs,
         pollMs = COPILOT_PDF_PERF.waitPollMs,
         stableCycles = COPILOT_PDF_PERF.waitStableCycles,
@@ -1018,9 +1018,9 @@ ATURAN KRUSIAL:
             childElementCount: lastMetrics.childElementCount,
             timedOut: true,
         };
-    };
+    }, [inferChartDimensions]);
 
-    const captureChartContainer = async (container, expectedChartKey = null) => {
+    const captureChartContainer = useCallback(async (container, expectedChartKey = null) => {
         const chartKey = expectedChartKey || container.getAttribute('data-export-chart-key') || 'unknown';
 
         const getErrorMessage = (err) => {
@@ -1651,9 +1651,9 @@ ATURAN KRUSIAL:
         }
 
         throw lastError || new Error('capture-all-strategies-failed');
-    };
+    }, [inferChartDimensions]);
 
-    const buildStaticChartFallbackImage = (chartSegment) => {
+    const buildStaticChartFallbackImage = useCallback((chartSegment) => {
         const type = String(chartSegment?.attributes?.type || 'unknown').toLowerCase();
         const title = chartSegment?.attributes?.title || `Visualisasi ${type}`;
         const rawData = chartSegment?.attributes?.data;
@@ -2238,8 +2238,8 @@ ATURAN KRUSIAL:
             return null;
         }
         return out;
-    };
-    const { isPdfExportMode, setIsPdfExportMode } = useCopilotContext();
+    }, []);
+    const { isPdfExportMode: _isPdfExportMode, setIsPdfExportMode } = useCopilotContext();
 
     const handleExportPDF = useCallback(async (msg, msgIdx, triggerEl = null) => {
         // Flag to disable animations in components
@@ -2397,7 +2397,7 @@ ATURAN KRUSIAL:
                 setIsPdfExportMode(false);
             }
         }
-    }, [patientData, isContextEnabled, setIsPdfExportMode]);
+    }, [patientData, setIsPdfExportMode, captureChartContainer, waitForChartReady, buildStaticChartFallbackImage]);
 
     return (
         <div className={`copilot-container ${isOpen ? 'is-open' : ''}`}>

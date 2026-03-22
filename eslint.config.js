@@ -36,4 +36,14 @@ export default defineConfig([
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+
+  {
+    files: ['netlify/functions/**/*.js', 'check_subs.js', 'modify_inputs.js', 'modify_patient_detail.js', 'update_plans.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.builtin,
+      },
+    },
+  },
 ])

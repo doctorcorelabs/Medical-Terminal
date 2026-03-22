@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
+import { useStase } from '../context/StaseContext';
 import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences, labCategories } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
 import ICD10Picker from '../components/ICD10Picker';
@@ -40,9 +41,10 @@ function getNowLocalISO() {
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
-    const { patients, canEditPatient, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
-    const patient = patients.find(p => p.id === id);
+    const { user, profile } = useAuth();
+    const { addPatient: _addPatient, patients: _patients, canEditPatient, canAddXPatients: _canAddXPatients, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
+    const { stases, pinnedStaseId } = useStase();
+    const patient = _patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState(() => {
         const scopedKey = getPatientDetailTabStorageKey(user?.id);
         const scopedValue = localStorage.getItem(scopedKey);
@@ -238,8 +240,16 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                     <span>Pasien</span><span>/</span><span className="text-primary font-medium truncate">{patient.name}</span>
                 </nav>
             </div>
+            {profile && user && (
+                <PatientActions 
+                    patient={patient} 
+                    canEditPatient={canEditPatient}
+                    recovery={recovery}
+                    stases={stases}
+                    pinnedStaseId={pinnedStaseId}
+                />
+            )}
 
-            
             {!canEditPatient && (
                 <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 rounded-2xl p-4 flex items-start gap-3 shadow-sm mb-2">
                     <span className="material-symbols-outlined mt-0.5">lock</span>
@@ -920,7 +930,7 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
 }
 
 /* ====== TAB GEJALA ====== */
-function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
+function TabGejala({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient: _canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1255,7 +1265,7 @@ function ConfirmPanel({ onCancel, onConfirm, label }) {
 }
 
 /* ====== TAB LAB ====== */
-function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
+function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient: _canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1519,7 +1529,7 @@ function TabLab({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiR
 }
 
 /* ====== TAB OBAT ====== */
-function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
+function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient: _canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1786,7 +1796,7 @@ function TabObat({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, ai
 }
 
 /* ====== TAB LAPORAN ====== */
-function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient }) {
+function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI, aiResult, aiLoading, canEditPatient: _canEditPatient }) {
     const [confirmingId, setConfirmingId] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState({});
@@ -1959,7 +1969,7 @@ function TabLaporan({ patient, input, setInput, onAdd, onRemove, onUpdate, onAI,
 }
 
 /* ====== TAB AI ====== */
-function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI, canEditPatient }) {
+function TabAI({ patient, callAI, aiResults, aiLoading, onSaveAI, canEditPatient: _canEditPatient }) {
     const aiMethods = [
         {
             key: 'summary', icon: 'auto_awesome', color: 'from-primary to-blue-600', title: 'Ringkasan Cerdas', desc: 'Kondisi, temuan kritis, tindakan',
@@ -2101,7 +2111,7 @@ function TombolAI({ label, onGenerate, loading, result, disabled, storageKey }) 
                             <ReactMarkdown 
                                 remarkPlugins={[remarkGfm]}
                                 components={{
-                                    table: ({node, ...props}) => (
+                                    table: ({node: _node, ...props}) => (
                                         <div className="overflow-x-auto my-4 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
                                             <table {...props} className="min-w-full divide-y divide-slate-200 dark:divide-slate-800" />
                                         </div>
@@ -2231,7 +2241,7 @@ function KartuAIDetail({ judul, result, loading, onUpdate, onSave, storageKey })
                             <ReactMarkdown 
                                 remarkPlugins={[remarkGfm]}
                                 components={{
-                                    table: ({node, ...props}) => (
+                                    table: ({node: _node, ...props}) => (
                                         <div className="overflow-x-auto my-4 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
                                             <table {...props} className="min-w-full divide-y divide-slate-200 dark:divide-slate-800" />
                                         </div>

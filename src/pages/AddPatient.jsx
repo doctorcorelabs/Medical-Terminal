@@ -25,7 +25,7 @@ function getPatientDetailTabStorageKey(userId) {
 export default function AddPatient() {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { addPatient, patients, canAddPatient, canAddXPatients } = usePatients();
+    const { addPatient, patients: _patients, canAddPatient, canAddXPatients } = usePatients();
     const { stases, pinnedStaseId } = useStase();
     const [importDialog, setImportDialog] = useState({
         open: false,

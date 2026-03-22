@@ -13,7 +13,7 @@ const SUCCESS = [34, 197, 94];
 const WARNING = [245, 158, 11];
 const DANGER = [239, 68, 68];
 
-const cleanCell = (t) => cleanLabel(t.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''));
+const _cleanCell = (c) => cleanLabel(c.replace(/\*\*/g, '').replace(/\*/g, '').replace(/_{1,2}/g, '').replace(/`/g, ''));
 
 function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -311,7 +311,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
         }
 
         // Horizontal line separator (---, ___, or ***)
-        if (trimmed.match(/^[ \-]{3,}$/) || trimmed.match(/^[ _]{3,}$/) || trimmed.match(/^[ *]{3,}$/)) {
+        if (trimmed.match(/^[ -]{3,}$/) || trimmed.match(/^[ _]{3,}$/) || trimmed.match(/^[ *]{3,}$/)) {
             y = flushBuffer(y);
             if (y > pageBottomY) { doc.addPage(); y = 20; }
             doc.setDrawColor(226, 232, 240);
@@ -353,7 +353,7 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
 function _renderPatientToDoc(doc, patient, options = {}) {
     try {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
+        const _pageHeight = doc.internal.pageSize.getHeight();
         let y = 30;
 
         // Default options to true if not specified
@@ -1035,7 +1035,7 @@ export function exportCopilotResponsePDF(content, patient = null, chartImages = 
         // ===== CONTENT =====
         // Since renderMarkdownPDF is already available and custom-tuned for this project's style
         // Pass chartImages to renderer
-        y = renderMarkdownPDF(doc, content, 14, y, pageWidth - 28, chartImages, 280, chartDiagnosticsByKey);
+        renderMarkdownPDF(doc, content, 14, y, pageWidth - 28, chartImages, 280, chartDiagnosticsByKey);
 
         const chartKeys = Object.keys(chartImages || {}).filter((k) => k.startsWith('chart-'));
         console.info('[PDF Export] render summary', {

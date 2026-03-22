@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { generateReceiptPDF } from '../services/receiptService';
 
@@ -20,18 +20,19 @@ export default function Subscription() {
             handleSuccessRedirect();
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-    }, [profile]);
+    }, [profile, handleSuccessRedirect]);
 
-    const handleSuccessRedirect = async () => {
+    const handleSuccessRedirect = useCallback(async () => {
         if (!profile?.id) return;
         setVerifying(true);
         
+        // Use a ref-like variable for polling state within closure
         let attempts = 0;
         const maxAttempts = 5;
         let isDownloaded = false;
         
         const fetchTransaction = async () => {
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('user_subscriptions')
                 .select('*, subscription_plans(name)')
                 .eq('user_id', profile.id)
@@ -40,14 +41,15 @@ export default function Subscription() {
                 .maybeSingle();
 
             if (data && data.status === 'active') {
+                const { id: _id, subscription_plans: _plans, ...subData } = data; // Destructure to prefix unused 'id' and 'subscription_plans'
                 const receiptInfo = {
-                    order_id: data.gateway_order_id,
+                    order_id: subData.gateway_order_id,
                     user_name: profile.username || user?.email,
                     user_email: user?.email,
-                    plan_name: data.subscription_plans?.name || 'Specialist',
-                    amount: data.amount_paid,
-                    payment_method: data.payment_method || 'QRIS/Transfer',
-                    date: data.updated_at
+                    plan_name: _plans?.name || 'Specialist',
+                    amount: subData.amount_paid,
+                    payment_method: subData.payment_method || 'QRIS/Transfer',
+                    date: subData.updated_at
                 };
                 setReceiptData(receiptInfo);
                 setShowSuccess(true);
@@ -79,7 +81,7 @@ export default function Subscription() {
                 }
             }
         }, 2000);
-    };
+    }, [profile, user?.email]);
 
     const handleCheckout = async (planCode, amount) => {
         setLoading(true);

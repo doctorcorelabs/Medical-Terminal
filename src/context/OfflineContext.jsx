@@ -59,7 +59,6 @@ export function OfflineProvider({ children }) {
 
     const refreshPendingStatus = useCallback(() => {
         setPendingStatus(getPendingStatus());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {

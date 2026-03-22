@@ -66,7 +66,7 @@ export function ScheduleProvider({ children }) {
             try {
                 await dataService.syncSchedulesToSupabase(user.id);
                 await triggerNotificationCycle({ reason: 'schedule_import', force: true });
-            } catch (err) {
+            } catch (_err) {
                 // Silent fail — sync errors don't block UI
             }
         }

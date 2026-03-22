@@ -31,7 +31,6 @@ function normalizeStase(item) {
 function normalizeSchedule(item) {
     const title = toText(item?.title);
     const date = toText(item?.date);
-    const id = toText(item?.id);
     if (!title || !isValidDateOnly(date)) return null;
     return { ...item };
 }

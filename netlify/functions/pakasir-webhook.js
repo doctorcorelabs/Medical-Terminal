@@ -17,7 +17,7 @@ export const handler = async (event) => {
         const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const pakasirProject = process.env.PAKASIR_PROJECT_SLUG || process.env.VITE_PAKASIR_PROJECT_SLUG;
         const pakasirKey = process.env.PAKASIR_API_KEY;
-        const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+        const _tgToken = process.env.TELEGRAM_BOT_TOKEN;
 
         if (!supUrl || !supKey || !pakasirKey || !pakasirProject) {
             console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject);
@@ -39,7 +39,7 @@ export const handler = async (event) => {
             const supabase = createClient(supUrl, supKey);
 
             // 1. Update user_subscriptions
-            const { data: subData, error: subError } = await supabase
+            const { data: _subData, error: subError } = await supabase
                 .from('user_subscriptions')
                 .update({ 
                     status: 'active',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { generateReceiptPDF } from '../../services/receiptService';
@@ -11,9 +11,9 @@ export default function AdminSubscriptions() {
 
     useEffect(() => {
         fetchTransactions();
-    }, []);
+    }, [fetchTransactions]);
 
-    async function fetchTransactions() {
+    const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
             // Fetch transactions
@@ -54,7 +54,7 @@ export default function AdminSubscriptions() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [addToast]);
 
     const filteredTransactions = transactions.filter(t => 
         t.gateway_order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||

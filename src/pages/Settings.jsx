@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
@@ -145,7 +145,7 @@ export default function Settings() {
         }
     };
 
-    const handleCancelDelete = () => {
+    const _handleCancelDelete = () => {
         setShowConfirm(false);
         setShowFinalConfirm(false);
     };
@@ -195,11 +195,11 @@ export default function Settings() {
         setPdfPrefs(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const getTs = (item) => {
+    const getTs = useCallback((item) => {
         const raw = item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at || 0;
         const ts = new Date(raw).getTime();
         return Number.isFinite(ts) ? ts : 0;
-    };
+    }, []);
 
     const patientContentKey = (patient) => {
         if (!patient || typeof patient !== 'object') return '';
@@ -211,7 +211,7 @@ export default function Settings() {
         return JSON.stringify(clone);
     };
 
-    const mergeStasesById = (base, incoming) => {
+    const mergeStasesById = useCallback((base, incoming) => {
         const map = new Map((base || []).filter(Boolean).map(s => [s.id, s]));
         for (const item of (incoming || [])) {
             if (!item || typeof item !== 'object') continue;
@@ -229,12 +229,12 @@ export default function Settings() {
             map.set(id, shouldUseIncoming ? { ...prev, ...item, id } : prev);
         }
         return Array.from(map.values());
-    };
+    }, [getTs]);
 
     const localStasesForImport = useMemo(() => {
         if (!pendingImport?.stases?.length) return getAllStases();
         return mergeStasesById(getAllStases(), pendingImport.stases);
-    }, [pendingImport]);
+    }, [pendingImport, mergeStasesById]);
 
     const exportData = () => {
         setScheduleStorageScope(user?.id || null);
