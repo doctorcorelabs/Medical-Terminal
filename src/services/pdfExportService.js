@@ -349,10 +349,31 @@ function renderMarkdownPDF(doc, rawText, x, y, maxWidth, chartImages = {}, pageB
     y = flushBuffer(y);
     return y;
 }
-
-function _renderPatientToDoc(doc, patient) {
+// Helper to render the entire patient context to a document (used by both single and multi export)
+function _renderPatientToDoc(doc, patient, options = {}) {
+    try {
         const pageWidth = doc.internal.pageSize.getWidth();
-        let y = 14;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        let y = 30;
+
+        // Default options to true if not specified
+        const prefs = {
+            includeSummary: options.includeSummary !== false,
+            includeVitals: options.includeVitals !== false,
+            includeSymptoms: options.includeSymptoms !== false,
+            includePhysical: options.includePhysical !== false,
+            includeLabs: options.includeLabs !== false,
+            includeMedicine: options.includeMedicine !== false,
+            includeDaily: options.includeDaily !== false,
+            includeAiSummary: options.includeAiSummary !== false,
+            includeAiSoap: options.includeAiSoap !== false,
+            includeAiSymptoms: options.includeAiSymptoms !== false,
+            includeAiRadar: options.includeAiRadar !== false,
+            includeAiPhysical: options.includeAiPhysical !== false,
+            includeAiLabs: options.includeAiLabs !== false,
+            includeAiMedicine: options.includeAiMedicine !== false,
+            includeAiDaily: options.includeAiDaily !== false,
+        };
 
         // ===== HEADER =====
         doc.setFillColor(...PRIMARY);
@@ -410,242 +431,254 @@ function _renderPatientToDoc(doc, patient) {
         }
 
         // ===== 2. RIWAYAT VITAL SIGNS =====
-        const vitalSigns = patient.vitalSigns || [];
-        y = sectionTitle(doc, `2. Riwayat Vital Signs (${vitalSigns.length} pencatatan)`, y, pageWidth);
-        // Latest vitals summary card
-        const latestVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))[0] || {};
-        const summaryVitals = [
-            ['Detak Jantung', latestVS.heartRate ? `${latestVS.heartRate} bpm` : (patient.heartRate ? `${patient.heartRate} bpm` : '-')],
-            ['Tekanan Darah', latestVS.bloodPressure ? `${latestVS.bloodPressure} mmHg` : (patient.bloodPressure ? `${patient.bloodPressure} mmHg` : '-')],
-            ['Suhu Tubuh', latestVS.temperature ? `${latestVS.temperature} \u00B0C` : (patient.temperature ? `${patient.temperature} \u00B0C` : '-')],
-            ['Frek. Napas', latestVS.respRate ? `${latestVS.respRate} /min` : (patient.respRate ? `${patient.respRate} /min` : '-')],
-            ['SpO2', latestVS.spO2 ? `${latestVS.spO2} %` : (patient.spO2 ? `${patient.spO2} %` : '-')],
-        ];
-        if (latestVS.recordedAt) {
-            doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(...MUTED);
-            doc.text(`Data terkini: ${fmtDateTime(latestVS.recordedAt)}`, 14, y);
-            y += 5;
-        }
-        y = tbl(doc, {
-            startY: y, head: [['Parameter', 'Nilai Terkini']], body: summaryVitals, theme: 'grid',
-            headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-            styles: { fontSize: 9, cellPadding: 3, textColor: DARK },
-            alternateRowStyles: { fillColor: STRIPE },
-            margin: { left: 14, right: 14 }, tableWidth: 100,
-        }) + 4;
-
-        // Full vital signs history table
-        if (vitalSigns.length > 0) {
-            const sortedVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+        if (prefs.includeVitals) {
+            const vitalSigns = patient.vitalSigns || [];
+            y = sectionTitle(doc, `2. Riwayat Vital Signs (${vitalSigns.length} pencatatan)`, y, pageWidth);
+            // Latest vitals summary card
+            const latestVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))[0] || {};
+            const summaryVitals = [
+                ['Detak Jantung', latestVS.heartRate ? `${latestVS.heartRate} bpm` : (patient.heartRate ? `${patient.heartRate} bpm` : '-')],
+                ['Tekanan Darah', latestVS.bloodPressure ? `${latestVS.bloodPressure} mmHg` : (patient.bloodPressure ? `${patient.bloodPressure} mmHg` : '-')],
+                ['Suhu Tubuh', latestVS.temperature ? `${latestVS.temperature} \u00B0C` : (patient.temperature ? `${patient.temperature} \u00B0C` : '-')],
+                ['Frek. Napas', latestVS.respRate ? `${latestVS.respRate} /min` : (patient.respRate ? `${patient.respRate} /min` : '-')],
+                ['SpO2', latestVS.spO2 ? `${latestVS.spO2} %` : (patient.spO2 ? `${patient.spO2} %` : '-')],
+            ];
+            if (latestVS.recordedAt) {
+                doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                doc.text(`Data terkini: ${fmtDateTime(latestVS.recordedAt)}`, 14, y);
+                y += 5;
+            }
             y = tbl(doc, {
-                startY: y,
-                head: [['Waktu', 'Detak Jantung', 'Tekanan Darah', 'Suhu', 'Frek. Napas', 'SpO2']],
-                body: sortedVS.map(vs => [
-                    fmtDateTime(vs.recordedAt),
-                    vs.heartRate ? `${vs.heartRate} bpm` : '-',
-                    vs.bloodPressure ? `${vs.bloodPressure} mmHg` : '-',
-                    vs.temperature ? `${vs.temperature} \u00B0C` : '-',
-                    vs.respRate ? `${vs.respRate} /min` : '-',
-                    vs.spO2 ? `${vs.spO2} %` : '-',
-                ]),
-                theme: 'grid',
-                headStyles: { fillColor: [71, 85, 105], textColor: WHITE, fontStyle: 'bold', fontSize: 8.5 },
-                styles: { fontSize: 8, cellPadding: 2.5, textColor: DARK },
+                startY: y, head: [['Parameter', 'Nilai Terkini']], body: summaryVitals, theme: 'grid',
+                headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+                styles: { fontSize: 9, cellPadding: 3, textColor: DARK },
                 alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 38 } },
-                margin: { left: 14, right: 14 },
-            }) + 6;
-        } else {
-            doc.setFontSize(8); doc.setTextColor(...MUTED); doc.setFont('helvetica', 'italic');
-            doc.text('Belum ada riwayat pencatatan vital signs.', 14, y); y += 8;
+                margin: { left: 14, right: 14 }, tableWidth: 100,
+            }) + 4;
+
+            // Full vital signs history table
+            if (vitalSigns.length > 0) {
+                const sortedVS = [...vitalSigns].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+                y = tbl(doc, {
+                    startY: y,
+                    head: [['Waktu', 'Detak Jantung', 'Tekanan Darah', 'Suhu', 'Frek. Napas', 'SpO2']],
+                    body: sortedVS.map(vs => [
+                        fmtDateTime(vs.recordedAt),
+                        vs.heartRate ? `${vs.heartRate} bpm` : '-',
+                        vs.bloodPressure ? `${vs.bloodPressure} mmHg` : '-',
+                        vs.temperature ? `${vs.temperature} \u00B0C` : '-',
+                        vs.respRate ? `${vs.respRate} /min` : '-',
+                        vs.spO2 ? `${vs.spO2} %` : '-',
+                    ]),
+                    theme: 'grid',
+                    headStyles: { fillColor: [71, 85, 105], textColor: WHITE, fontStyle: 'bold', fontSize: 8.5 },
+                    styles: { fontSize: 8, cellPadding: 2.5, textColor: DARK },
+                    alternateRowStyles: { fillColor: STRIPE },
+                    columnStyles: { 0: { cellWidth: 38 } },
+                    margin: { left: 14, right: 14 },
+                }) + 6;
+            } else {
+                doc.setFontSize(8); doc.setTextColor(...MUTED); doc.setFont('helvetica', 'italic');
+                doc.text('Belum ada riwayat pencatatan vital signs.', 14, y); y += 8;
+            }
         }
 
         // ===== 3. GEJALA =====
-        const symptoms = patient.symptoms || [];
-        y = sectionTitle(doc, `3. Gejala (${symptoms.length})`, y, pageWidth);
-        if (symptoms.length > 0) {
-            y = tbl(doc, {
-                startY: y,
-                head: [['No', 'Nama Gejala', 'Keparahan', 'Catatan', 'Tanggal']],
-                body: symptoms.map((s, i) => [i + 1, s.name || '-', severityLabel(s.severity), s.notes || '-', fmtDateTime(s.recordedAt)]),
-                theme: 'grid',
-                headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
-                alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 22, halign: 'center' }, 4: { cellWidth: 35 } },
-                margin: { left: 14, right: 14 },
-                didParseCell: (data) => {
-                    if (data.section === 'body' && data.column.index === 2) {
-                        const val = data.cell.raw;
-                        if (val === 'Berat') data.cell.styles.textColor = DANGER;
-                        else if (val === 'Sedang') data.cell.styles.textColor = WARNING;
-                        else data.cell.styles.textColor = SUCCESS;
-                        data.cell.styles.fontStyle = 'bold';
-                    }
-                },
-            }) + 6;
-        } else {
-            doc.setFontSize(9); doc.setTextColor(...MUTED);
-            doc.text('Tidak ada data gejala.', 14, y); y += 8;
+        if (prefs.includeSymptoms) {
+            const symptoms = patient.symptoms || [];
+            y = sectionTitle(doc, `3. Gejala (${symptoms.length})`, y, pageWidth);
+            if (symptoms.length > 0) {
+                y = tbl(doc, {
+                    startY: y,
+                    head: [['No', 'Nama Gejala', 'Keparahan', 'Catatan', 'Tanggal']],
+                    body: symptoms.map((s, i) => [i + 1, s.name || '-', severityLabel(s.severity), s.notes || '-', fmtDateTime(s.recordedAt)]),
+                    theme: 'grid',
+                    headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+                    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
+                    alternateRowStyles: { fillColor: STRIPE },
+                    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 22, halign: 'center' }, 4: { cellWidth: 35 } },
+                    margin: { left: 14, right: 14 },
+                    didParseCell: (data) => {
+                        if (data.section === 'body' && data.column.index === 2) {
+                            const val = data.cell.raw;
+                            if (val === 'Berat') data.cell.styles.textColor = DANGER;
+                            else if (val === 'Sedang') data.cell.styles.textColor = WARNING;
+                            else data.cell.styles.textColor = SUCCESS;
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    },
+                }) + 6;
+            } else {
+                doc.setFontSize(9); doc.setTextColor(...MUTED);
+                doc.text('Tidak ada data gejala.', 14, y); y += 8;
+            }
         }
 
         // ===== 4. PEMERIKSAAN FISIK =====
-        const physicals = patient.physicalExams || [];
-        y = sectionTitle(doc, `4. Pemeriksaan Fisik (${physicals.length})`, y, pageWidth);
-        if (physicals.length > 0) {
-            y = tbl(doc, {
-                startY: y,
-                head: [['No', 'Sistem', 'Temuan', 'Tanggal']],
-                body: physicals.map((e, i) => [i + 1, (e.system || '-').toUpperCase(), e.findings || '-', fmtDateTime(e.date)]),
-                theme: 'grid',
-                headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
-                alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 25, fontStyle: 'bold' }, 3: { cellWidth: 35 } },
-                margin: { left: 14, right: 14 },
-            }) + 6;
-            if (physicals.length > 1) {
-                if (y > 230) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
-                doc.text('Timeline Pemeriksaan Fisik (urut waktu)', 14, y); y += 5;
-                y = renderSectionTimeline(doc, physicals, y, {
-                    dateField: 'date',
-                    labelFn: e => (e.system || '-').toUpperCase(),
-                    subLabelFn: e => e.findings || null,
-                }, pageWidth);
+        if (prefs.includePhysical) {
+            const physicals = patient.physicalExams || [];
+            y = sectionTitle(doc, `4. Pemeriksaan Fisik (${physicals.length})`, y, pageWidth);
+            if (physicals.length > 0) {
+                y = tbl(doc, {
+                    startY: y,
+                    head: [['No', 'Sistem', 'Temuan', 'Tanggal']],
+                    body: physicals.map((e, i) => [i + 1, (e.system || '-').toUpperCase(), e.findings || '-', fmtDateTime(e.date)]),
+                    theme: 'grid',
+                    headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+                    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
+                    alternateRowStyles: { fillColor: STRIPE },
+                    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 25, fontStyle: 'bold' }, 3: { cellWidth: 35 } },
+                    margin: { left: 14, right: 14 },
+                }) + 6;
+                if (physicals.length > 1) {
+                    if (y > 230) { doc.addPage(); y = 20; }
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                    doc.text('Timeline Pemeriksaan Fisik (urut waktu)', 14, y); y += 5;
+                    y = renderSectionTimeline(doc, physicals, y, {
+                        dateField: 'date',
+                        labelFn: e => (e.system || '-').toUpperCase(),
+                        subLabelFn: e => e.findings || null,
+                    }, pageWidth);
+                }
+            } else {
+                doc.setFontSize(9); doc.setTextColor(...MUTED);
+                doc.text('Tidak ada data pemeriksaan fisik.', 14, y); y += 8;
             }
-        } else {
-            doc.setFontSize(9); doc.setTextColor(...MUTED);
-            doc.text('Tidak ada data pemeriksaan fisik.', 14, y); y += 8;
         }
 
         // ===== 5. HASIL LAB =====
-        const labs = patient.supportingExams || [];
-        y = sectionTitle(doc, `5. Hasil Laboratorium (${labs.length})`, y, pageWidth);
-        if (labs.length > 0) {
-            y = tbl(doc, {
-                startY: y,
-                head: [['No', 'Pemeriksaan', 'Nilai', 'Satuan', 'Status', 'Tanggal']],
-                body: labs.map((e, i) => [i + 1, e.testName || '-', e.value || '-', e.unit || '-', cleanLabel(e.result?.label), fmtDateTime(e.date)]),
-                theme: 'grid',
-                headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK, overflow: 'linebreak' },
-                alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 26, halign: 'center' }, 5: { cellWidth: 32 } },
-                margin: { left: 14, right: 14 },
-                didParseCell: (data) => {
-                    if (data.section === 'body' && data.column.index === 4) {
-                        const val = data.cell.raw;
-                        if (val && val.includes('Tinggi')) data.cell.styles.textColor = DANGER;
-                        else if (val && val.includes('Rendah')) data.cell.styles.textColor = WARNING;
-                        else if (val && val.includes('Normal')) data.cell.styles.textColor = SUCCESS;
-                        data.cell.styles.fontStyle = 'bold';
-                    }
-                },
-            }) + 6;
-            if (labs.length > 1) {
-                if (y > 230) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
-                doc.text('Timeline Hasil Lab (urut waktu)', 14, y); y += 5;
-                y = renderSectionTimeline(doc, labs, y, {
-                    dateField: 'date',
-                    labelFn: e => `${e.testName || '-'}: ${e.value || '-'} ${e.unit || ''}`.trim(),
-                    subLabelFn: e => e.result?.label ? `Status: ${cleanLabel(e.result.label)}` : null,
-                    colorFn: e => e.result?.status === 'high' ? DANGER : e.result?.status === 'low' ? WARNING : e.result?.status === 'normal' ? SUCCESS : PRIMARY,
-                }, pageWidth);
+        if (prefs.includeLabs) {
+            const labs = patient.supportingExams || [];
+            y = sectionTitle(doc, `5. Hasil Laboratorium (${labs.length})`, y, pageWidth);
+            if (labs.length > 0) {
+                y = tbl(doc, {
+                    startY: y,
+                    head: [['No', 'Pemeriksaan', 'Nilai', 'Satuan', 'Status', 'Tanggal']],
+                    body: labs.map((e, i) => [i + 1, e.testName || '-', e.value || '-', e.unit || '-', cleanLabel(e.result?.label), fmtDateTime(e.date)]),
+                    theme: 'grid',
+                    headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+                    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK, overflow: 'linebreak' },
+                    alternateRowStyles: { fillColor: STRIPE },
+                    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 26, halign: 'center' }, 5: { cellWidth: 32 } },
+                    margin: { left: 14, right: 14 },
+                    didParseCell: (data) => {
+                        if (data.section === 'body' && data.column.index === 4) {
+                            const val = data.cell.raw;
+                            if (val && val.includes('Tinggi')) data.cell.styles.textColor = DANGER;
+                            else if (val && val.includes('Rendah')) data.cell.styles.textColor = WARNING;
+                            else if (val && val.includes('Normal')) data.cell.styles.textColor = SUCCESS;
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    },
+                }) + 6;
+                if (labs.length > 1) {
+                    if (y > 230) { doc.addPage(); y = 20; }
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                    doc.text('Timeline Hasil Lab (urut waktu)', 14, y); y += 5;
+                    y = renderSectionTimeline(doc, labs, y, {
+                        dateField: 'date',
+                        labelFn: e => `${e.testName || '-'}: ${e.value || '-'} ${e.unit || ''}`.trim(),
+                        subLabelFn: e => e.result?.label ? `Status: ${cleanLabel(e.result.label)}` : null,
+                        colorFn: e => e.result?.status === 'high' ? DANGER : e.result?.status === 'low' ? WARNING : e.result?.status === 'normal' ? SUCCESS : PRIMARY,
+                    }, pageWidth);
+                }
+            } else {
+                doc.setFontSize(9); doc.setTextColor(...MUTED);
+                doc.text('Tidak ada data hasil laboratorium.', 14, y); y += 8;
             }
-        } else {
-            doc.setFontSize(9); doc.setTextColor(...MUTED);
-            doc.text('Tidak ada data hasil laboratorium.', 14, y); y += 8;
         }
 
         // ===== 6. RESEP OBAT =====
-        const prescriptions = patient.prescriptions || [];
-        y = sectionTitle(doc, `6. Resep Obat (${prescriptions.length})`, y, pageWidth);
-        if (prescriptions.length > 0) {
-            y = tbl(doc, {
-                startY: y,
-                head: [['No', 'Nama Obat', 'Dosis', 'Sediaan', 'Frekuensi', 'Rute', 'Tanggal']],
-                body: prescriptions.map((p, i) => [
-                    i + 1,
-                    p.fornas_source ? (p.name || '-') + '  [F]' : p.name || '-',
-                    p.dosage || '-',
-                    p.fornas_form || '-',
-                    p.frequency || '-',
-                    (p.route || '-').toUpperCase(),
-                    fmtDateTime(p.date),
-                ]),
-                theme: 'grid',
-                headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
-                alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20 }, 3: { cellWidth: 22 }, 4: { cellWidth: 25 }, 5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }, 6: { cellWidth: 30 } },
-                margin: { left: 14, right: 14 },
-            }) + 4;
-            if (prescriptions.some(p => p.fornas_source)) {
-                doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-                doc.text('[F] Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
+        if (prefs.includeMedicine) {
+            const prescriptions = patient.prescriptions || [];
+            y = sectionTitle(doc, `6. Resep Obat (${prescriptions.length})`, y, pageWidth);
+            if (prescriptions.length > 0) {
+                y = tbl(doc, {
+                    startY: y,
+                    head: [['No', 'Nama Obat', 'Dosis', 'Sediaan', 'Frekuensi', 'Rute', 'Tanggal']],
+                    body: prescriptions.map((p, i) => [
+                        i + 1,
+                        p.fornas_source ? (p.name || '-') + '  [F]' : p.name || '-',
+                        p.dosage || '-',
+                        p.fornas_form || '-',
+                        p.frequency || '-',
+                        (p.route || '-').toUpperCase(),
+                        fmtDateTime(p.date),
+                    ]),
+                    theme: 'grid',
+                    headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+                    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK },
+                    alternateRowStyles: { fillColor: STRIPE },
+                    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 2: { cellWidth: 20 }, 3: { cellWidth: 22 }, 4: { cellWidth: 25 }, 5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }, 6: { cellWidth: 30 } },
+                    margin: { left: 14, right: 14 },
+                }) + 4;
+                if (prescriptions.some(p => p.fornas_source)) {
+                    doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+                    doc.text('[F] Sumber: Formularium Nasional (Fornas) Kemenkes RI', 14, y); y += 6;
+                }
+                if (prescriptions.length > 1) {
+                    if (y > 230) { doc.addPage(); y = 20; }
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                    doc.text('Timeline Pemberian Obat (urut waktu)', 14, y); y += 5;
+                    y = renderSectionTimeline(doc, prescriptions, y, {
+                        dateField: 'date',
+                        labelFn: p => `${p.fornas_source ? (p.name || '-') + ' [F]' : p.name || '-'} ${p.dosage || ''}`.trim(),
+                        subLabelFn: p => [p.frequency, p.route ? (p.route || '').toUpperCase() : '', p.fornas_form || ''].filter(Boolean).join(' \u2022 ') || null,
+                    }, pageWidth);
+                }
+            } else {
+                doc.setFontSize(9); doc.setTextColor(...MUTED);
+                doc.text('Tidak ada data resep obat.', 14, y); y += 8;
             }
-            if (prescriptions.length > 1) {
-                if (y > 230) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
-                doc.text('Timeline Pemberian Obat (urut waktu)', 14, y); y += 5;
-                y = renderSectionTimeline(doc, prescriptions, y, {
-                    dateField: 'date',
-                    labelFn: p => `${p.fornas_source ? (p.name || '-') + ' [F]' : p.name || '-'} ${p.dosage || ''}`.trim(),
-                    subLabelFn: p => [p.frequency, p.route ? (p.route || '').toUpperCase() : '', p.fornas_form || ''].filter(Boolean).join(' \u2022 ') || null,
-                }, pageWidth);
-            }
-        } else {
-            doc.setFontSize(9); doc.setTextColor(...MUTED);
-            doc.text('Tidak ada data resep obat.', 14, y); y += 8;
         }
 
         // ===== 7. LAPORAN HARIAN =====
-        const reports = patient.dailyReports || [];
-        y = sectionTitle(doc, `7. Laporan Harian (${reports.length})`, y, pageWidth);
-        if (reports.length > 0) {
-            y = tbl(doc, {
-                startY: y,
-                head: [['No', 'Tanggal', 'Catatan', 'Kondisi']],
-                body: [...reports].sort((a, b) => new Date(b.date) - new Date(a.date)).map((r, i) => [i + 1, fmtDateTime(r.date), r.notes || '-', conditionLabel(r.condition)]),
-                theme: 'grid',
-                headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
-                styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK, overflow: 'linebreak' },
-                alternateRowStyles: { fillColor: STRIPE },
-                columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 35 }, 3: { cellWidth: 22, halign: 'center' } },
-                margin: { left: 14, right: 14 },
-            }) + 6;
-            if (reports.length > 1) {
-                if (y > 230) { doc.addPage(); y = 20; }
-                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
-                doc.text('Timeline Laporan Harian (urut waktu)', 14, y); y += 5;
-                y = renderSectionTimeline(doc, reports, y, {
-                    dateField: 'date',
-                    labelFn: r => conditionLabel(r.condition) || 'Laporan',
-                    subLabelFn: r => r.notes || null,
-                    colorFn: r => r.condition === 'critical' ? DANGER : r.condition === 'urgent' ? WARNING : r.condition === 'improving' ? SUCCESS : PRIMARY,
-                }, pageWidth);
+        if (prefs.includeDaily) {
+            const reports = patient.dailyReports || [];
+            y = sectionTitle(doc, `7. Laporan Harian (${reports.length})`, y, pageWidth);
+            if (reports.length > 0) {
+                y = tbl(doc, {
+                    startY: y,
+                    head: [['No', 'Tanggal', 'Catatan', 'Kondisi']],
+                    body: [...reports].sort((a, b) => new Date(b.date) - new Date(a.date)).map((r, i) => [i + 1, fmtDateTime(r.date), r.notes || '-', conditionLabel(r.condition)]),
+                    theme: 'grid',
+                    headStyles: { fillColor: PRIMARY, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+                    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: DARK, overflow: 'linebreak' },
+                    alternateRowStyles: { fillColor: STRIPE },
+                    columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 35 }, 3: { cellWidth: 22, halign: 'center' } },
+                    margin: { left: 14, right: 14 },
+                }) + 6;
+                if (reports.length > 1) {
+                    if (y > 230) { doc.addPage(); y = 20; }
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...MUTED);
+                    doc.text('Timeline Laporan Harian (urut waktu)', 14, y); y += 5;
+                    y = renderSectionTimeline(doc, reports, y, {
+                        dateField: 'date',
+                        labelFn: r => r.notes || '-',
+                        subLabelFn: r => r.condition ? `Kondisi: ${conditionLabel(r.condition)}` : null,
+                    }, pageWidth);
+                }
+            } else {
+                doc.setFontSize(9); doc.setTextColor(...MUTED);
+                doc.text('Tidak ada data laporan harian.', 14, y); y += 8;
             }
-        } else {
-            doc.setFontSize(9); doc.setTextColor(...MUTED);
-            doc.text('Tidak ada data laporan harian.', 14, y); y += 8;
         }
 
         // ===== 8. AI INSIGHTS =====
         const ai = patient.aiInsights || {};
-        const hasAI = ai.summary || ai.soap || ai.symptoms || ai.physical || ai.labs || ai.drugs || ai.daily;
+        const aiSections = [
+            { key: 'summary', title: 'Ringkasan Cerdas', enabled: prefs.includeAiSummary },
+            { key: 'soap', title: 'Catatan SOAP', enabled: prefs.includeAiSoap },
+            { key: 'symptoms', title: 'Diagnosis Banding', enabled: prefs.includeAiSymptoms },
+            { key: 'physical', title: 'Analisis Pemeriksaan Fisik', enabled: prefs.includeAiPhysical },
+            { key: 'labs', title: 'Analisis Hasil Lab', enabled: prefs.includeAiLabs },
+            { key: 'drugs', title: 'Rekomendasi Obat', enabled: prefs.includeAiMedicine },
+            { key: 'daily', title: 'Evaluasi Harian', enabled: prefs.includeAiDaily },
+        ].filter(s => s.enabled);
+
+        const hasAI = aiSections.some(sec => ai[sec.key]);
         if (hasAI) {
-            y = sectionTitle(doc, '8. AI Insights', y, pageWidth);
-            const aiSections = [
-                { key: 'summary', title: 'Ringkasan Cerdas' },
-                { key: 'soap', title: 'Catatan SOAP' },
-                { key: 'symptoms', title: 'Diagnosis Banding' },
-                { key: 'physical', title: 'Analisis Pemeriksaan Fisik' },
-                { key: 'labs', title: 'Analisis Hasil Lab' },
-                { key: 'drugs', title: 'Rekomendasi Obat' },
-                { key: 'daily', title: 'Evaluasi Harian' },
-            ];
+            y = sectionTitle(doc, '8. Medx Insights', y, pageWidth);
             const textMaxWidth = pageWidth - 32; // 16mm margin each side
             for (const sec of aiSections) {
                 const text = ai[sec.key];
@@ -665,7 +698,7 @@ function _renderPatientToDoc(doc, patient) {
 
         // ===== 9. PETA GEJALA (Native Drawing) =====
         const symptoms2 = patient.symptoms || [];
-        if (symptoms2.length > 0) {
+        if (prefs.includeSymptoms && symptoms2.length > 0) {
             doc.addPage();
             y = 20;
             y = sectionTitle(doc, '9. Peta Gejala', y, pageWidth);
@@ -777,7 +810,7 @@ function _renderPatientToDoc(doc, patient) {
         }
 
         // ===== 10. TIMELINE GEJALA =====
-        if (symptoms2.length > 0) {
+        if (prefs.includeSymptoms && symptoms2.length > 0) {
             if (y > 200) { doc.addPage(); y = 20; }
             y = sectionTitle(doc, '10. Timeline Gejala', y, pageWidth);
 
@@ -847,7 +880,7 @@ function _renderPatientToDoc(doc, patient) {
 
         // ===== 11. RADAR DIAGNOSIS BANDING =====
         const aiDiag = parseAIDiagnoses(patient.aiInsights?.symptoms);
-        if (aiDiag && aiDiag.length >= 3) {
+        if (prefs.includeAiRadar && aiDiag && aiDiag.length >= 3) {
             if (y > 140) { doc.addPage(); y = 20; }
             y = sectionTitle(doc, '11. Radar Diagnosis Banding', y, pageWidth);
 
@@ -950,6 +983,10 @@ function _renderPatientToDoc(doc, patient) {
             y = rcy + rRadius + 25;
         }
 
+    } catch (err) {
+        console.error('[PDF Export] Error rendering patient:', err);
+        throw err;
+    }
 }
 
 // ================================================================
@@ -1022,11 +1059,11 @@ export function exportCopilotResponsePDF(content, patient = null, chartImages = 
 // ================================================================
 // EXPORT SINGLE PATIENT PDF
 // ================================================================
-export function exportPatientPDF(patient) {
+export function exportPatientPDF(patient, options = {}) {
     try {
-        console.log('[PDF Export] Starting PDF generation for:', patient?.name);
+        console.log('[PDF Export] Starting PDF generation for:', patient?.name, 'with options:', options);
         const doc = new jsPDF('p', 'mm', 'a4');
-        _renderPatientToDoc(doc, patient);
+        _renderPatientToDoc(doc, patient, options);
         addFooters(doc);
         const safeName = (patient.name || 'pasien').replace(/[^a-zA-Z0-9]/g, '_');
         doc.save(`Laporan_Medis_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);

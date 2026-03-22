@@ -12,7 +12,35 @@ import { generateReceiptPDF } from '../services/receiptService';
 export default function Settings() {
     const { user, profile, updateProfile, isUsernameAvailable, isAdmin, isSpecialist } = useAuth();
     const navigate = useNavigate();
-    // ... rest of state ...
+    const { addToast } = useToast();
+
+    // PDF Export Preferences State
+    const [pdfPrefs, setPdfPrefs] = useState(() => {
+        const defaultPrefs = {
+            includeSummary: true,
+            includeVitals: true,
+            includeSymptoms: true,
+            includePhysical: true,
+            includeLabs: true,
+            includeMedicine: true,
+            includeDaily: true,
+            includeAiSummary: true,
+            includeAiSoap: true,
+            includeAiSymptoms: true,
+            includeAiRadar: true,
+            includeAiPhysical: true,
+            includeAiLabs: true,
+            includeAiMedicine: true,
+            includeAiDaily: true
+        };
+        const savedMetaData = user?.user_metadata?.pdf_export_prefs;
+        if (savedMetaData) return { ...defaultPrefs, ...savedMetaData };
+        
+        // Fallback to local storage if not in metadata (optional, but good for local-first feel)
+        const local = localStorage.getItem('medterminal_pdf_prefs');
+        return local ? { ...defaultPrefs, ...JSON.parse(local) } : defaultPrefs;
+    });
+    const [savingPrefs, setSavingPrefs] = useState(false);
 
     // Use effect to handle hash scrolling
     useEffect(() => {
@@ -30,7 +58,6 @@ export default function Settings() {
     const [deleting, setDeleting] = useState(false);
     const [importing, setImporting] = useState(false);
     const [pendingImport, setPendingImport] = useState(null); // { patients: [] } while mapping modal is open
-    const { addToast } = useToast();
 
     // Step 1: user typed the phrase → advance to final warning
     const handleConfirmTyped = () => {
@@ -60,19 +87,15 @@ export default function Settings() {
     };
 
     const saveUsername = async () => {
-        // validation: 3-20 chars, alphanumeric + underscore
+        // ... (existing validation)
         if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
             addToast('Username harus 3-20 karakter (huruf, angka, atau _)', 'error');
             return;
         }
-        // availability check if possible
         const available = await isUsernameAvailable(username);
         if (available === false) {
             addToast('Username sudah digunakan', 'error');
             return;
-        }
-        if (available === null) {
-            addToast('Tidak dapat memeriksa ketersediaan username, menyimpan tanpa verifikasi.', 'info');
         }
         try {
             const { error } = await updateProfile({ username });
@@ -83,6 +106,24 @@ export default function Settings() {
         } catch (err) {
             addToast(err.message || 'Gagal menyimpan username', 'error');
         }
+    };
+
+    const savePdfPrefs = async () => {
+        setSavingPrefs(true);
+        try {
+            const { error } = await updateProfile({ pdf_export_prefs: pdfPrefs });
+            if (error) throw error;
+            localStorage.setItem('medterminal_pdf_prefs', JSON.stringify(pdfPrefs));
+            addToast('Pengaturan PDF berhasil disimpan', 'success');
+        } catch (err) {
+            addToast(err.message || 'Gagal menyimpan pengaturan PDF', 'error');
+        } finally {
+            setSavingPrefs(false);
+        }
+    };
+
+    const togglePdfPref = (key) => {
+        setPdfPrefs(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
     const exportData = () => {
@@ -382,6 +423,98 @@ export default function Settings() {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Pengaturan Export PDF */}
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                            <div className="px-5 lg:px-8 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-symbols-outlined text-primary">picture_as_pdf</span>
+                                    <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Pengaturan Export PDF</h3>
+                                </div>
+                            </div>
+                            <div className="p-5 lg:p-8">
+                                <p className="text-xs text-slate-500 mb-6 ml-1">Tentukan bagian mana saja yang akan ditampilkan saat mengekspor Laporan Medis Pasien ke PDF.</p>
+                                
+                                <div className="space-y-8">
+                                    {/* Medical Data Category */}
+                                    <div>
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1 flex items-center gap-2">
+                                            <span className="size-1.5 rounded-full bg-blue-500"></span>
+                                            Data Medis Utama
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {[
+                                                { key: 'includeSummary', label: 'Ringkasan Pasien', icon: 'person' },
+                                                { key: 'includeVitals', label: 'Tanda Vital', icon: 'monitor_heart' },
+                                                { key: 'includeSymptoms', label: 'Riwayat & Peta Gejala', icon: 'ulna_radius' },
+                                                { key: 'includePhysical', label: 'Pemeriksaan Fisik', icon: 'stethoscope' },
+                                                { key: 'includeLabs', label: 'Hasil Lab & Penunjang', icon: 'lab_research' },
+                                                { key: 'includeMedicine', label: 'Resep Obat', icon: 'prescriptions' },
+                                                { key: 'includeDaily', label: 'Laporan Harian', icon: 'assignment' },
+                                            ].map((item) => (
+                                                <div key={item.key} 
+                                                    onClick={() => togglePdfPref(item.key)}
+                                                    className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer select-none ${pdfPrefs[item.key] ? 'bg-primary/5 border-primary/20 dark:bg-primary/10' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 opacity-60'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`material-symbols-outlined text-[20px] ${pdfPrefs[item.key] ? 'text-primary' : 'text-slate-400'}`}>{item.icon}</span>
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.label}</span>
+                                                    </div>
+                                                    <div className={`size-5 rounded-md flex items-center justify-center border transition-all ${pdfPrefs[item.key] ? 'bg-primary border-primary text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                        {pdfPrefs[item.key] && <span className="material-symbols-outlined text-[16px] font-bold">check</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* AI Features Category */}
+                                    <div>
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1 flex items-center gap-2">
+                                            <span className="size-1.5 rounded-full bg-violet-500"></span>
+                                            Analisis & Insight AI
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {[
+                                                { key: 'includeAiSummary', label: 'Ringkasan Cerdas AI', icon: 'psychology' },
+                                                { key: 'includeAiSoap', label: 'Catatan SOAP AI', icon: 'description' },
+                                                { key: 'includeAiSymptoms', label: 'Diagnosis Banding AI', icon: 'troubleshoot' },
+                                                { key: 'includeAiRadar', label: 'Radar Diagnosis AI', icon: 'radar' },
+                                                { key: 'includeAiPhysical', label: 'Analisis Fisik AI', icon: 'accessibility_new' },
+                                                { key: 'includeAiLabs', label: 'Analisis Lab AI', icon: 'experiment' },
+                                                { key: 'includeAiMedicine', label: 'Rekomendasi Obat AI', icon: 'prescriptions' },
+                                                { key: 'includeAiDaily', label: 'Evaluasi Harian AI', icon: 'history_edu' },
+                                            ].map((item) => (
+                                                <div key={item.key} 
+                                                    onClick={() => togglePdfPref(item.key)}
+                                                    className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer select-none ${pdfPrefs[item.key] ? 'bg-violet-500/5 border-violet-500/20 dark:bg-violet-500/10' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 opacity-60'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`material-symbols-outlined text-[20px] ${pdfPrefs[item.key] ? 'text-violet-500' : 'text-slate-400'}`}>{item.icon}</span>
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.label}</span>
+                                                    </div>
+                                                    <div className={`size-5 rounded-md flex items-center justify-center border transition-all ${pdfPrefs[item.key] ? 'bg-violet-500 border-violet-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                                                        {pdfPrefs[item.key] && <span className="material-symbols-outlined text-[16px] font-bold">check</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="pt-4 mt-6 border-t border-slate-100 dark:border-slate-800">
+                                        <button 
+                                            onClick={savePdfPrefs}
+                                            disabled={savingPrefs}
+                                            className="w-full sm:w-auto px-10 py-3.5 bg-primary text-white rounded-xl text-sm font-black hover:bg-blue-600 transition-all hover:shadow-lg hover:shadow-primary/20 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:active:scale-100"
+                                        >
+                                            {savingPrefs ? (
+                                                <><span className="material-symbols-outlined animate-spin">sync</span> Menyimpan...</>
+                                            ) : (
+                                                <><span className="material-symbols-outlined">verified</span> Simpan Pengaturan PDF</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

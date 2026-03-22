@@ -55,10 +55,10 @@ registerRoute(
         && /\/(rest|functions)\//.test(url.pathname),
     new NetworkFirst({
         cacheName: 'medx-supabase-api',
-        networkTimeoutSeconds: 5,
+        networkTimeoutSeconds: 15,
         plugins: [
             new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 86400 }),
-            new CacheableResponsePlugin({ statuses: [0, 200] }),
+            new CacheableResponsePlugin({ statuses: [200] }),
         ],
     })
 );

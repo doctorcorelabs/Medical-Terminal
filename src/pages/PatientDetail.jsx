@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
 import { calculateRecoveryProgress, formatDate, formatDateTime, checkLabValue, labReferences, labCategories } from '../services/dataService';
 import LabReferenceModal from '../components/LabReferenceModal';
@@ -24,6 +25,7 @@ function getNowLocalISO() {
 export default function PatientDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { patients, canEditPatient, updatePatient, addSymptom, removeSymptom, updateSymptom, addDailyReport, removeDailyReport, updateDailyReport, addPhysicalExam, removePhysicalExam, updatePhysicalExam, addSupportingExam, removeSupportingExam, updateSupportingExam, addPrescription, removePrescription, updatePrescription, addVitalSign, updateVitalSign, removeVitalSign } = usePatients();
     const patient = patients.find(p => p.id === id);
     const [activeTab, setActiveTab] = useState(() => {
@@ -175,7 +177,7 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                     </button>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{patient.name}</h1>
                     <KondisiBadge kondisi={patient.condition} />
-                    <button onClick={() => exportPatientPDF(patient)}
+                    <button onClick={() => exportPatientPDF(patient, user?.user_metadata?.pdf_export_prefs)}
                         className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold shrink-0"
                         title="Export laporan medis ke PDF">
                         <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
