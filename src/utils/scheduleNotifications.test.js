@@ -6,6 +6,7 @@ import {
   localDateTimeToUtcWib,
   buildScheduleIdempotencyKey,
   computeStaleScheduleQueueIds,
+  computeEventVersionStaleIds,
 } from '../../netlify/functions/_schedule-reminder-utils.mjs';
 
 test('WIB timezone constant is fixed to Asia/Jakarta', () => {
@@ -55,4 +56,40 @@ test('integration mock: schedule update changes time and stale old queue row is 
   const staleIds = computeStaleScheduleQueueIds(existingRows, activeKeys);
 
   assert.deepEqual(staleIds, ['old-row']);
+});
+
+test('computeEventVersionStaleIds keeps newest row per event and ignores manual-test keys', () => {
+  const rows = [
+    {
+      id: 'old-a',
+      source_id: 'event-a',
+      idempotency_key: 'schedule:user-1:event-a:2026-03-20:10:00:10',
+      created_at: '2026-03-23T11:00:00.000Z',
+      updated_at: '2026-03-23T11:00:00.000Z',
+    },
+    {
+      id: 'new-a',
+      source_id: 'event-a',
+      idempotency_key: 'schedule:user-1:event-a:2026-03-20:10:01:10',
+      created_at: '2026-03-23T11:01:00.000Z',
+      updated_at: '2026-03-23T11:01:00.000Z',
+    },
+    {
+      id: 'manual-1',
+      source_id: 'event-a',
+      idempotency_key: 'manual-test:user-1:abc',
+      created_at: '2026-03-23T11:02:00.000Z',
+      updated_at: '2026-03-23T11:02:00.000Z',
+    },
+    {
+      id: 'only-b',
+      source_id: 'event-b',
+      idempotency_key: 'schedule:user-1:event-b:2026-03-20:12:00:10',
+      created_at: '2026-03-23T11:03:00.000Z',
+      updated_at: '2026-03-23T11:03:00.000Z',
+    },
+  ];
+
+  const staleIds = computeEventVersionStaleIds(rows);
+  assert.deepEqual(staleIds, ['old-a']);
 });

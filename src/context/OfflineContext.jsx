@@ -5,6 +5,7 @@ import { syncToSupabase, syncStasesToSupabase, syncSchedulesToSupabase } from '.
 import { useAuth } from './AuthContext';
 import { countConflicts } from '../services/idbQueue';
 import { storeSwConfig, triggerSwSync, onSwSyncComplete } from '../services/swConfig';
+import { getPendingStatusFromQueue } from './offlineContextUtils';
 
 const OfflineContext = createContext();
 
@@ -15,20 +16,7 @@ export function OfflineProvider({ children }) {
     const [lastSyncAt, setLastSyncAt] = useState(null);
     const [syncFailed, setSyncFailed] = useState(false);
     const [conflictCount, setConflictCount] = useState(0);
-    const getPendingStatus = () => {
-        const patients = pendingSync.hasPatients();
-        const stases = pendingSync.hasStases();
-        const schedules = pendingSync.hasSchedules();
-        const count = Number(patients) + Number(stases) + Number(schedules);
-        return {
-            patients,
-            stases,
-            schedules,
-            count,
-            any: count > 0,
-        };
-    };
-    const [pendingStatus, setPendingStatus] = useState(() => getPendingStatus());
+    const [pendingStatus, setPendingStatus] = useState(() => getPendingStatusFromQueue(pendingSync));
     // Keep user ref so the `online` event handler can always access the latest user
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
@@ -58,7 +46,7 @@ export function OfflineProvider({ children }) {
     }, []);
 
     const refreshPendingStatus = useCallback(() => {
-        setPendingStatus(getPendingStatus());
+        setPendingStatus(getPendingStatusFromQueue(pendingSync));
     }, []);
 
     useEffect(() => {

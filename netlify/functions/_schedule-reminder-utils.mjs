@@ -51,3 +51,41 @@ export function computeStaleScheduleQueueIds(existingRows, activeKeys) {
         .map((row) => row.id)
         .filter(Boolean);
 }
+
+function toMillis(value) {
+    const ms = Date.parse(String(value || ''));
+    return Number.isFinite(ms) ? ms : 0;
+}
+
+// Keep newest schedule row per event (source_id) and return stale row IDs.
+export function computeEventVersionStaleIds(existingRows) {
+    const rows = Array.isArray(existingRows) ? existingRows : [];
+    const byEventId = new Map();
+
+    for (const row of rows) {
+        const eventId = String(row?.source_id || '').trim();
+        const key = String(row?.idempotency_key || '');
+        if (!eventId) continue;
+        if (!key.startsWith('schedule:')) continue;
+        if (key.startsWith('manual-test:')) continue;
+        if (!byEventId.has(eventId)) byEventId.set(eventId, []);
+        byEventId.get(eventId).push(row);
+    }
+
+    const staleIds = [];
+    for (const rowsForEvent of byEventId.values()) {
+        if (rowsForEvent.length <= 1) continue;
+
+        const sorted = [...rowsForEvent].sort((a, b) => {
+            const timeA = toMillis(a?.updated_at) || toMillis(a?.created_at);
+            const timeB = toMillis(b?.updated_at) || toMillis(b?.created_at);
+            return timeB - timeA;
+        });
+
+        for (let i = 1; i < sorted.length; i += 1) {
+            if (sorted[i]?.id) staleIds.push(sorted[i].id);
+        }
+    }
+
+    return staleIds;
+}

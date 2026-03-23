@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import * as dataService from '../services/dataService';
+import { canSyncStases, findPinnedStase, getNextPinnedStaseId } from './staseContextUtils';
 
 const StaseContext = createContext();
 
@@ -32,37 +33,37 @@ export function StaseProvider({ children }) {
     const addStase = useCallback((name, color) => {
         const newStase = dataService.addStase({ name, color });
         refreshStases();
-        if (user) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
         return newStase;
     }, [refreshStases, user]);
 
     const updateStase = useCallback((id, updates) => {
         const updated = dataService.updateStase(id, updates);
         refreshStases();
-        if (user) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
         return updated;
     }, [refreshStases, user]);
 
     const deleteStase = useCallback((id) => {
         dataService.deleteStase(id);
         refreshStases();
-        if (user) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
     }, [refreshStases, user]);
 
     const pinStase = useCallback((id) => {
-        const newPinned = pinnedStaseId === id ? null : id;
+        const newPinned = getNextPinnedStaseId(pinnedStaseId, id);
         dataService.setPinnedStaseId(newPinned);
         setPinnedStaseIdState(newPinned);
-        if (user) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
     }, [pinnedStaseId, user]);
 
     const reorderStase = useCallback((id, direction) => {
         dataService.reorderStase(id, direction);
         refreshStases();
-        if (user) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
     }, [refreshStases, user]);
 
-    const pinnedStase = stases.find(s => s.id === pinnedStaseId) ?? null;
+    const pinnedStase = findPinnedStase(stases, pinnedStaseId);
 
     return (
         <StaseContext.Provider value={{

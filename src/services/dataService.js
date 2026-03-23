@@ -1,14 +1,14 @@
 // Data management with localStorage and Supabase sync
-import { supabase } from './supabaseClient';
-import { pendingSync, setPendingSyncScope } from './offlineQueue';
-import { enqueue, clearQueueByType } from './idbQueue';
+import { supabase } from './supabaseClient.js';
+import { pendingSync, setPendingSyncScope } from './offlineQueue.js';
+import { enqueue, clearQueueByType } from './idbQueue.js';
 import {
     getScheduleStorageKey,
     mergeSchedules,
     parseStoredSchedules,
     purgeExpiredSchedules,
     schedulesDiffer,
-} from '../utils/scheduleSync';
+} from '../utils/scheduleSync.js';
 const STORAGE_KEY = 'medterminal_patients';
 const DELETED_PATIENTS_KEY = 'medterminal_deleted_patients'; // Tombstones for sync
 const STASE_KEY = 'medterminal_stases';

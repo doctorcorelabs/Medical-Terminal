@@ -1,25 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { COPILOT_CONTEXT_KEY, getScopedStorageKey, parseStoredBoolean } from './contextStorageUtils';
 
 const CopilotContext = createContext();
-const COPILOT_CONTEXT_KEY = 'copilot_context_enabled';
 
 function getCopilotContextStorageKey(userId) {
-    return userId ? `${COPILOT_CONTEXT_KEY}:${userId}` : COPILOT_CONTEXT_KEY;
-}
-
-function parseStoredBoolean(value) {
-    if (value === null || value === undefined) return null;
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    try {
-        const parsed = JSON.parse(value);
-        if (typeof parsed === 'boolean') return parsed;
-    } catch {
-        return null;
-    }
-    return null;
+    return getScopedStorageKey(COPILOT_CONTEXT_KEY, userId);
 }
 
 export function CopilotProvider({ children }) {

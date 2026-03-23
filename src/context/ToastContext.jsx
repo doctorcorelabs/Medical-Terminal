@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createToastId, normalizeToastTtl, getToastTiming, getToastVisuals } from './toastUtils';
 
 const ToastContext = createContext();
 
@@ -6,8 +7,8 @@ export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'info', ttl = 3500) => {
-    const id = Date.now() + Math.random().toString(16).slice(2);
-    const t = { id, message, type, ttl };
+    const id = createToastId();
+    const t = { id, message, type, ttl: normalizeToastTtl(ttl) };
     setToasts((s) => [t, ...s]);
     return id;
   }, []);
@@ -31,12 +32,13 @@ function ToastItem({ toast, onClose }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    const timing = getToastTiming(ttl);
     // enter
-    const enter = setTimeout(() => setVisible(true), 10);
+    const enter = setTimeout(() => setVisible(true), timing.enterDelayMs);
     // start hide
-    const hide = setTimeout(() => setVisible(false), Math.max(300, ttl - 300));
+    const hide = setTimeout(() => setVisible(false), timing.hideDelayMs);
     // remove after animation
-    const remove = setTimeout(() => onClose(), ttl);
+    const remove = setTimeout(() => onClose(), timing.removeDelayMs);
     return () => {
       clearTimeout(enter);
       clearTimeout(hide);
@@ -45,9 +47,7 @@ function ToastItem({ toast, onClose }) {
   }, [ttl, onClose]);
 
   const base = "max-w-sm w-full px-4 py-3 rounded-xl shadow-lg border flex items-start gap-3 items-center";
-  const bgClass = type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : type === 'success' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-slate-800 border-slate-200';
-
-  const icon = type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info';
+  const { icon, bgClass } = getToastVisuals(type);
 
   return (
     <div className={`${base} ${bgClass} transform transition-all duration-300 ease-out ${visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95'}`}>

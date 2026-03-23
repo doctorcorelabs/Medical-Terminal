@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer,
@@ -48,14 +47,16 @@ function CustomTooltip({ active, payload, label }) {
 
 export default function VitalSignsChart({ vitalSigns }) {
     const { user, updateProfile } = useAuth();
-    const { addToast } = useToast();
     
     // 1. Determine User ID synchronously from cache if possible
     const cachedUserId = useMemo(() => {
         try {
             const cache = localStorage.getItem('medterminal_user_cache');
             return cache ? JSON.parse(cache)?.id : null;
-        } catch { return null; }
+        } catch {
+            // Ignore JSON parsing errors, return null
+            return null;
+        }
     }, []);
 
     const storageKey = useMemo(() => 
@@ -71,7 +72,9 @@ export default function VitalSignsChart({ vitalSigns }) {
                     const parsed = JSON.parse(local);
                     if (Array.isArray(parsed)) return parsed;
                 }
-            } catch {}
+            } catch {
+                // Ignore JSON parsing errors
+            }
         }
         // Fallback to metadata from user object (if user prop is already available)
         const metadataPrefs = user?.user_metadata?.vital_signs_prefs;
@@ -102,7 +105,7 @@ export default function VitalSignsChart({ vitalSigns }) {
             }
         }
         setIsInitialized(true);
-    }, [user?.id, user?.user_metadata?.vital_signs_prefs]);
+    }, [user?.id, user?.user_metadata?.vital_signs_prefs, activeMetrics]);
 
     // 4. Handle sync to Supabase (debounced)
     useEffect(() => {
@@ -144,7 +147,7 @@ export default function VitalSignsChart({ vitalSigns }) {
         return () => {
             if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
         };
-    }, [activeMetrics, user?.id, isInitialized, updateProfile, storageKey]);
+    }, [activeMetrics, user?.id, user?.user_metadata?.vital_signs_prefs, isInitialized, updateProfile, storageKey]);
 
     const data = useMemo(() => {
         return [...(vitalSigns || [])]

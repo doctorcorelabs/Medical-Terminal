@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import * as dataService from '../services/dataService';
+import { canAddPatients, canEditPatients, resolveSelectedPatient } from './patientContextUtils';
 
 const PatientContext = createContext();
 
@@ -31,18 +32,21 @@ export function PatientProvider({ children }) {
     }, [user]);
 
 
-    const selectedPatient = patients.find(p => p.id === selectedPatientId) || null;
+    const selectedPatient = resolveSelectedPatient(patients, selectedPatientId);
     
     const canAddXPatients = useCallback((count = 1) => {
-        if (isAdmin || isSpecialist) return true;
-        if (isIntern && !isExpiredSpecialist) {
-            return (patients.length + count) <= 2;
-        }
-        return false;
+        return canAddPatients({
+            isAdmin,
+            isSpecialist,
+            isIntern,
+            isExpiredSpecialist,
+            patientCount: patients.length,
+            count,
+        });
     }, [isAdmin, isSpecialist, isIntern, isExpiredSpecialist, patients.length]);
 
     const canAddPatient = canAddXPatients(1);
-    const canEditPatient = !isExpiredSpecialist;
+    const canEditPatient = canEditPatients(isExpiredSpecialist);
 
     const addPatient = useCallback((patient) => {
         if (!canAddPatient) return null;

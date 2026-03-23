@@ -2,6 +2,33 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
+async function resolveEnqueueRunner() {
+  try {
+    const mod = await import('../netlify/functions/enqueue-schedule-reminders.mjs');
+    if (typeof mod?.handler === 'function') {
+      return async () => mod.handler({ httpMethod: 'GET', internalCall: true, headers: {} });
+    }
+  } catch {
+    // Fallback to endpoint call below.
+  }
+
+  const baseUrl = process.env.NOTIFICATION_BASE_URL || process.env.VITE_NOTIFICATION_WORKER_URL || process.env.URL;
+  if (!baseUrl) {
+    throw new Error('Missing runtime runner for /enqueue-schedule-reminders. Set NOTIFICATION_BASE_URL or VITE_NOTIFICATION_WORKER_URL.');
+  }
+
+  const url = `${String(baseUrl).replace(/\/$/, '')}/enqueue-schedule-reminders`;
+  return async () => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'script-smoke', triggeredAt: new Date().toISOString() }),
+    });
+    const text = await res.text();
+    return { statusCode: res.status, body: text };
+  };
+}
+
 function parseDotEnv(dotEnvPath) {
   if (!fs.existsSync(dotEnvPath)) return;
   const content = fs.readFileSync(dotEnvPath, 'utf8');
@@ -48,7 +75,7 @@ async function run() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { handler: enqueueHandler } = await import('../netlify/functions/enqueue-schedule-reminders.mjs');
+  const runEnqueue = await resolveEnqueueRunner();
 
   const { data: channels, error: channelErr } = await supabase
     .from('notification_channels')
@@ -104,7 +131,7 @@ async function run() {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id', ignoreDuplicates: false });
 
-  const enqueueV1 = await enqueueHandler({ httpMethod: 'GET', internalCall: true, headers: {} });
+  const enqueueV1 = await runEnqueue();
 
   const v2Schedules = [...originalSchedules, {
     ...v1Event,
@@ -120,7 +147,7 @@ async function run() {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id', ignoreDuplicates: false });
 
-  const enqueueV2 = await enqueueHandler({ httpMethod: 'GET', internalCall: true, headers: {} });
+  const enqueueV2 = await runEnqueue();
 
   const v1Key = `schedule:${userId}:${eventId}:${v1Date}:${v1Time}:${reminderMinutes}`;
   const v2Key = `schedule:${userId}:${eventId}:${v2Date}:${v2Time}:${reminderMinutes}`;
@@ -144,7 +171,7 @@ async function run() {
   }, { onConflict: 'user_id', ignoreDuplicates: false });
 
   // Final enqueue to clear pending stale rows from this temporary event.
-  await enqueueHandler({ httpMethod: 'GET', internalCall: true, headers: {} });
+  await runEnqueue();
 
   const parseBody = (res) => {
     try {
@@ -154,8 +181,10 @@ async function run() {
     }
   };
 
+  const strictOk = !hasV1Key && hasV2Key;
+
   console.log(JSON.stringify({
-    ok: true,
+    ok: strictOk,
     userId,
     reminderMinutes,
     eventId,
@@ -170,7 +199,12 @@ async function run() {
       staleV1Removed: !hasV1Key,
       latestV2Exists: hasV2Key,
     },
+    warning: strictOk
+      ? null
+      : 'Queue evidence for latest idempotency key is missing. Invalidation behavior cannot be confirmed.',
   }, null, 2));
+
+  if (!strictOk) process.exitCode = 1;
 }
 
 run().catch((err) => {

@@ -190,3 +190,81 @@ test('integration - realistic backup with mix of valid/invalid items', () => {
     assert.strictEqual(validated.schedules.length, 1); // sc1 only
     assert.strictEqual(validated.totalInvalid, 2); // only invalid: object without id/name, and bad schedule date
 });
+
+test('parseBackupPayload - defaults version to 1 when object version is not numeric', () => {
+    const data = {
+        version: 'abc',
+        patients: [{ id: '1', name: 'Patient A' }],
+        stases: [],
+        schedules: [],
+    };
+    const result = parseBackupPayload(data);
+    assert.strictEqual(result.version, 1);
+});
+
+test('parseBackupPayload - filters out non-object items from all arrays', () => {
+    const data = {
+        version: 2,
+        patients: [{ id: '1' }, null, 1, 'x', { name: 'B' }],
+        stases: [{ id: 's1' }, false, undefined],
+        schedules: [{ title: 'A', date: '2026-03-23' }, 123],
+    };
+    const result = parseBackupPayload(data);
+
+    assert.strictEqual(result.patients.length, 2);
+    assert.strictEqual(result.stases.length, 1);
+    assert.strictEqual(result.schedules.length, 1);
+});
+
+test('validateBackupPayload - trims text fields when validating title/date/name/id', () => {
+    const parsed = {
+        version: 2,
+        patients: [{ id: '   ' }, { name: '   Patient Trim   ' }],
+        stases: [{ name: '   ICU   ' }],
+        schedules: [{ title: '   Visit   ', date: ' 2026-03-23 ' }],
+    };
+
+    const result = validateBackupPayload(parsed);
+    assert.strictEqual(result.patients.length, 1);
+    assert.strictEqual(result.stases.length, 1);
+    assert.strictEqual(result.schedules.length, 1);
+});
+
+test('validateBackupPayload - keeps invalid counts when arrays contain only invalid objects', () => {
+    const parsed = {
+        version: 1,
+        patients: [{ foo: 'bar' }, { age: 10 }],
+        stases: [{ foo: 'bar' }],
+        schedules: [{ title: '', date: 'bad' }],
+    };
+
+    const result = validateBackupPayload(parsed);
+    assert.strictEqual(result.patients.length, 0);
+    assert.strictEqual(result.stases.length, 0);
+    assert.strictEqual(result.schedules.length, 0);
+    assert.strictEqual(result.invalid.patients, 2);
+    assert.strictEqual(result.invalid.stases, 1);
+    assert.strictEqual(result.invalid.schedules, 1);
+    assert.strictEqual(result.totalInvalid, 4);
+});
+
+test('buildBackupPayload - coerces non-array input to empty arrays', () => {
+    const result = buildBackupPayload({
+        patients: 'x',
+        stases: null,
+        schedules: 123,
+    });
+
+    assert.deepStrictEqual(result.data.patients, []);
+    assert.deepStrictEqual(result.data.stases, []);
+    assert.deepStrictEqual(result.data.schedules, []);
+});
+
+test('buildBackupPayload - sets null userId when undefined', () => {
+    const result = buildBackupPayload({
+        patients: [],
+        stases: [],
+        schedules: [],
+    });
+    assert.strictEqual(result.userId, null);
+});

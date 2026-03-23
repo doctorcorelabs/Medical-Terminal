@@ -2,6 +2,33 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
+async function resolveFunctionRunner(modulePath, endpointPath) {
+  try {
+    const mod = await import(modulePath);
+    if (typeof mod?.handler === 'function') {
+      return async () => mod.handler({ httpMethod: 'GET', internalCall: true, headers: {} });
+    }
+  } catch {
+    // Fallback to endpoint call below.
+  }
+
+  const baseUrl = process.env.NOTIFICATION_BASE_URL || process.env.VITE_NOTIFICATION_WORKER_URL || process.env.URL;
+  if (!baseUrl) {
+    throw new Error(`Missing runtime runner for ${endpointPath}. Set NOTIFICATION_BASE_URL or VITE_NOTIFICATION_WORKER_URL.`);
+  }
+
+  const url = `${String(baseUrl).replace(/\/$/, '')}${endpointPath}`;
+  return async () => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'script-smoke', triggeredAt: new Date().toISOString() }),
+    });
+    const text = await res.text();
+    return { statusCode: res.status, body: text };
+  };
+}
+
 function parseDotEnv(dotEnvPath) {
   if (!fs.existsSync(dotEnvPath)) return;
   const content = fs.readFileSync(dotEnvPath, 'utf8');
@@ -51,9 +78,9 @@ async function run() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const [{ handler: enqueueHandler }, { handler: sendHandler }] = await Promise.all([
-    import('../netlify/functions/enqueue-schedule-reminders.mjs'),
-    import('../netlify/functions/send-telegram-notifications.mjs'),
+  const [runEnqueue, runDispatch] = await Promise.all([
+    resolveFunctionRunner('../netlify/functions/enqueue-schedule-reminders.mjs', '/enqueue-schedule-reminders'),
+    resolveFunctionRunner('../netlify/functions/send-telegram-notifications.mjs', '/send-telegram-notifications'),
   ]);
 
   const { data: channels, error: channelErr } = await supabase
@@ -120,8 +147,8 @@ async function run() {
   let enqueueRes;
   let sendRes;
   try {
-    enqueueRes = await enqueueHandler({ httpMethod: 'GET', internalCall: true, headers: {} });
-    sendRes = await sendHandler({ httpMethod: 'GET', internalCall: true, headers: {} });
+    enqueueRes = await runEnqueue();
+    sendRes = await runDispatch();
   } finally {
     const cleanedSchedules = existingSchedules.filter((item) => String(item?.id || '') !== testEventId);
     await supabase
@@ -163,8 +190,12 @@ async function run() {
     }
   };
 
+  const hasQueueEvidence = (queueRows || []).length > 0;
+  const hasLogEvidence = (logs || []).length > 0;
+  const strictOk = hasQueueEvidence || hasLogEvidence;
+
   const result = {
-    ok: true,
+    ok: strictOk,
     targetUserId: userId,
     reminderMinutes,
     testEvent: {
@@ -183,9 +214,18 @@ async function run() {
     },
     queueRows,
     logs,
+    checks: {
+      hasQueueEvidence,
+      hasLogEvidence,
+      strictOk,
+    },
+    warning: strictOk
+      ? null
+      : 'No queue/log evidence found for generated schedule reminder. Verify notification endpoint wiring and dispatch queue writes.',
   };
 
   console.log(JSON.stringify(result, null, 2));
+  if (!strictOk) process.exitCode = 1;
 }
 
 run().catch((err) => {

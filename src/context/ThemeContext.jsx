@@ -1,16 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { THEME_KEY, getScopedStorageKey, normalizeThemeValue } from './contextStorageUtils';
 
 const ThemeContext = createContext();
-const THEME_KEY = 'medterminal_theme';
 
 function getThemeStorageKey(userId) {
-    return userId ? `${THEME_KEY}:${userId}` : THEME_KEY;
-}
-
-function normalizeThemeValue(value) {
-    if (value === 'dark' || value === 'light') return value;
-    return null;
+    return getScopedStorageKey(THEME_KEY, userId);
 }
 
 export function ThemeProvider({ children }) {

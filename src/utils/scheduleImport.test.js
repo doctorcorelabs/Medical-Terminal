@@ -133,3 +133,84 @@ test('getScheduleTemplateJson returns schedules template payload', () => {
     assert.ok(template.schedules.length >= 1);
     assert.ok(template.schedules.every(item => item.title && item.date));
 });
+
+test('parseImportedScheduleJson rejects unsupported top-level shape', () => {
+    const json = JSON.stringify({ foo: 'bar' });
+    const result = parseImportedScheduleJson(json);
+
+    assert.equal(result.ok, false);
+    assert.match(result.error, /Format tidak didukung/i);
+});
+
+test('parseImportedScheduleJson rejects impossible calendar date', () => {
+    const json = JSON.stringify({
+        schedules: [
+            {
+                title: 'Bad date',
+                date: '2026-02-30',
+                isAllDay: true,
+            },
+        ],
+    });
+
+    const result = parseImportedScheduleJson(json);
+    assert.equal(result.ok, true);
+    assert.equal(result.validItems.length, 0);
+    assert.equal(result.invalidItems.length, 1);
+    assert.match(result.invalidItems[0].reason, /YYYY-MM-DD/i);
+});
+
+test('parseImportedScheduleJson rejects invalid startTime format', () => {
+    const json = JSON.stringify({
+        schedules: [
+            {
+                title: 'Bad time',
+                date: '2026-03-24',
+                isAllDay: false,
+                startTime: '24:10',
+            },
+        ],
+    });
+
+    const result = parseImportedScheduleJson(json);
+    assert.equal(result.ok, true);
+    assert.equal(result.validItems.length, 0);
+    assert.equal(result.invalidItems.length, 1);
+    assert.match(result.invalidItems[0].reason, /startTime/i);
+});
+
+test('parseImportedScheduleJson rejects invalid endTime format', () => {
+    const json = JSON.stringify({
+        schedules: [
+            {
+                title: 'Bad end time',
+                date: '2026-03-24',
+                isAllDay: false,
+                startTime: '08:00',
+                endTime: '08:99',
+            },
+        ],
+    });
+
+    const result = parseImportedScheduleJson(json);
+    assert.equal(result.ok, true);
+    assert.equal(result.validItems.length, 0);
+    assert.equal(result.invalidItems.length, 1);
+    assert.match(result.invalidItems[0].reason, /endTime/i);
+});
+
+test('parseImportedScheduleJson rejects non-object schedule rows', () => {
+    const json = JSON.stringify({
+        schedules: [
+            'not-an-object',
+            123,
+            null,
+        ],
+    });
+
+    const result = parseImportedScheduleJson(json);
+    assert.equal(result.ok, true);
+    assert.equal(result.validItems.length, 0);
+    assert.equal(result.invalidItems.length, 3);
+    assert.ok(result.invalidItems.every((item) => /object/i.test(item.reason)));
+});

@@ -2,6 +2,12 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 import { useAuth } from './AuthContext';
 import * as dataService from '../services/dataService';
 import { triggerNotificationCycle } from '../services/notificationService';
+import {
+    canSyncSchedules,
+    getScheduleContextResetState,
+    getScheduleMutationReason,
+    getScheduleScopeUserId,
+} from './scheduleContextUtils';
 
 const ScheduleContext = createContext();
 
@@ -11,15 +17,16 @@ export function ScheduleProvider({ children }) {
 
     // Load from Supabase on login, clear stale cache on user change
     useEffect(() => {
-        if (user?.id) {
-            dataService.setScheduleStorageScope(user.id);
-            dataService.fetchSchedulesFromSupabase(user.id).then(data => {
+        const scopeUserId = getScheduleScopeUserId(user);
+        if (scopeUserId) {
+            dataService.setScheduleStorageScope(scopeUserId);
+            dataService.fetchSchedulesFromSupabase(scopeUserId).then(data => {
                 setSchedules(data);
             });
         } else {
             dataService.clearSchedulesCache();
             dataService.setScheduleStorageScope(null);
-            setSchedules([]);
+            setSchedules(getScheduleContextResetState());
         }
     }, [user]);
 
@@ -30,9 +37,9 @@ export function ScheduleProvider({ children }) {
     const addSchedule = useCallback((schedule) => {
         const created = dataService.addSchedule(schedule);
         refreshSchedules();
-        if (user) {
+        if (canSyncSchedules(user)) {
             dataService.syncSchedulesToSupabase(user.id)
-                .then(() => triggerNotificationCycle({ reason: 'schedule_add', force: true }))
+                .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('add'), force: true }))
                 .catch(() => {});
         }
         return created;
@@ -41,9 +48,9 @@ export function ScheduleProvider({ children }) {
     const updateSchedule = useCallback((id, updates) => {
         const updated = dataService.updateSchedule(id, updates);
         refreshSchedules();
-        if (user) {
+        if (canSyncSchedules(user)) {
             dataService.syncSchedulesToSupabase(user.id)
-                .then(() => triggerNotificationCycle({ reason: 'schedule_update', force: true }))
+                .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('update'), force: true }))
                 .catch(() => {});
         }
         return updated;
@@ -52,9 +59,9 @@ export function ScheduleProvider({ children }) {
     const deleteSchedule = useCallback((id) => {
         dataService.deleteSchedule(id);
         refreshSchedules();
-        if (user) {
+        if (canSyncSchedules(user)) {
             dataService.syncSchedulesToSupabase(user.id)
-                .then(() => triggerNotificationCycle({ reason: 'schedule_delete', force: true }))
+                .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('delete'), force: true }))
                 .catch(() => {});
         }
     }, [refreshSchedules, user]);
@@ -62,10 +69,10 @@ export function ScheduleProvider({ children }) {
     const importSchedulesBulk = useCallback(async (items) => {
         const merged = dataService.upsertSchedulesBulk(items);
         refreshSchedules();
-        if (user) {
+        if (canSyncSchedules(user)) {
             try {
                 await dataService.syncSchedulesToSupabase(user.id);
-                await triggerNotificationCycle({ reason: 'schedule_import', force: true });
+                await triggerNotificationCycle({ reason: getScheduleMutationReason('import'), force: true });
             } catch (_err) {
                 // Silent fail — sync errors don't block UI
             }

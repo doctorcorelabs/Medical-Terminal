@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from './AuthContext';
+import { buildAdminAlertsState, canAccessAdminAlerts } from './adminAlertContextUtils';
 
 const AdminAlertContext = createContext();
 
@@ -10,9 +11,10 @@ export function AdminAlertProvider({ children }) {
   const [latestAlerts, setLatestAlerts] = useState([]);
 
   useEffect(() => {
-    if (!isAdmin) {
-      setOpenAlertsCount(0);
-      setLatestAlerts([]);
+    if (!canAccessAdminAlerts(isAdmin)) {
+      const nextState = buildAdminAlertsState([], []);
+      setOpenAlertsCount(nextState.openAlertsCount);
+      setLatestAlerts(nextState.latestAlerts);
       return;
     }
 
@@ -24,8 +26,9 @@ export function AdminAlertProvider({ children }) {
         supabase.from('alert_events').select('id, level, title, message, status, created_at').order('created_at', { ascending: false }).limit(10),
       ]);
       if (!mounted) return;
-      setOpenAlertsCount((openRows || []).length);
-      setLatestAlerts(latestRows || []);
+      const nextState = buildAdminAlertsState(openRows, latestRows);
+      setOpenAlertsCount(nextState.openAlertsCount);
+      setLatestAlerts(nextState.latestAlerts);
     };
 
     load();
