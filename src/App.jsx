@@ -62,7 +62,6 @@ function PageLoader() {
 function AppContent() {
   const { user, isRecoveryMode } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
 
   // Always allow the reset-password route regardless of auth state
@@ -86,8 +85,6 @@ function AppContent() {
           <main className="flex-1 flex flex-col overflow-hidden min-w-0">
             <Header
               onMenuToggle={() => setSidebarOpen(prev => !prev)}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
             />
 
             <div className="flex-1 overflow-y-auto">
