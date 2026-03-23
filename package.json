@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "health:notifications": "node scripts/notification-health-snapshot.mjs",
     "test:copilot-pdf-smoke": "node test-reports/run-copilot-pdf-smoke-tests.mjs",
     "test:ci": "npm run test:unit && npm run test:e2e",
     "test:e2e": "node --test src/e2e/clinicalDataWorkflow.e2e.test.js src/e2e/offlineSyncRecovery.e2e.test.js src/e2e/scheduleMergeConflictRecovery.e2e.test.js",
