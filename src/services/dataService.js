@@ -14,8 +14,10 @@ const DELETED_PATIENTS_KEY = 'medterminal_deleted_patients'; // Tombstones for s
 const STASE_KEY = 'medterminal_stases';
 const DELETED_STASES_KEY = 'medterminal_deleted_stases'; // Tombstones for sync
 const PINNED_KEY = 'medterminal_pinned_stase';
+const DELETED_SCHEDULES_KEY = 'medterminal_deleted_schedules'; // Tombstones for schedule sync
 
 let activeDataUserId = null;
+let activeScheduleUserId = null;
 
 function getScopedDataKey(baseKey, userId = activeDataUserId) {
     return userId ? `${baseKey}:${userId}` : baseKey;
@@ -102,6 +104,42 @@ function recordDeletion(id, key) {
 
 function saveData(patients) {
     localStorage.setItem(getScopedDataKey(STORAGE_KEY), JSON.stringify(patients));
+}
+
+function getScheduleDeletedKey(userId = activeScheduleUserId) {
+    return userId ? `${DELETED_SCHEDULES_KEY}:${userId}` : DELETED_SCHEDULES_KEY;
+}
+
+function getDeletedSchedulesState() {
+    try {
+        return JSON.parse(localStorage.getItem(getScheduleDeletedKey()) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function recordScheduleDeletion(id) {
+    const deleted = getDeletedSchedulesState();
+    deleted[id] = new Date().toISOString();
+    localStorage.setItem(getScheduleDeletedKey(), JSON.stringify(deleted));
+}
+
+function clearScheduleDeletionForIds(ids = []) {
+    const deleted = getDeletedSchedulesState();
+    let changed = false;
+    for (const id of ids) {
+        if (id && deleted[id]) {
+            delete deleted[id];
+            changed = true;
+        }
+    }
+    if (changed) {
+        localStorage.setItem(getScheduleDeletedKey(), JSON.stringify(deleted));
+    }
+}
+
+function clearAllScheduleDeletionState() {
+    localStorage.removeItem(getScheduleDeletedKey());
 }
 
 // ----- Per-item merge helper (shared by patients & stases foreground sync) -----
@@ -442,9 +480,15 @@ export function deleteStase(id) {
 
     // Also delete all patients belonging to this stase
     const patients = getStoredData();
+    const cascadeDeletedPatients = patients.filter((p) => p.stase_id === id);
     const remainingPatients = patients.filter(p => p.stase_id !== id);
     const hadCascadeDeletes = remainingPatients.length !== patients.length;
     saveData(remainingPatients);
+    for (const patient of cascadeDeletedPatients) {
+        if (patient?.id) {
+            recordDeletion(patient.id, DELETED_PATIENTS_KEY);
+        }
+    }
     if (hadCascadeDeletes && typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
         pendingSync.markPatients();
     }
@@ -850,8 +894,6 @@ export function removeVitalSign(patientId, vsId) {
 // ============================================================
 // SCHEDULE – localStorage helpers + Supabase sync
 // ============================================================
-let activeScheduleUserId = null;
-
 function readSchedulesFromKey(key) {
     try {
         const data = localStorage.getItem(key);
@@ -879,9 +921,18 @@ function migrateLegacySchedules(userId) {
     if (legacySchedules.length > 0) {
         localStorage.setItem(scopedKey, JSON.stringify(legacySchedules));
     }
+
+    const scopedDeletedKey = getScheduleDeletedKey(userId);
+    if (!localStorage.getItem(scopedDeletedKey)) {
+        const legacyDeleted = localStorage.getItem(DELETED_SCHEDULES_KEY);
+        if (legacyDeleted) {
+            localStorage.setItem(scopedDeletedKey, legacyDeleted);
+        }
+    }
     
     // Prevent this legacy data from leaking to subsequent new users
     localStorage.removeItem(legacyKey);
+    localStorage.removeItem(DELETED_SCHEDULES_KEY);
 }
 
 export function setScheduleStorageScope(userId) {
@@ -919,7 +970,12 @@ export async function syncSchedulesToSupabase(userId) {
             .maybeSingle();
 
         // 2. Perform reconciled merge
-        const merged = mergeSchedules(localSchedules, serverRow?.schedules_data || [], serverRow?.updated_at);
+        const merged = mergeSchedules(
+            localSchedules,
+            serverRow?.schedules_data || [],
+            serverRow?.updated_at,
+            getDeletedSchedulesState(),
+        );
 
         // 3. Push merged state
         const { error } = await supabase.from('user_schedules').upsert({
@@ -931,6 +987,7 @@ export async function syncSchedulesToSupabase(userId) {
         if (error) throw error;
         
         saveSchedules(merged); // Update local with merged result
+        clearAllScheduleDeletionState();
         pendingSync.clearSchedules();
         clearQueueByType(userId, 'schedules').catch(() => {});
     } catch (err) {
@@ -957,9 +1014,14 @@ export async function fetchSchedulesFromSupabase(userId) {
             ? purgeExpiredSchedules(data.schedules_data)
             : [];
 
-        const mergedSchedules = mergeSchedules(localSchedules, serverSchedules, data?.updated_at);
+        const mergedWithDeletions = mergeSchedules(
+            localSchedules,
+            serverSchedules,
+            data?.updated_at,
+            getDeletedSchedulesState(),
+        );
 
-        saveSchedules(mergedSchedules);
+        saveSchedules(mergedWithDeletions);
         
         if (
             !data && localSchedules.length > 0
@@ -967,12 +1029,12 @@ export async function fetchSchedulesFromSupabase(userId) {
             syncSchedulesToSupabase(userId).catch(() => {});
         } else if (
             (Array.isArray(data?.schedules_data) && serverSchedules.length !== data.schedules_data.length)
-            || schedulesDiffer(serverSchedules, mergedSchedules)
+            || schedulesDiffer(serverSchedules, mergedWithDeletions)
         ) {
             syncSchedulesToSupabase(userId).catch(() => {});
         }
 
-        return mergedSchedules;
+        return mergedWithDeletions;
     } catch (err) {
         console.error('Failed to fetch schedules from Supabase:', err);
     }
@@ -1008,7 +1070,12 @@ export function updateSchedule(id, updates) {
 
 export function deleteSchedule(id) {
     const schedules = getStoredSchedules();
+    const exists = schedules.some((s) => s.id === id);
     saveSchedules(schedules.filter(s => s.id !== id));
+    if (exists) {
+        recordScheduleDeletion(id);
+        pendingSync.markSchedules();
+    }
     return true;
 }
 
@@ -1020,6 +1087,7 @@ export function upsertSchedulesBulk(importedSchedules = []) {
         if (!item || typeof item !== 'object') return;
         const id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : crypto.randomUUID();
         const existing = byId.get(id);
+        clearScheduleDeletionForIds([id]);
         byId.set(id, {
             ...existing,
             ...item,
@@ -1039,6 +1107,7 @@ export function upsertSchedulesBulk(importedSchedules = []) {
 
 export async function deleteAllSchedulesData(userId) {
     saveSchedules([]);
+    clearAllScheduleDeletionState();
     if (!userId) {
         pendingSync.clearSchedules();
         return;

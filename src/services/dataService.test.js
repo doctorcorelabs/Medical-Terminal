@@ -341,6 +341,11 @@ test('deleteStase - removes stase and cascades patient deletion', () => {
     assert.strictEqual(getAllStases().length, 0);
     assert.strictEqual(getAllPatients().length, 1); // Only patient3 remains
     assert.strictEqual(getAllPatients()[0].name, 'Other Patient');
+
+    // Cascade-deleted patients should be tombstoned for sync.
+    const deletedState = JSON.parse(localStorage.getItem('medterminal_deleted_patients:user-1') || '{}');
+    assert.ok(deletedState[patient1.id]);
+    assert.ok(deletedState[patient2.id]);
 });
 
 test('deleteStase - removes pinned stase if it was pinned', () => {

@@ -40,10 +40,11 @@ function parseServerTimestamp(value) {
  * If serverUpdatedAt is provided, it handles deletions: items in local but not 
  * in server are removed if their updatedAt is before serverUpdatedAt.
  */
-export function mergeSchedules(localSchedules = [], serverSchedules = [], serverUpdatedAt = null) {
+export function mergeSchedules(localSchedules = [], serverSchedules = [], serverUpdatedAt = null, deletedState = {}) {
     const mergedById = new Map();
     const serverTimestamp = parseServerTimestamp(serverUpdatedAt);
     const serverIds = new Set(serverSchedules.map(s => normalizedScheduleId(s)).filter(Boolean));
+    const deletedMap = deletedState && typeof deletedState === 'object' ? deletedState : {};
 
     // 1. Process Local Schedules
     localSchedules.forEach((item) => {
@@ -71,6 +72,12 @@ export function mergeSchedules(localSchedules = [], serverSchedules = [], server
         const id = normalizedScheduleId(item);
         if (!id) return;
 
+        const serverTs = getScheduleTimestamp(item);
+        const localDeleteTs = deletedMap[id] ? parseServerTimestamp(deletedMap[id]) : 0;
+        if (localDeleteTs > serverTs) {
+            return;
+        }
+
         const localItem = mergedById.get(id);
         if (!localItem) {
             mergedById.set(id, item);
@@ -78,7 +85,6 @@ export function mergeSchedules(localSchedules = [], serverSchedules = [], server
         }
 
         const localTs = getScheduleTimestamp(localItem);
-        const serverTs = getScheduleTimestamp(item);
         if (serverTs > localTs) {
             mergedById.set(id, item);
         }

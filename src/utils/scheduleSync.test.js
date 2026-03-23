@@ -73,6 +73,18 @@ test('mergeSchedules ignores invalid serverUpdatedAt when applying deletion sema
     assert.deepEqual(mergeSchedules(local, server, 'not-a-valid-timestamp'), local);
 });
 
+test('mergeSchedules keeps server item deleted when local tombstone is newer', () => {
+    const local = [];
+    const server = [
+        { id: 'srv-1', title: 'Server item', date: '2026-03-20', updatedAt: '2026-03-20T08:00:00.000Z' },
+    ];
+    const deletedState = {
+        'srv-1': '2026-03-20T09:00:00.000Z',
+    };
+
+    assert.deepEqual(mergeSchedules(local, server, '2026-03-20T09:00:00.000Z', deletedState), []);
+});
+
 test('schedulesDiffer compares schedule content independent of order', () => {
     const left = [
         { id: 'a', title: 'A', date: '2026-03-14', startTime: '08:00' },
