@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { supabase } from '../services/supabaseClient';
 import * as dataService from '../services/dataService';
 import { triggerNotificationCycle } from '../services/notificationService';
 import {
@@ -46,7 +47,8 @@ export function ScheduleProvider({ children }) {
         const created = dataService.addSchedule(schedule);
         refreshSchedules();
         if (canSyncSchedules(user)) {
-            dataService.syncSchedulesToSupabase(user.id)
+            supabase.auth.refreshSession()
+                .then(() => dataService.syncSchedulesToSupabase(user.id))
                 .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('add'), force: true }))
                 .catch((err) => {
                     logSyncWarning('addSchedule.syncAndNotify', user.id, err);
@@ -59,7 +61,8 @@ export function ScheduleProvider({ children }) {
         const updated = dataService.updateSchedule(id, updates);
         refreshSchedules();
         if (canSyncSchedules(user)) {
-            dataService.syncSchedulesToSupabase(user.id)
+            supabase.auth.refreshSession()
+                .then(() => dataService.syncSchedulesToSupabase(user.id))
                 .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('update'), force: true }))
                 .catch((err) => {
                     logSyncWarning('updateSchedule.syncAndNotify', user.id, err);
@@ -72,7 +75,8 @@ export function ScheduleProvider({ children }) {
         dataService.deleteSchedule(id);
         refreshSchedules();
         if (canSyncSchedules(user)) {
-            dataService.syncSchedulesToSupabase(user.id)
+            supabase.auth.refreshSession()
+                .then(() => dataService.syncSchedulesToSupabase(user.id))
                 .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('delete'), force: true }))
                 .catch((err) => {
                     logSyncWarning('deleteSchedule.syncAndNotify', user.id, err);
@@ -85,6 +89,7 @@ export function ScheduleProvider({ children }) {
         refreshSchedules();
         if (canSyncSchedules(user)) {
             try {
+                await supabase.auth.refreshSession();
                 await dataService.syncSchedulesToSupabase(user.id);
                 await triggerNotificationCycle({ reason: getScheduleMutationReason('import'), force: true });
             } catch (err) {

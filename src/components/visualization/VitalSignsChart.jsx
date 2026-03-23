@@ -87,6 +87,7 @@ export default function VitalSignsChart({ vitalSigns }) {
     const hasToggledRef = useRef(false); // Track if user manually clicked buttons in this session
     const syncTimeoutRef = useRef(null);
     const lastSyncedRef = useRef(JSON.stringify(activeMetrics));
+    const lastLocalChangeRef = useRef(null); // Track timestamp of recent local changes
 
     // 3. Handle Metadata Arrival / Sync from Other Devices
     useEffect(() => {
@@ -97,9 +98,13 @@ export default function VitalSignsChart({ vitalSigns }) {
             const metadataStr = JSON.stringify(metadataPrefs);
             const currentStr = JSON.stringify(activeMetrics);
             
+            // Only take server version if no local change in-flight within past 2 seconds
+            const now = Date.now();
+            const hasRecentLocalChange = lastLocalChangeRef.current && (now - lastLocalChangeRef.current) < 2000;
+            
             // If we haven't manually toggled ANYTHING, we should adopt the server's truth
             // or if we just initialized and our local cache was empty/stale
-            if (!hasToggledRef.current && metadataStr !== currentStr) {
+            if (!hasRecentLocalChange && !hasToggledRef.current && metadataStr !== currentStr) {
                 setActiveMetrics(metadataPrefs);
                 lastSyncedRef.current = metadataStr;
             }
@@ -117,6 +122,9 @@ export default function VitalSignsChart({ vitalSigns }) {
         if (storageKey) {
             localStorage.setItem(storageKey, activeStr);
         }
+
+        // Mark that a local change happened (for race condition protection)
+        lastLocalChangeRef.current = Date.now();
 
         // Only sync to Supabase if the "human intent" (hasToggled) says so, 
         // OR if it's different from our last known sync state
@@ -139,6 +147,7 @@ export default function VitalSignsChart({ vitalSigns }) {
             try {
                 await updateProfile({ vital_signs_prefs: activeMetrics });
                 lastSyncedRef.current = activeStr;
+                lastLocalChangeRef.current = null; // Clear the marker after successful sync
             } catch (err) {
                 console.error('[VitalSignsChart] Sync failed:', err);
             }

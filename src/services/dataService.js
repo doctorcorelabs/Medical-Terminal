@@ -1019,7 +1019,11 @@ export async function syncSchedulesToSupabase(userId) {
         if (error) throw error;
         
         saveSchedules(merged); // Update local with merged result
-        clearAllScheduleDeletionState();
+        // Clear deletion state only for schedules that were successfully merged back (non-deleted)
+        const mergedIds = (merged || []).map(s => s?.id).filter(Boolean);
+        if (mergedIds.length > 0) {
+            clearScheduleDeletionForIds(mergedIds);
+        }
         pendingSync.clearSchedules();
         clearQueueByType(userId, 'schedules').catch((err) => {
             logSyncWarning('schedules.clearQueueByType', userId, err);

@@ -175,17 +175,18 @@ async function enqueueSchedules(supabase, env) {
         const staleIds = computeEventVersionStaleIds(existingRows, activeKeysByUser.get(channel.user_id));
         staleCandidates += staleIds.length;
 
-        for (const staleId of staleIds) {
-            const { error: deleteErr } = await supabase
+        // Batch delete stale IDs instead of individual DELETE queries
+        if (staleIds.length > 0) {
+            const { error: batchErr } = await supabase
                 .from('notification_dispatch_queue')
                 .delete()
-                .eq('id', staleId);
+                .in('id', staleIds);
 
-            if (deleteErr) {
-                staleDeleteErrors += 1;
-                console.error(`[Stale cleanup] Failed to delete ${staleId}:`, deleteErr.message);
+            if (batchErr) {
+                staleDeleteErrors += staleIds.length;
+                console.error(`[Stale cleanup] Batch delete failed:`, batchErr.message);
             } else {
-                staleDeleted += 1;
+                staleDeleted += staleIds.length;
             }
         }
     }

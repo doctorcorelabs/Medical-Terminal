@@ -4,7 +4,11 @@ function computeRetryDelayMs(nextAttemptCount, env) {
     const baseMs = Number(env.TELEGRAM_RETRY_BASE_MS || 10000);
     const maxMs = Number(env.TELEGRAM_RETRY_MAX_MS || 5 * 60 * 1000);
     const exp = Math.max(0, nextAttemptCount - 1);
-    return Math.min(maxMs, baseMs * (2 ** exp));
+    const exponentialDelay = baseMs * (2 ** exp);
+    const cappedDelay = Math.min(maxMs, exponentialDelay);
+    // Add jitter: ±20% of the delay to prevent thundering herd
+    const jitter = cappedDelay * (0.8 + Math.random() * 0.4);
+    return Math.round(jitter);
 }
 
 function buildDispatchWarnings(metrics, env) {

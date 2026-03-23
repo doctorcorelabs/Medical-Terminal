@@ -200,8 +200,13 @@ export function clearQueueByType(userId, type) {
                 cursor.continue();
             }
         };
+        req.onerror = () => {
+            reject(new Error(`[idbQueue] Cursor failed for user ${userId}: ${req.error?.message}`));
+        };
         tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
+        tx.onerror = () => {
+            reject(new Error(`[idbQueue] Transaction failed for clearQueueByType: ${tx.error?.message}`));
+        };
     }));
 }
 

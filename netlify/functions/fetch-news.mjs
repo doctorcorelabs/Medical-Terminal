@@ -20,12 +20,22 @@ export const handler = async (event) => {
     }
 
     try {
-        // Ambil semua artikel dari Supabase, diurutkan terbaru dulu
-        const { data: dbArticles, error: dbError } = await supabase
+        // Ambil semua artikel dari Supabase dengan timeout protection
+        const newsPromise = supabase
             .from('news_articles')
             .select('*')
             .order('pub_date', { ascending: false })
             .limit(200);
+        
+        // Add 15-second timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('News fetch timeout after 15s')), 15000)
+        );
+        
+        const { data: dbArticles, error: dbError } = await Promise.race([
+            newsPromise,
+            timeoutPromise,
+        ]);
 
         if (dbError) {
             console.error('[fetch-news] Error membaca dari Supabase:', dbError.message);
