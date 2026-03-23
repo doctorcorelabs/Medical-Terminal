@@ -284,6 +284,19 @@ export default function ICD10Tool() {
           <span className="material-symbols-outlined text-4xl text-red-400">error_outline</span>
           <p className="text-sm font-medium text-red-600 dark:text-red-400">Gagal memuat data ICD-10</p>
           <p className="text-xs text-slate-400">{error}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={loadAllData}
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+            >
+              Coba lagi
+            </button>
+            {!isOnline && (
+              <span className="text-[11px] text-amber-600 dark:text-amber-400">
+                Sambungkan internet lalu tekan Coba lagi.
+              </span>
+            )}
+          </div>
         </div>
       )}
 

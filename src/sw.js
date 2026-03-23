@@ -96,6 +96,7 @@ async function broadcastToClients(message) {
 
 // ── Background Sync processor ─────────────────────────────────────
 let processQueueInFlight = null;
+const PROCESS_QUEUE_TIMEOUT_MS = 30_000;
 
 async function processQueueOnce() {
     const items = await peekQueue();
@@ -141,6 +142,7 @@ async function processQueueOnce() {
         success: allOk,
         degraded: syncWarnings.length > 0,
         warningCount: syncWarnings.length,
+        failedDequeueCount: failedDequeue.length,
         warnings: syncWarnings.slice(0, 10),
         processedAt: new Date().toISOString(),
     });
@@ -152,9 +154,32 @@ function processQueue() {
     }
 
     processQueueInFlight = (async () => {
+        let timeoutHandle = null;
         try {
-            await processQueueOnce();
+            await Promise.race([
+                processQueueOnce(),
+                new Promise((_, reject) => {
+                    timeoutHandle = setTimeout(() => {
+                        reject(new Error(`[SW] processQueue timed out after ${PROCESS_QUEUE_TIMEOUT_MS}ms`));
+                    }, PROCESS_QUEUE_TIMEOUT_MS);
+                }),
+            ]);
+        } catch (err) {
+            console.error('[SW] processQueue failed:', err);
+            await broadcastToClients({
+                type: 'SYNC_COMPLETE',
+                success: false,
+                degraded: true,
+                warningCount: 1,
+                warnings: [{
+                    scope: 'sw',
+                    code: 'process_queue_failed',
+                    error: err?.message || String(err || 'unknown'),
+                }],
+                processedAt: new Date().toISOString(),
+            });
         } finally {
+            if (timeoutHandle) clearTimeout(timeoutHandle);
             processQueueInFlight = null;
         }
     })();
@@ -324,7 +349,7 @@ async function mergeWithConflictDetection(type, localPayload, serverRow, userId)
             serverRow?.updated_at,
             localPayload?.deleted_schedules_state || {},
         );
-        return { schedules_data: mergedSchedules };
+        return { ...localPayload, schedules_data: mergedSchedules };
     }
     return localPayload;
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { createToastId, normalizeToastTtl, getToastTiming, getToastVisuals } from './toastUtils';
 
 const ToastContext = createContext();
@@ -30,6 +30,13 @@ export function ToastProvider({ children }) {
 function ToastItem({ toast, onClose }) {
   const { message, type, ttl = 3500 } = toast;
   const [visible, setVisible] = useState(false);
+  const closedRef = useRef(false);
+
+  const safeClose = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const timing = getToastTiming(ttl);
@@ -38,13 +45,13 @@ function ToastItem({ toast, onClose }) {
     // start hide
     const hide = setTimeout(() => setVisible(false), timing.hideDelayMs);
     // remove after animation
-    const remove = setTimeout(() => onClose(), timing.removeDelayMs);
+    const remove = setTimeout(() => safeClose(), timing.removeDelayMs);
     return () => {
       clearTimeout(enter);
       clearTimeout(hide);
       clearTimeout(remove);
     };
-  }, [ttl, onClose]);
+  }, [ttl, safeClose]);
 
   const base = "max-w-sm w-full px-4 py-3 rounded-xl shadow-lg border flex items-start gap-3 items-center";
   const { icon, bgClass } = getToastVisuals(type);
@@ -53,7 +60,7 @@ function ToastItem({ toast, onClose }) {
     <div className={`${base} ${bgClass} transform transition-all duration-300 ease-out ${visible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95'}`}>
       <span className="material-symbols-outlined text-2xl shrink-0 mt-0.5">{icon}</span>
       <div className="flex-1 text-sm font-medium">{message}</div>
-      <button onClick={onClose} className="text-slate-400 hover:text-slate-600 ml-2">×</button>
+      <button onClick={safeClose} className="text-slate-400 hover:text-slate-600 ml-2">×</button>
     </div>
   );
 }
