@@ -157,7 +157,7 @@ export default function Subscription() {
 
                 {/* Active Subscription Banner */}
                 {isSpecialist && (
-                    <div className="bg-gradient-to-r from-primary to-teal-500 rounded-2xl p-6 text-white shadow-lg flex items-center justify-between">
+                    <div className="bg-linear-to-r from-primary to-teal-500 rounded-2xl p-6 text-white shadow-lg flex items-center justify-between">
                         <div>
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="material-symbols-outlined">workspace_premium</span>
@@ -279,7 +279,7 @@ export default function Subscription() {
                         </div>
                         <div className="mb-8">
                             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Specialist Enthusiast</h3>
-                            <div className="flex items-baseline gap-1 relative inline-block">
+                            <div className="flex items-baseline gap-1 relative">
                                 <span className="text-xl font-bold text-slate-500">Rp</span>
                                 <span className="text-4xl font-black text-slate-900 dark:text-white">150.000</span>
                             </div>
@@ -325,7 +325,7 @@ export default function Subscription() {
 
             {/* Verifying Overlay */}
             {verifying && (
-                <div className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-md">
+                <div className="fixed inset-0 z-110 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-md">
                     <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-slate-200 dark:border-slate-800">
                         <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
                         <div className="text-center">
@@ -338,7 +338,7 @@ export default function Subscription() {
 
             {/* Success Celebration Modal */}
             {showSuccess && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
                     <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
                         {/* Confetti Particles (CSS Only) */}
                         <div className="absolute inset-0 pointer-events-none opacity-50">

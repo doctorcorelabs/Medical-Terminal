@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAdminAlerts } from '../../context/AdminAlertContext';
 
 export default function Header({ onMenuToggle }) {
-    const { isOnline, isSyncing, syncFailed, lastSyncAt, pendingStatus } = useOffline();
+    const { isOnline, isSyncing, syncFailed, syncDegraded, syncWarnings, lastSyncAt, pendingStatus } = useOffline();
     const { isAdmin, profile, isSpecialist } = useAuth();
     const { openAlertsCount } = useAdminAlerts();
     const navigate = useNavigate();
@@ -123,7 +123,16 @@ export default function Header({ onMenuToggle }) {
                         <span className="hidden sm:inline">Sync gagal</span>
                     </div>
                 )}
-                {isOnline && !isSyncing && !syncFailed && lastSyncAt && (
+                {isOnline && !isSyncing && !syncFailed && syncDegraded && (
+                    <div
+                        title={`Sinkronisasi selesai dengan mode degradasi. Peringatan: ${(syncWarnings || []).length}`}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-[11px] font-bold whitespace-nowrap"
+                    >
+                        <span className="material-symbols-outlined text-[14px]">warning</span>
+                        <span className="hidden sm:inline">Sync degradasi</span>
+                    </div>
+                )}
+                {isOnline && !isSyncing && !syncFailed && !syncDegraded && lastSyncAt && (
                     <div
                         title={`Sinkronisasi terakhir: ${lastSyncAt.toLocaleTimeString('id-ID')}`}
                         className="hidden md:flex items-center gap-1 text-[11px] text-green-600 dark:text-green-500 font-semibold"

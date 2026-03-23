@@ -53,6 +53,14 @@ Additional environment variables for Telegram notification queue:
 - `SCHEDULE_REMINDER_MINUTES` (default: `10`)
 - `SCHEDULE_REMINDER_LOOKAHEAD_MINUTES` (default: `60`)
 - `SCHEDULE_REMINDER_GRACE_MINUTES` (default: `15`)
+- `SYNC_HEALTH_LOOKBACK_MINUTES` (default: `15`, used by Cloudflare Worker `cloudflare-worker/sync-health`)
+
+Additional environment variables for Pakasir webhook hardening:
+
+- `PAKASIR_PROJECT_SLUG` (required by webhook validation)
+- `PAKASIR_API_KEY` (required for provider transaction validation)
+- `PAKASIR_WEBHOOK_TOKEN` (optional but recommended, internal shared token check via header `x-webhook-token` or query `token`)
+- `PAKASIR_WEBHOOK_ALLOWED_IPS` (optional, comma-separated source IP allowlist)
 
 Database setup:
 
@@ -66,3 +74,19 @@ Telegram one-click verification setup:
 3. If you use `TELEGRAM_WEBHOOK_SECRET`, register the same value when calling Telegram `setWebhook`.
 4. Ensure frontend env has `VITE_TELEGRAM_BOT_USERNAME`.
 5. User flow: open Schedule page → click `Buka Telegram` → press `Start` in bot → status auto changes to connected.
+
+## Cloudflare Ops Worker: Sync Health
+
+Sync health aggregation is handled by a dedicated Cloudflare Worker (not Netlify function):
+
+- Worker path: `cloudflare-worker/sync-health`
+- Deployment runbook: `cloudflare-worker/sync-health/README.md`
+- Cron trigger: every 5 minutes (`*/5 * * * *`)
+- Manual endpoint: `POST /run-sync-health`
+- Health endpoint: `GET /health`
+
+Required secrets for this worker:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPS_INTERNAL_KEY`

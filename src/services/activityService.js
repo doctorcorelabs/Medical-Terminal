@@ -13,7 +13,13 @@ export async function logUserActivity({ userId, eventType, featureKey = null, me
       feature_key: featureKey,
       metadata,
     });
-  } catch (_err) {
-    // non-fatal
+  } catch (err) {
+    // non-fatal, but keep minimal telemetry for operational debugging
+    console.warn('[activityService] Failed to log user activity', {
+      userId,
+      eventType,
+      featureKey,
+      error: err?.message || String(err || 'unknown'),
+    });
   }
 }

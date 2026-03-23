@@ -6,7 +6,7 @@ export default function AdminDashboard() {
     const navigate = useNavigate();
     const location = useLocation();
     const [stats, setStats] = useState({ totalUsers: 0, activeToday: 0, usageToday: 0, disabledFeatures: 0 });
-    const [health, setHealth] = useState({ errorRate15m: 0, avgLatency15m: 0, openAlerts: 0 });
+    const [health, setHealth] = useState({ errorRate15m: 0, avgLatency15m: 0, offlineSyncDegraded15m: 0, openAlerts: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -41,11 +41,14 @@ export default function AdminDashboard() {
                 const m = metricsRes.data || [];
                 const errorSamples = m.filter(x => x.metric_name === 'error_rate').map(x => Number(x.metric_value));
                 const latencySamples = m.filter(x => x.metric_name === 'latency_ms').map(x => Number(x.metric_value));
+                const degradedSamples = m.filter(x => x.metric_name === 'offline_sync_degraded_count').map(x => Number(x.metric_value));
                 const avg = (arr) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+                const max = (arr) => arr.length ? Math.max(...arr) : 0;
 
                 setHealth({
                     errorRate15m: avg(errorSamples),
                     avgLatency15m: avg(latencySamples),
+                    offlineSyncDegraded15m: max(degradedSamples),
                     openAlerts: alertsRes.count ?? 0,
                 });
             } catch (_err) {
@@ -151,7 +154,7 @@ export default function AdminDashboard() {
             {/* Health Snapshot */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 md:p-6 shadow-sm">
                 <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Snapshot Kesehatan Sistem (15 Menit)</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 md:p-5 min-h-27.5 flex flex-col justify-between">
                         <p className="text-xs text-slate-500">Error Rate</p>
                         <p className="text-xl md:text-2xl font-bold mt-1">{health.errorRate15m.toFixed(2)}%</p>
@@ -159,6 +162,10 @@ export default function AdminDashboard() {
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 md:p-5 min-h-27.5 flex flex-col justify-between">
                         <p className="text-xs text-slate-500">Rata-rata Latency</p>
                         <p className="text-xl md:text-2xl font-bold mt-1">{Math.round(health.avgLatency15m)} ms</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 md:p-5 min-h-27.5 flex flex-col justify-between">
+                        <p className="text-xs text-slate-500">Sync Degradasi (puncak)</p>
+                        <p className="text-xl md:text-2xl font-bold mt-1">{health.offlineSyncDegraded15m}</p>
                     </div>
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 md:p-5 min-h-27.5 flex flex-col justify-between">
                         <p className="text-xs text-slate-500">Alert Terbuka</p>

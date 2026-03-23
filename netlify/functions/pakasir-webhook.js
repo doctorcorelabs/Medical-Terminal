@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'node:crypto';
 
 function parseJsonBody(rawBody) {
     try {
@@ -24,6 +25,31 @@ function isValidWebhookPayload(body) {
     );
 }
 
+function getHeader(event, headerName) {
+    const headers = event?.headers || {};
+    const target = String(headerName || '').toLowerCase();
+    for (const [key, value] of Object.entries(headers)) {
+        if (String(key).toLowerCase() === target) return value;
+    }
+    return undefined;
+}
+
+function safeCompare(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    const left = Buffer.from(a, 'utf8');
+    const right = Buffer.from(b, 'utf8');
+    if (left.length !== right.length) return false;
+    return crypto.timingSafeEqual(left, right);
+}
+
+function getClientIp(event) {
+    const directIp = String(getHeader(event, 'x-nf-client-connection-ip') || '').trim();
+    if (directIp) return directIp;
+    const forwarded = String(getHeader(event, 'x-forwarded-for') || '').trim();
+    if (!forwarded) return '';
+    return forwarded.split(',')[0].trim();
+}
+
 // Pakasir Webhook Handler
 // URL: POST https://medx.daivanlabs.com/.netlify/functions/pakasir-webhook
 export const handler = async (event) => {
@@ -42,22 +68,73 @@ export const handler = async (event) => {
             return { statusCode: 400, body: 'Invalid payload schema' };
         }
 
-        const { order_id, amount, status, project } = body;
+        const { order_id, amount, project } = body;
+        const incomingStatus = String(body.status || '').toLowerCase();
 
-        console.log(`[Webhook] Menerima notifikasi untuk Order ID: ${order_id}, Status: ${status}`);
+        console.log(`[Webhook] Menerima notifikasi untuk Order ID: ${order_id}, Status: ${incomingStatus}`);
 
         const supUrl = process.env.SUPABASE_URL || '';
         const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
         const pakasirProject = process.env.PAKASIR_PROJECT_SLUG || '';
         const pakasirKey = process.env.PAKASIR_API_KEY || '';
+        const webhookToken = process.env.PAKASIR_WEBHOOK_TOKEN || '';
+        const allowedIpsRaw = process.env.PAKASIR_WEBHOOK_ALLOWED_IPS || '';
 
         if (!supUrl || !supKey || !pakasirKey || !pakasirProject) {
             console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject);
             return { statusCode: 500, body: 'Server configuration error' };
         }
 
+        if (webhookToken) {
+            const headerToken = String(getHeader(event, 'x-webhook-token') || getHeader(event, 'x-pakasir-webhook-token') || '').trim();
+            const queryToken = String(event?.queryStringParameters?.token || '').trim();
+            const providedToken = headerToken || queryToken;
+            if (!safeCompare(providedToken, webhookToken)) {
+                console.warn('[Webhook] Token verification failed', { orderId: order_id });
+                return { statusCode: 401, body: 'Unauthorized webhook' };
+            }
+        }
+
+        if (allowedIpsRaw.trim()) {
+            const allowedIps = allowedIpsRaw
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean);
+            const clientIp = getClientIp(event);
+            if (!clientIp || !allowedIps.includes(clientIp)) {
+                console.warn('[Webhook] Rejected by source IP policy', { orderId: order_id, clientIp: clientIp || null });
+                return { statusCode: 403, body: 'Forbidden source' };
+            }
+        }
+
         if (project !== pakasirProject) {
             return { statusCode: 400, body: 'Project mismatch' };
+        }
+
+        const supabase = createClient(supUrl, supKey);
+        const { data: existingSub, error: existingSubError } = await supabase
+            .from('user_subscriptions')
+            .select('id, status, amount_paid, payment_gateway')
+            .eq('gateway_order_id', order_id)
+            .maybeSingle();
+
+        if (existingSubError) throw existingSubError;
+        if (!existingSub) {
+            return { statusCode: 404, body: 'Subscription order not found' };
+        }
+
+        const expectedAmount = Number(existingSub.amount_paid);
+        const incomingAmount = Number(amount);
+        if (Number.isFinite(expectedAmount) && expectedAmount > 0 && incomingAmount !== expectedAmount) {
+            return { statusCode: 400, body: 'Amount mismatch with subscription order' };
+        }
+
+        if (existingSub.payment_gateway && String(existingSub.payment_gateway).toLowerCase() !== 'pakasir') {
+            return { statusCode: 400, body: 'Gateway mismatch with subscription order' };
+        }
+
+        if (String(existingSub.status || '').toLowerCase() === 'active') {
+            return { statusCode: 200, body: JSON.stringify({ message: 'Duplicate ignored' }) };
         }
 
         // Validasi Ganda
@@ -89,22 +166,25 @@ export const handler = async (event) => {
 
         // Trust only provider-validated status, not incoming webhook status field.
         if (transactionStatus === 'completed') {
-            const supabase = createClient(supUrl, supKey);
-
             // 1. Update user_subscriptions
-            const { data: _subData, error: subError } = await supabase
+            const { data: updatedSub, error: subError } = await supabase
                 .from('user_subscriptions')
                 .update({ 
                     status: 'active',
+                    payment_gateway: 'pakasir',
                     amount_paid: transactionAmount,
                     payment_method: validTransaction.payment_method,
                     updated_at: new Date().toISOString()
                 })
                 .eq('gateway_order_id', order_id)
+                .neq('status', 'active')
                 .select('*, subscription_plans(name)')
-                .single();
+                .maybeSingle();
 
             if (subError) throw subError;
+            if (!updatedSub) {
+                return { statusCode: 200, body: JSON.stringify({ message: 'Already active' }) };
+            }
 
             // 2. Notifikasi (Legacy Telegram removed as per user request to replace with PDF Receipt)
             /*
@@ -141,7 +221,12 @@ export const handler = async (event) => {
 
             return { statusCode: 200, body: JSON.stringify({ message: "Success" }) };
         } else {
-            return { statusCode: 400, body: 'Transaction not completed' };
+            console.warn('[Webhook] Provider transaction not completed', {
+                orderId: order_id,
+                incomingStatus,
+                providerStatus: transactionStatus,
+            });
+            return { statusCode: 202, body: 'Transaction not completed' };
         }
     } catch (err) {
         console.error('[Webhook Error]', err);

@@ -34,6 +34,7 @@ export default function ICD10Tool() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [cacheMeta, setCacheMeta] = useState(null);
+  const [cacheWarning, setCacheWarning] = useState(null);
   const [isPreparingCache, setIsPreparingCache] = useState(false);
   const [isAutoRefreshingCache, setIsAutoRefreshingCache] = useState(false);
   const debounceRef = useRef(null);
@@ -43,6 +44,7 @@ export default function ICD10Tool() {
   const loadAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setCacheWarning(null);
 
     try {
       const [meta, hasCache] = await Promise.all([
@@ -67,7 +69,12 @@ export default function ICD10Tool() {
                   setCacheMeta({ key: 'icd10CacheMeta', ...freshMeta });
                 }
               })
-              .catch(() => {})
+              .catch((err) => {
+                console.warn('[ICD10Tool] Auto refresh cache failed', {
+                  error: err?.message || String(err || 'unknown'),
+                });
+                setCacheWarning('Update otomatis cache ICD-10 gagal. Data lokal masih digunakan.');
+              })
               .finally(() => {
                 setIsAutoRefreshingCache(false);
                 refreshInFlightRef.current = false;
@@ -100,6 +107,7 @@ export default function ICD10Tool() {
     if (!isOnline) return;
     setIsPreparingCache(true);
     setError(null);
+    setCacheWarning(null);
 
     try {
       const { rows, meta } = await cacheAllICD10FromSource();
@@ -116,6 +124,7 @@ export default function ICD10Tool() {
     await clearICD10Cache();
     clearICD10MemoryCache();
     setCacheMeta(null);
+    setCacheWarning(null);
     if (!isOnline) {
       setAllData([]);
       setError('Cache ICD-10 telah dihapus. Sambungkan internet untuk memuat data kembali.');
@@ -212,6 +221,13 @@ export default function ICD10Tool() {
               ? 'Mode offline aktif: data berasal dari cache ICD-10 lokal.'
               : 'Tidak ada koneksi. Data ICD-10 belum tersedia di cache.'}
           </p>
+        </div>
+      )}
+
+      {cacheWarning && !error && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
+          <span className="material-symbols-outlined text-base shrink-0">warning</span>
+          <p className="text-xs font-medium">{cacheWarning}</p>
         </div>
       )}
 

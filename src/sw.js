@@ -98,6 +98,7 @@ async function broadcastToClients(message) {
 async function processQueue() {
     const items = await peekQueue();
     if (items.length === 0) return;
+    const syncWarnings = [];
 
     // Group by userId + type to batch into single upsert per group
     const groups = {};
@@ -110,7 +111,7 @@ async function processQueue() {
     let allOk = true;
     for (const group of Object.values(groups)) {
         try {
-            await flushGroup(group);
+            await flushGroup(group, syncWarnings);
             for (const item of group.items) {
                 await dequeue(item.id);
             }
@@ -123,12 +124,15 @@ async function processQueue() {
     await broadcastToClients({
         type: 'SYNC_COMPLETE',
         success: allOk,
+        degraded: syncWarnings.length > 0,
+        warningCount: syncWarnings.length,
+        warnings: syncWarnings.slice(0, 10),
         processedAt: new Date().toISOString(),
     });
 }
 
 // ── Fetch current server row ──────────────────────────────────────
-async function fetchServerRow(supabaseUrl, supabaseKey, table, userId, accessToken) {
+async function fetchServerRow(supabaseUrl, supabaseKey, table, userId, accessToken, warningSink = null) {
     try {
         const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
         const res = await fetch(
@@ -142,10 +146,26 @@ async function fetchServerRow(supabaseUrl, supabaseKey, table, userId, accessTok
                 cache: 'no-store'
             }
         );
-        if (!res.ok) return null;
+        if (!res.ok) {
+            warningSink?.push({
+                scope: 'sw',
+                code: 'server_row_fetch_failed',
+                table,
+                userId,
+                status: res.status,
+            });
+            return null;
+        }
         const rows = await res.json();
         return rows.length > 0 ? rows[0] : null;
-    } catch {
+    } catch (err) {
+        warningSink?.push({
+            scope: 'sw',
+            code: 'server_row_fetch_error',
+            table,
+            userId,
+            error: err?.message || String(err || 'unknown'),
+        });
         return null;
     }
 }
@@ -282,8 +302,8 @@ async function mergeWithConflictDetection(type, localPayload, serverRow, userId)
  * Flush a group of queue items for a specific entity type to Supabase.
  * Fetches the server row first, merges with conflict detection, then upserts.
  */
-async function flushGroup(group) {
-    const config = await getSwConfig();
+async function flushGroup(group, warningSink = null) {
+    const config = await getSwConfig(warningSink);
     if (!config || !config.supabaseUrl || !config.supabaseKey) {
         throw new Error('[SW] Missing Supabase config. Page must call storeSwConfig() first.');
     }
@@ -308,7 +328,7 @@ async function flushGroup(group) {
         const lastPayload = upserts[upserts.length - 1].payload;
 
         // 1. Fetch current server state
-        const serverRow = await fetchServerRow(supabaseUrl, supabaseKey, table, group.userId, accessToken);
+        const serverRow = await fetchServerRow(supabaseUrl, supabaseKey, table, group.userId, accessToken, warningSink);
 
         // 2. Merge (records conflict in IDB when needed)
         const mergedPayload = await mergeWithConflictDetection(
@@ -350,15 +370,27 @@ async function flushGroup(group) {
 }
 
 // ── SW Config store (set from page) ─────────────────────────────
-function getSwConfig() {
+function getSwConfig(warningSink = null) {
     return openDB().then(db => new Promise((resolve) => {
         if (!db.objectStoreNames.contains('swConfig')) { resolve(null); return; }
         try {
             const tx = db.transaction('swConfig', 'readonly');
             const req = tx.objectStore('swConfig').get('config');
             req.onsuccess = () => resolve(req.result?.data || null);
-            req.onerror = () => resolve(null);
-        } catch {
+            req.onerror = () => {
+                warningSink?.push({
+                    scope: 'sw',
+                    code: 'sw_config_read_failed',
+                    error: req.error?.message || 'unknown',
+                });
+                resolve(null);
+            };
+        } catch (err) {
+            warningSink?.push({
+                scope: 'sw',
+                code: 'sw_config_read_error',
+                error: err?.message || String(err || 'unknown'),
+            });
             resolve(null);
         }
     }));

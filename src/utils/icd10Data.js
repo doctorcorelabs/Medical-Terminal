@@ -26,7 +26,11 @@ export function loadICD10() {
         cache = cachedRows;
 
         // Keep cache warm in background when online without delaying first paint.
-        refreshICD10Cache().catch(() => {});
+        refreshICD10Cache().catch((err) => {
+          console.warn('[icd10Data] Background refresh failed', {
+            error: err?.message || String(err || 'unknown'),
+          });
+        });
 
         return cache;
       }

@@ -601,6 +601,7 @@ export default function FornasDrug() {
   const [showInfo, setShowInfo]         = useState(false);
   const [formsExpanded, setFormsExpanded] = useState(false);
   const [cacheMeta, setCacheMeta] = useState(null);
+  const [cacheWarning, setCacheWarning] = useState(null);
   const [isPreparingCache, setIsPreparingCache] = useState(false);
   const [cacheProgress, setCacheProgress] = useState({ downloaded: 0, cached: 0, finished: false });
   const [isAutoRefreshingCache, setIsAutoRefreshingCache] = useState(false);
@@ -635,6 +636,7 @@ export default function FornasDrug() {
   const loadAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setCacheWarning(null);
 
     try {
       const [meta, hasCache] = await Promise.all([
@@ -679,7 +681,13 @@ export default function FornasDrug() {
                     setCachedForms(freshMeta.forms ?? []);
                   }
                 })
-                .catch(() => {})
+                .catch((err) => {
+                  console.warn('[FornasDrug] Auto refresh cache failed', {
+                    userId: cacheUserId,
+                    error: err?.message || String(err || 'unknown'),
+                  });
+                  setCacheWarning('Update otomatis cache Fornas gagal. Data lokal masih digunakan.');
+                })
                 .finally(() => {
                   setIsAutoRefreshingCache(false);
                   refreshInFlightRef.current = false;
@@ -711,6 +719,7 @@ export default function FornasDrug() {
     if (!isOnline) return;
     setIsPreparingCache(true);
     setError(null);
+    setCacheWarning(null);
     setCacheProgress({ downloaded: 0, cached: 0, finished: false });
 
     try {
@@ -731,6 +740,7 @@ export default function FornasDrug() {
   const handleClearOfflineCache = useCallback(async () => {
     await clearFornasCache(cacheUserId);
     setCacheMeta(null);
+    setCacheWarning(null);
     if (idbMode) {
       // User cleared cache while offline — reset to empty state
       setIdbMode(false);
@@ -765,7 +775,15 @@ export default function FornasDrug() {
       limit: displayCount,
     }).then((result) => {
       if (!cancelled) setIdbResults(result);
-    }).catch(() => {});
+    }).catch((err) => {
+      if (!cancelled) {
+        console.warn('[FornasDrug] queryFornasFromIDB failed', {
+          userId: cacheUserId,
+          error: err?.message || String(err || 'unknown'),
+        });
+        setError('Gagal membaca cache Fornas lokal. Coba muat ulang halaman.');
+      }
+    });
 
     return () => { cancelled = true; };
   }, [idbMode, cacheUserId, debouncedQuery, activeFlag, activeForm, displayCount]);
@@ -964,6 +982,13 @@ export default function FornasDrug() {
               ? 'Mode offline aktif: data berasal dari cache Fornas lokal.'
               : 'Tidak ada koneksi. Data Fornas belum tersedia di cache.'}
           </p>
+        </div>
+      )}
+
+      {cacheWarning && !error && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
+          <span className="material-symbols-outlined text-base shrink-0">warning</span>
+          <p className="text-xs font-medium">{cacheWarning}</p>
         </div>
       )}
 
