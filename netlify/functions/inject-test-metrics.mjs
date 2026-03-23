@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
 const simulationKey = process.env.ALERT_SIMULATION_KEY || '';
 
 function json(statusCode, body) {
@@ -32,7 +32,7 @@ export const handler = async (event) => {
 
   if (!supabaseUrl || !serviceRoleKey) {
     const missing = [];
-    if (!supabaseUrl) missing.push('VITE_SUPABASE_URL or SUPABASE_URL');
+    if (!supabaseUrl) missing.push('SUPABASE_URL');
     if (!serviceRoleKey) missing.push('SUPABASE_SERVICE_ROLE_KEY or SERVICE_ROLE_KEY');
     return json(500, {
       ok: false,
