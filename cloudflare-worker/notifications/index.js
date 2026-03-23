@@ -6,7 +6,7 @@ import { handleCleanup } from './cleanup.js';
 import { handleCreateBroadcast, handleResetHistory } from './admin.js';
 
 async function checkAuth(request, env) {
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     
     // 1. Check Internal Key
     const internalKey = request.headers.get('x-internal-key');

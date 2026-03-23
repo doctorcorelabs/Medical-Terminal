@@ -87,7 +87,7 @@ function parseRSS(xml, source) {
 
 export async function handleNewsFetch(env) {
     console.log('[news] Starting news fetch...');
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     // 1. Cleanup old news

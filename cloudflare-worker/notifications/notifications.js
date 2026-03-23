@@ -238,7 +238,7 @@ async function dispatch(supabase, env) {
 // --- Main Handler ---
 export async function handleNotificationCycle(env) {
     console.log('[notifications] Cycle started...');
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     
     try {
         const enqueuedSchedules = await enqueueSchedules(supabase, env);
@@ -263,7 +263,7 @@ export async function handleNotificationCycle(env) {
 }
 
 export async function handleTestNotification(env, userId) {
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     
     try {
         const { data: channel } = await supabase.from('notification_channels')

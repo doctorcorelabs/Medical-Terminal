@@ -7,7 +7,7 @@ async function isAdmin(supabase, userId) {
 }
 
 export async function handleCreateBroadcast(request, env, userId) {
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     if (!await isAdmin(supabase, userId)) return { ok: false, error: 'Access denied' };
 
     const body = await request.json();
@@ -48,7 +48,7 @@ export async function handleCreateBroadcast(request, env, userId) {
 }
 
 export async function handleResetHistory(request, env, userId) {
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     if (!await isAdmin(supabase, userId)) return { ok: false, error: 'Access denied' };
 
     try {

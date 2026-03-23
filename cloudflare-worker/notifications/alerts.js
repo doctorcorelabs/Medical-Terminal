@@ -118,7 +118,7 @@ async function evaluateRule(supabase, rule) {
 
 export async function handleAlertEvaluation(env) {
     console.log('[alerts] Evaluation started...');
-    const supabase = createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     try {
         const { data: rules } = await supabase.from('alert_rules').select('*').eq('active', true);
         for (const rule of rules || []) {
