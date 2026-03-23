@@ -956,9 +956,18 @@ export async function syncSchedulesToSupabase(userId) {
     if (!userId) return;
     setScheduleStorageScope(userId);
     const localSchedules = getStoredSchedules();
+    const deletedSchedulesState = getDeletedSchedulesState();
     
     // Enqueue for background retry
-    await enqueue({ type: 'schedules', op: 'upsert', userId, payload: { schedules_data: localSchedules } }).catch(() => {});
+    await enqueue({
+        type: 'schedules',
+        op: 'upsert',
+        userId,
+        payload: {
+            schedules_data: localSchedules,
+            deleted_schedules_state: deletedSchedulesState,
+        },
+    }).catch(() => {});
     
     try {
         // 1. Fetch current server state to avoid blind overwrite
@@ -974,7 +983,7 @@ export async function syncSchedulesToSupabase(userId) {
             localSchedules,
             serverRow?.schedules_data || [],
             serverRow?.updated_at,
-            getDeletedSchedulesState(),
+            deletedSchedulesState,
         );
 
         // 3. Push merged state

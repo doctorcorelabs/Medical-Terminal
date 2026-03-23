@@ -22,6 +22,7 @@ import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 // IDB helpers — canonical schema lives in idbQueue.js (bundled by Vite injectManifest)
 import { openDB, peekQueue, dequeue, addConflict } from './services/idbQueue';
+import { mergeSchedules } from './utils/scheduleSync';
 
 // ── Workbox boilerplate ──────────────────────────────────────────
 self.skipWaiting();
@@ -265,7 +266,15 @@ function mergeSimple(dataKey, localPayload, serverRow) {
 async function mergeWithConflictDetection(type, localPayload, serverRow, userId) {
     if (type === 'patients')  return mergePatients(localPayload, serverRow, userId);
     if (type === 'stases')    return mergeSimple('stases_data',    localPayload, serverRow);
-    if (type === 'schedules') return mergeSimple('schedules_data', localPayload, serverRow);
+    if (type === 'schedules') {
+        const mergedSchedules = mergeSchedules(
+            localPayload?.schedules_data || [],
+            serverRow?.schedules_data || [],
+            serverRow?.updated_at,
+            localPayload?.deleted_schedules_state || {},
+        );
+        return { schedules_data: mergedSchedules };
+    }
     return localPayload;
 }
 
