@@ -20,18 +20,30 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
     const renderCustomLegend = (props) => {
         const { payload } = props;
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginBottom: '4px', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', width: '100%', marginBottom: '4px', gap: '12px' }}>
                 {payload.map((entry, index) => {
                     let label = entry.value;
-                    if (label === 'vitals') label = 'Vital Signs';
-                    else if (label === 'lab') label = 'Lab';
-                    else if (label === 'actual') label = 'Aktual';
-                    else if (label === 'forecast') label = 'Prediksi';
+                    // Standard clinical labels
+                    const labelMap = {
+                        'vitals': 'Vital Signs',
+                        'lab': 'Lab',
+                        'actual': 'Aktual',
+                        'forecast': 'Prediksi',
+                        'heartRate': 'HR (bpm)',
+                        'systolic': 'TD Sistolik',
+                        'diastolic': 'TD Diastolik',
+                        'spO2': 'SpO2 (%)',
+                        'temp': 'Suhu (°C)',
+                        'temperature': 'Suhu (°C)',
+                        'respRate': 'RR (/min)'
+                    };
+                    
+                    if (labelMap[label]) label = labelMap[label];
 
                     return (
-                        <div key={`item-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: entry.color, flexShrink: 0 }} />
-                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</span>
+                        <div key={`item-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: entry.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</span>
                         </div>
                     );
                 })}
@@ -88,17 +100,24 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
         const chartWidth = (type === 'radar' || scrollableTypes.includes(type)) ? (type === 'radar' ? 600 : 800) : width;
 
         switch(type) {
-            case 'trend': { // Lab vs Vitals
+            case 'trend': { // Dynamic Multi-Metric Trend
                 if (safeArray.length === 0) {
                     return (
                         <div className="viz-empty-state">
-                            Data tren belum tersedia. Pastikan format data mengandung field <strong>time</strong>, <strong>vitals</strong>, dan/atau <strong>lab</strong>.
+                            Data tren belum tersedia. Gunakan format array of objects dengan key <strong>time</strong>.
                         </div>
                     );
                 }
+
+                // Dynamically find all keys except 'time' and 'metadata'
+                const allKeys = Object.keys(safeArray[0] || {}).filter(k => k !== 'time' && k !== 'metadata' && k !== 'recordedAt');
+                
+                // Color palette for multiple lines
+                const colors = ['#136dec', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#475569'];
+
                 return (
                     <ResponsiveContainer width={chartWidth} height={chartHeight + 50}>
-                        <LineChart data={safeArray} margin={{ top: 20, right: 20, left: 5, bottom: 20 }}>
+                        <LineChart data={safeArray} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                             <XAxis 
                                 dataKey="time" 
@@ -106,49 +125,33 @@ const ClinicalVisualization = ({ type, data, title, icon = 'analytics', vizId, e
                                 tickMargin={10} 
                                 axisLine={false} 
                                 tickLine={false}
-                                padding={{ left: 40, right: 40 }}
+                                padding={{ left: 20, right: 20 }}
                             />
                             <YAxis 
-                                yAxisId="left" 
                                 fontSize={10} 
                                 axisLine={false} 
                                 tickLine={false} 
-                                width={40}
+                                width={35}
+                                domain={['auto', 'auto']}
                             />
-                            <YAxis 
-                                yAxisId="right" 
-                                orientation="right" 
-                                fontSize={10} 
-                                axisLine={false} 
-                                tickLine={false} 
-                                width={40}
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '11px' }} 
                             />
-                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                             <Legend content={renderCustomLegend} verticalAlign="bottom" height={36} />
-                            <Line 
-                                yAxisId="left" 
-                                type="monotone" 
-                                dataKey="vitals" 
-                                name="vitals"
-                                stroke="#136dec" 
-                                strokeWidth={2.5} 
-                                dot={{ r: 3.5, fill: '#fff', stroke: '#136dec', strokeWidth: 2 }} 
-                                activeDot={{ r: 5 }} 
-                                isAnimationActive={!isPdfMode}
-                                connectNulls
-                            />
-                            <Line 
-                                yAxisId="right" 
-                                type="monotone" 
-                                dataKey="lab" 
-                                name="lab"
-                                stroke="#10b981" 
-                                strokeWidth={2.5} 
-                                dot={{ r: 3.5, fill: '#fff', stroke: '#10b981', strokeWidth: 2 }} 
-                                activeDot={{ r: 5 }} 
-                                isAnimationActive={!isPdfMode}
-                                connectNulls
-                            />
+                            {allKeys.map((key, i) => (
+                                <Line 
+                                    key={key}
+                                    type="monotone" 
+                                    dataKey={key} 
+                                    name={key}
+                                    stroke={colors[i % colors.length]} 
+                                    strokeWidth={2.5} 
+                                    dot={{ r: 3, fill: '#fff', stroke: colors[i % colors.length], strokeWidth: 2 }} 
+                                    activeDot={{ r: 5 }} 
+                                    isAnimationActive={!isPdfMode}
+                                    connectNulls
+                                />
+                            ))}
                         </LineChart>
                     </ResponsiveContainer>
                 );

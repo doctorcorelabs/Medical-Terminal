@@ -468,9 +468,9 @@ const CopilotChat = () => {
     const shortcuts = [
         { 
             id: 'trend', 
-            label: 'Tren Vital', 
-            description: 'Tampilkan grafik tren vital vs lab',
-            examplePrompt: '/trend tunjukkan perkembangan tekanan darah pasien'
+            label: 'Tren Pasien', 
+            description: 'Tampilkan grafik tren (Vital, Lab, atau Gabungan)',
+            examplePrompt: '/trend tunjukkan perkembangan HR, Tekanan Darah, dan Hb pasien'
         },
         { 
             id: 'radar', 
@@ -730,7 +730,7 @@ const CopilotChat = () => {
 TUGAS ANDA:
 1. Berikan analisis klinis mendalam.
 2. JIKA RELEVAN, sertakan VISUALISASI DATA INTERAKTIF (pilih tipe yang paling sesuai) dengan meletakkan tag XML pada BARIS BARU (beri 2x newline sebelum dan sesudah tag). List tipe yang didukung:
-   - <MedicalChart type="trend" title="Tren Vital vs Lab" data='[{"time":"08:00","vitals":70,"lab":12},...]' /> (Line chart ganda)
+   - <MedicalChart type="trend" title="Tren Parameter Klinis" data='[{"time":"08:00","HR":70,"Hb":12,"Suhu":36.5},...]' /> (Line chart Multi-Parameter. Gunakan key deskriptif seperti "HR", "Hb", "GDS", dll. Selain "time", semua key akan digambar sebagai garis terpisah).
    - <MedicalChart type="radar" title="Profil Risiko" data='[{"subject":"HR","A":8},...]' /> (Spider web)
    - <MedicalChart type="heatmap" title="Peta Gejala" data='[{"name":"Nyeri","cells":[{"value":8},...]},...]' /> (Intensitas gejala)
    - <MedicalChart type="gauge" title="Vulnerability Score" data='[{"value":75}]' /> (Meteran %)

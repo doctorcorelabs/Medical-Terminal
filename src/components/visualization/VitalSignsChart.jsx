@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer,
@@ -14,6 +16,9 @@ const METRICS = [
 ];
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+
+const DEFAULT_ACTIVE_METRICS = ['heartRate', 'systolic', 'diastolic', 'spO2'];
+const STORAGE_PREFIX = 'medterminal_vitals_prefs';
 
 function formatAxisDate(isoString) {
     if (!isoString) return '';
@@ -42,7 +47,104 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function VitalSignsChart({ vitalSigns }) {
-    const [activeMetrics, setActiveMetrics] = useState(['heartRate', 'systolic', 'diastolic', 'spO2']);
+    const { user, updateProfile } = useAuth();
+    const { addToast } = useToast();
+    
+    // 1. Determine User ID synchronously from cache if possible
+    const cachedUserId = useMemo(() => {
+        try {
+            const cache = localStorage.getItem('medterminal_user_cache');
+            return cache ? JSON.parse(cache)?.id : null;
+        } catch { return null; }
+    }, []);
+
+    const storageKey = useMemo(() => 
+        (user?.id || cachedUserId) ? `${STORAGE_PREFIX}:${user?.id || cachedUserId}` : null
+    , [user?.id, cachedUserId]);
+
+    // 2. Synchronous initialization (avoids "flash" and race conditions)
+    const [activeMetrics, setActiveMetrics] = useState(() => {
+        if (storageKey) {
+            try {
+                const local = localStorage.getItem(storageKey);
+                if (local) {
+                    const parsed = JSON.parse(local);
+                    if (Array.isArray(parsed)) return parsed;
+                }
+            } catch {}
+        }
+        // Fallback to metadata from user object (if user prop is already available)
+        const metadataPrefs = user?.user_metadata?.vital_signs_prefs;
+        if (Array.isArray(metadataPrefs)) return metadataPrefs;
+        
+        return DEFAULT_ACTIVE_METRICS;
+    });
+
+    const [isInitialized, setIsInitialized] = useState(false);
+    const hasToggledRef = useRef(false); // Track if user manually clicked buttons in this session
+    const syncTimeoutRef = useRef(null);
+    const lastSyncedRef = useRef(JSON.stringify(activeMetrics));
+
+    // 3. Handle Metadata Arrival / Sync from Other Devices
+    useEffect(() => {
+        if (!user?.id) return;
+        
+        const metadataPrefs = user.user_metadata?.vital_signs_prefs;
+        if (Array.isArray(metadataPrefs)) {
+            const metadataStr = JSON.stringify(metadataPrefs);
+            const currentStr = JSON.stringify(activeMetrics);
+            
+            // If we haven't manually toggled ANYTHING, we should adopt the server's truth
+            // or if we just initialized and our local cache was empty/stale
+            if (!hasToggledRef.current && metadataStr !== currentStr) {
+                setActiveMetrics(metadataPrefs);
+                lastSyncedRef.current = metadataStr;
+            }
+        }
+        setIsInitialized(true);
+    }, [user?.id, user?.user_metadata?.vital_signs_prefs]);
+
+    // 4. Handle sync to Supabase (debounced)
+    useEffect(() => {
+        if (!user?.id || !isInitialized) return;
+
+        const activeStr = JSON.stringify(activeMetrics);
+        
+        // Always save to localStorage immediately for the current device
+        if (storageKey) {
+            localStorage.setItem(storageKey, activeStr);
+        }
+
+        // Only sync to Supabase if the "human intent" (hasToggled) says so, 
+        // OR if it's different from our last known sync state
+        if (activeStr === lastSyncedRef.current) {
+            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+            return;
+        }
+        
+        // Double check against current metadata to avoid redundant writes
+        const serverPrefs = user.user_metadata?.vital_signs_prefs;
+        if (Array.isArray(serverPrefs) && JSON.stringify(serverPrefs) === activeStr) {
+            lastSyncedRef.current = activeStr;
+            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+            return;
+        }
+
+        if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+        
+        syncTimeoutRef.current = setTimeout(async () => {
+            try {
+                await updateProfile({ vital_signs_prefs: activeMetrics });
+                lastSyncedRef.current = activeStr;
+            } catch (err) {
+                console.error('[VitalSignsChart] Sync failed:', err);
+            }
+        }, 2000); // 2-second debounce
+
+        return () => {
+            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+        };
+    }, [activeMetrics, user?.id, isInitialized, updateProfile, storageKey]);
 
     const data = useMemo(() => {
         return [...(vitalSigns || [])]
@@ -64,6 +166,7 @@ export default function VitalSignsChart({ vitalSigns }) {
     }, [vitalSigns]);
 
     const toggleMetric = (key) => {
+        hasToggledRef.current = true; // User officially interacted, don't let server overwrite now
         setActiveMetrics(prev =>
             prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
         );

@@ -156,7 +156,14 @@ export function AuthProvider({ children }) {
             setUser(null);
             return supabase.auth.signOut();
         },
-        updateProfile: (data) => supabase.auth.updateUser({ data }),
+        updateProfile: async (data) => {
+            const result = await supabase.auth.updateUser({ data });
+            if (!result.error && result.data?.user) {
+                setUser(result.data.user);
+                localStorage.setItem('medterminal_user_cache', JSON.stringify(result.data.user));
+            }
+            return result;
+        },
         isUsernameAvailable: async (username) => {
             if (!username) return null;
             try {
