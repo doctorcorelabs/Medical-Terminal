@@ -4,6 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 const WIB_TIMEZONE = 'Asia/Jakarta';
 const WIB_UTC_OFFSET_MINUTES = 7 * 60;
 
+function getMissingEnv(env, keys) {
+    return keys.filter((key) => !env?.[key]);
+}
+
 function parseTime(time) {
     const [h, m] = String(time || '').split(':').map(Number);
     if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
@@ -160,6 +164,11 @@ async function enqueueAlerts(supabase, env) {
 
 // --- Dispatch Logic ---
 async function dispatch(supabase, env) {
+    if (!env?.TELEGRAM_BOT_TOKEN) {
+        console.error('[dispatch] Missing TELEGRAM_BOT_TOKEN');
+        return 0;
+    }
+
     const BATCH_SIZE = Number(env.TELEGRAM_MAX_BATCH_SIZE || 50);
     const startMs = Date.now();
     const runId = `cf-worker-${startMs}`;
@@ -237,6 +246,12 @@ async function dispatch(supabase, env) {
 
 // --- Main Handler ---
 export async function handleNotificationCycle(env) {
+    const missing = getMissingEnv(env, ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TELEGRAM_BOT_TOKEN']);
+    if (missing.length > 0) {
+        console.error(`[notifications] Missing env: ${missing.join(', ')}`);
+        return;
+    }
+
     console.log('[notifications] Cycle started...');
     const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     
@@ -263,6 +278,11 @@ export async function handleNotificationCycle(env) {
 }
 
 export async function handleTestNotification(env, userId) {
+    const missing = getMissingEnv(env, ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TELEGRAM_BOT_TOKEN']);
+    if (missing.length > 0) {
+        return { ok: false, error: `Missing env: ${missing.join(', ')}` };
+    }
+
     const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     
     try {

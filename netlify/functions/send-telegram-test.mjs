@@ -1,9 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-);
+function getMissingEnv() {
+  const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TELEGRAM_BOT_TOKEN'];
+  return required.filter((key) => !process.env[key]);
+}
+
+function createSupabaseClient() {
+  return createClient(
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  );
+}
 
 /**
  * Test Telegram notification endpoint
@@ -33,6 +40,16 @@ export default async (req, context) => {
   }
 
   try {
+    const missing = getMissingEnv();
+    if (missing.length > 0) {
+      return new Response(JSON.stringify({ ok: false, error: `Missing env: ${missing.join(', ')}` }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabase = createSupabaseClient();
+
     // Extract auth token
     const authHeader = req.headers.get('Authorization') || '';
     const token = authHeader.replace('Bearer ', '');

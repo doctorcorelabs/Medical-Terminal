@@ -5,6 +5,10 @@ import { handleAlertEvaluation } from './alerts.js';
 import { handleCleanup } from './cleanup.js';
 import { handleCreateBroadcast, handleResetHistory } from './admin.js';
 
+function getMissingEnv(env, keys) {
+    return keys.filter((key) => !env?.[key]);
+}
+
 async function checkAuth(request, env) {
     const supabase = createClient(env.SUPABASE_URL || '', env.SUPABASE_SERVICE_ROLE_KEY || '');
     
@@ -25,6 +29,12 @@ async function checkAuth(request, env) {
 
 export default {
     async scheduled(event, env, ctx) {
+        const missing = getMissingEnv(env, ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TELEGRAM_BOT_TOKEN']);
+        if (missing.length > 0) {
+            console.error(`[worker] Missing env: ${missing.join(', ')}`);
+            return;
+        }
+
         console.log(`[worker] Scheduled event triggered: ${event.cron}`);
         
         switch (event.cron) {
@@ -67,9 +77,19 @@ export default {
             'Content-Type': 'application/json'
         };
 
+        const protectedPaths = ['/run-news', '/run-notifications', '/run-alerts', '/run-cleanup', '/test-notification', '/create-broadcast', '/reset-broadcast-history'];
+        if (protectedPaths.includes(url.pathname)) {
+            const missing = getMissingEnv(env, ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TELEGRAM_BOT_TOKEN']);
+            if (missing.length > 0) {
+                return new Response(JSON.stringify({ ok: false, error: `Missing env: ${missing.join(', ')}` }), {
+                    status: 500,
+                    headers: corsHeaders,
+                });
+            }
+        }
+
         // --- 2. Security Check ---
         const auth = await checkAuth(request, env);
-        const protectedPaths = ['/run-news', '/run-notifications', '/run-alerts', '/run-cleanup', '/test-notification', '/create-broadcast', '/reset-broadcast-history'];
         
         if (protectedPaths.includes(url.pathname)) {
             if (!auth.ok) {

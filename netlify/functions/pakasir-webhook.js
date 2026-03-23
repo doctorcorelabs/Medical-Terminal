@@ -14,10 +14,9 @@ export const handler = async (event) => {
         console.log(`[Webhook] Menerima notifikasi untuk Order ID: ${order_id}, Status: ${status}`);
 
         const supUrl = process.env.SUPABASE_URL || '';
-        const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
         const pakasirProject = process.env.PAKASIR_PROJECT_SLUG || '';
-        const pakasirKey = process.env.PAKASIR_API_KEY;
-        const _tgToken = process.env.TELEGRAM_BOT_TOKEN;
+        const pakasirKey = process.env.PAKASIR_API_KEY || '';
 
         if (!supUrl || !supKey || !pakasirKey || !pakasirProject) {
             console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject);

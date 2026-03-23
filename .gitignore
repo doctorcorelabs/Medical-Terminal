@@ -35,6 +35,11 @@ bug solved/
 # Local Netlify folder
 .netlify
 
+# Cloudflare Wrangler generated artifacts
+.wrangler/
+cloudflare-worker/notifications/.wrangler/
+cloudflare-worker/notifications/worker-configuration.d.ts
+
 final_lint_check.txt
 lint_full_results.txt
 phase1_audit_output.txt
