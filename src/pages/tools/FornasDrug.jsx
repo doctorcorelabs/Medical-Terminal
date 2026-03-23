@@ -651,6 +651,7 @@ export default function FornasDrug() {
       if (hasCache && !isOnline) {
         setAllData([]);
         setTotalCount(meta?.count ?? 0);
+        setIdbResults({ rows: [], hasMore: false, total: 0 });
         setCachedForms(meta?.forms ?? []);
         setIdbMode(true);
         setLoading(false);

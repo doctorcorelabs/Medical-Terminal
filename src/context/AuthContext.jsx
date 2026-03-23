@@ -20,6 +20,11 @@ export function AuthProvider({ children }) {
         window.location.hash.includes('type=recovery')
     );
     const isRecoveryRef = useRef(window.location.hash.includes('type=recovery'));
+    const activeUserIdRef = useRef(user?.id || null);
+
+    useEffect(() => {
+        activeUserIdRef.current = user?.id || null;
+    }, [user?.id]);
 
     const setIsRecoveryMode = (val) => {
         isRecoveryRef.current = val;
@@ -36,6 +41,8 @@ export function AuthProvider({ children }) {
                 .limit(1);
             if (!error && data && data.length > 0) {
                 const profileData = data[0];
+                // Avoid stale profile write if auth state changed (e.g. sign out/sign in another account).
+                if (activeUserIdRef.current !== userId) return;
                 setProfile(profileData);
                 localStorage.setItem('medterminal_profile_cache', JSON.stringify(profileData));
             }

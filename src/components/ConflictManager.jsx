@@ -220,7 +220,9 @@ export default function ConflictManager() {
             .finally(() => setLoading(false));
     }, [activeId, logConflictWarning]);
 
-    useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        load();
+    }, [load]);
 
     const handleResolved = useCallback(async (id, merged) => {
         const conflict = conflicts.find(c => c.id === id);

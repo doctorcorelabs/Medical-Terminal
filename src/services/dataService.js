@@ -155,7 +155,16 @@ function clearAllScheduleDeletionState() {
 function getItemTimestamp(item) {
     const source = item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at;
     const parsed = source ? Date.parse(source) : Number.NaN;
-    return Number.isFinite(parsed) ? parsed : 0;
+    if (!Number.isFinite(parsed)) return 0;
+
+    // Guard against extreme client clock skew (future timestamps dominating merge forever).
+    const now = Date.now();
+    const maxFutureSkewMs = 5 * 60 * 1000;
+    if (parsed > (now + maxFutureSkewMs)) {
+        return now;
+    }
+
+    return parsed;
 }
 
 function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr, deletedKey) {

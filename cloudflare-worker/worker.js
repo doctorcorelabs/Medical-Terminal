@@ -76,11 +76,19 @@ export default {
             const body = await request.json();
 
             // Forward to OpenRouter
+            const openRouterApiKey = env.OPENROUTER_API_KEY || env.OPENROUTER_API_KEY_FALLBACK;
+            if (!openRouterApiKey) {
+                return withCors(new Response(JSON.stringify({ error: 'Worker configuration error: Missing OpenRouter API key' }), {
+                    status: 500,
+                    headers: { 'Content-Type': 'application/json' },
+                }));
+            }
+
             const response = await fetch(OPENROUTER_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+                    'Authorization': `Bearer ${openRouterApiKey}`,
                     'HTTP-Referer': 'https://medterminal.app',
                     'X-Title': 'MedxTerminal Clinical AI',
                 },
