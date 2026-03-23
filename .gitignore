@@ -34,3 +34,12 @@ bug solved/
 
 # Local Netlify folder
 .netlify
+
+final_lint_check.txt
+lint_full_results.txt
+phase1_audit_output.txt
+phase1_build_output.txt
+phase1_lint_output.txt
+
+# Tambah ke .gitignore:
+.github/
