@@ -1,4 +1,61 @@
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'node:crypto';
+
+function getHeader(event, name) {
+    const headers = event?.headers || {};
+    const exact = headers[name];
+    if (typeof exact === 'string') return exact;
+    const lower = headers[name.toLowerCase()];
+    if (typeof lower === 'string') return lower;
+    return null;
+}
+
+function parseJsonBody(rawBody) {
+    try {
+        return JSON.parse(rawBody);
+    } catch {
+        return null;
+    }
+}
+
+function normalizeSignature(rawSignature) {
+    if (!rawSignature || typeof rawSignature !== 'string') return null;
+    const trimmed = rawSignature.trim();
+    if (!trimmed) return null;
+    return trimmed.startsWith('sha256=') ? trimmed.slice('sha256='.length) : trimmed;
+}
+
+function verifyWebhookSignature(rawBody, rawSignature, secret) {
+    if (!rawBody || !rawSignature || !secret) return false;
+    const signature = normalizeSignature(rawSignature);
+    if (!signature || !/^[a-fA-F0-9]{64}$/.test(signature)) return false;
+
+    const expected = crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex');
+
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    const receivedBuffer = Buffer.from(signature, 'hex');
+    if (expectedBuffer.length !== receivedBuffer.length) return false;
+    return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+}
+
+function isValidWebhookPayload(body) {
+    if (!body || typeof body !== 'object') return false;
+    const { order_id: orderId, amount, status, project } = body;
+    const numericAmount = Number(amount);
+    return (
+        typeof orderId === 'string'
+        && orderId.trim().length > 0
+        && Number.isFinite(numericAmount)
+        && numericAmount > 0
+        && typeof status === 'string'
+        && status.trim().length > 0
+        && typeof project === 'string'
+        && project.trim().length > 0
+    );
+}
 
 // Pakasir Webhook Handler
 // URL: POST https://medx.daivanlabs.com/.netlify/functions/pakasir-webhook
@@ -8,7 +65,16 @@ export const handler = async (event) => {
     }
 
     try {
-        const body = JSON.parse(event.body);
+        const rawBody = typeof event.body === 'string' ? event.body : '';
+        if (!rawBody) {
+            return { statusCode: 400, body: 'Invalid payload' };
+        }
+
+        const body = parseJsonBody(rawBody);
+        if (!isValidWebhookPayload(body)) {
+            return { statusCode: 400, body: 'Invalid payload schema' };
+        }
+
         const { order_id, amount, status, project } = body;
 
         console.log(`[Webhook] Menerima notifikasi untuk Order ID: ${order_id}, Status: ${status}`);
@@ -17,10 +83,20 @@ export const handler = async (event) => {
         const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
         const pakasirProject = process.env.PAKASIR_PROJECT_SLUG || '';
         const pakasirKey = process.env.PAKASIR_API_KEY || '';
+        const webhookSecret = process.env.PAKASIR_WEBHOOK_SECRET || '';
 
-        if (!supUrl || !supKey || !pakasirKey || !pakasirProject) {
-            console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject);
+        if (!supUrl || !supKey || !pakasirKey || !pakasirProject || !webhookSecret) {
+            console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject, 'HookSecret:', !!webhookSecret);
             return { statusCode: 500, body: 'Server configuration error' };
+        }
+
+        const signatureHeader =
+            getHeader(event, 'x-pakasir-signature')
+            || getHeader(event, 'x-signature')
+            || getHeader(event, 'signature');
+
+        if (!verifyWebhookSignature(rawBody, signatureHeader, webhookSecret)) {
+            return { statusCode: 401, body: 'Invalid signature' };
         }
 
         if (project !== pakasirProject) {
@@ -28,13 +104,34 @@ export const handler = async (event) => {
         }
 
         // Validasi Ganda
-        const pksResponse = await fetch(`https://app.pakasir.com/api/transactiondetail?project=${pakasirProject}&amount=${amount}&order_id=${order_id}&api_key=${pakasirKey}`);
+        const params = new URLSearchParams({
+            project: pakasirProject,
+            amount: String(amount),
+            order_id: String(order_id),
+            api_key: pakasirKey,
+        });
+        const pksResponse = await fetch(`https://app.pakasir.com/api/transactiondetail?${params.toString()}`);
         if (!pksResponse.ok) return { statusCode: 400, body: 'Failed to validate with Pakasir' };
 
         const pksData = await pksResponse.json();
         const validTransaction = pksData.transaction;
+        if (!validTransaction) {
+            return { statusCode: 400, body: 'Invalid Pakasir response' };
+        }
 
-        if (validTransaction.status === 'completed' || status === 'completed') {
+        const transactionOrderId = String(validTransaction.order_id || '');
+        const transactionAmount = Number(validTransaction.amount);
+        const transactionStatus = String(validTransaction.status || '').toLowerCase();
+
+        if (transactionOrderId !== String(order_id)) {
+            return { statusCode: 400, body: 'Order mismatch' };
+        }
+        if (!Number.isFinite(transactionAmount) || transactionAmount !== Number(amount)) {
+            return { statusCode: 400, body: 'Amount mismatch' };
+        }
+
+        // Trust only provider-validated status, not incoming webhook status field.
+        if (transactionStatus === 'completed') {
             const supabase = createClient(supUrl, supKey);
 
             // 1. Update user_subscriptions
@@ -42,7 +139,7 @@ export const handler = async (event) => {
                 .from('user_subscriptions')
                 .update({ 
                     status: 'active',
-                    amount_paid: validTransaction.amount,
+                    amount_paid: transactionAmount,
                     payment_method: validTransaction.payment_method,
                     updated_at: new Date().toISOString()
                 })
