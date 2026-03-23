@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     setDataStorageScope,
+    setScheduleStorageScope,
     getAllPatients,
     addPatient,
     updatePatient,
@@ -33,6 +34,10 @@ import {
     addVitalSign,
     updateVitalSign,
     removeVitalSign,
+    getAllSchedules,
+    addSchedule,
+    deleteSchedule,
+    upsertSchedulesBulk,
 } from './dataService.js';
 
 // Mock localStorage
@@ -81,6 +86,7 @@ function resetState() {
     localStorage.clear();
     mockUUIDs.reset();
     setDataStorageScope(null);
+    setScheduleStorageScope(null);
 }
 
 // ============================================================================
@@ -693,6 +699,53 @@ test('removeVitalSign - removes vital sign from patient', () => {
 // ============================================================================
 // INTEGRATION TESTS
 // ============================================================================
+
+test('deleteSchedule - removes schedule and records schedule tombstone', () => {
+    resetState();
+    setScheduleStorageScope('user-1');
+
+    const schedule = addSchedule({
+        title: 'Morning round',
+        date: '2026-03-24',
+        startTime: '08:00',
+    });
+
+    assert.strictEqual(getAllSchedules().length, 1);
+    deleteSchedule(schedule.id);
+
+    assert.strictEqual(getAllSchedules().length, 0);
+    const deletedState = JSON.parse(localStorage.getItem('medterminal_deleted_schedules:user-1') || '{}');
+    assert.ok(deletedState[schedule.id]);
+});
+
+test('upsertSchedulesBulk - clears schedule tombstone when item is reintroduced', () => {
+    resetState();
+    setScheduleStorageScope('user-1');
+
+    const schedule = addSchedule({
+        title: 'Ward handover',
+        date: '2026-03-24',
+        startTime: '09:30',
+    });
+    deleteSchedule(schedule.id);
+
+    const before = JSON.parse(localStorage.getItem('medterminal_deleted_schedules:user-1') || '{}');
+    assert.ok(before[schedule.id]);
+
+    upsertSchedulesBulk([
+        {
+            id: schedule.id,
+            title: 'Ward handover (re-added)',
+            date: '2026-03-24',
+            startTime: '09:30',
+        },
+    ]);
+
+    const after = JSON.parse(localStorage.getItem('medterminal_deleted_schedules:user-1') || '{}');
+    assert.strictEqual(after[schedule.id], undefined);
+    assert.strictEqual(getAllSchedules().length, 1);
+    assert.strictEqual(getAllSchedules()[0].title, 'Ward handover (re-added)');
+});
 
 test('Multiple patients with mixed operations', () => {
     resetState();
