@@ -17,7 +17,6 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
     const accessToken = sessionData?.session?.access_token;
     if (!accessToken) return;
 
-    lastCycleTriggerAt = now;
     const workerUrl = import.meta.env.VITE_NOTIFICATION_WORKER_URL;
 
     // Use Cloudflare Worker endpoint if available, fallback to Netlify logic (for gradual migration)
@@ -32,13 +31,16 @@ export async function triggerNotificationCycle({ reason = 'manual', force = fals
       body: JSON.stringify({ reason, triggeredAt: new Date().toISOString() }),
     });
 
-    try { await res.json(); } catch { /* ignore */ }
+    try { await res.json(); } catch { /* ignore malformed response body */ }
 
     if (!res.ok) {
       throw new Error(`notification-cycle returned ${res.status}`);
     }
-  } catch (_err) {
-    // Silent fail — notifications are best-effort from the client side
+
+    // Apply cooldown only after a successful trigger.
+    lastCycleTriggerAt = now;
+  } catch (err) {
+    console.warn('Notification cycle trigger failed:', err?.message || err);
   }
 }
 

@@ -62,6 +62,8 @@ async function enqueueSchedules(supabase, env) {
     const scheduleMap = new Map((schedulesRows || []).map(row => [row.user_id, row.schedules_data || []]));
 
     const rowsToInsert = [];
+    const activeEventIdsByUser = new Map();
+    const activeKeysByUser = new Map();
 
     for (const channel of channels) {
         const events = scheduleMap.get(channel.user_id) || [];
@@ -89,6 +91,11 @@ async function enqueueSchedules(supabase, env) {
                 status: 'pending',
                 next_attempt_at: nextAttempt
             });
+
+            if (!activeEventIdsByUser.has(channel.user_id)) activeEventIdsByUser.set(channel.user_id, new Set());
+            if (!activeKeysByUser.has(channel.user_id)) activeKeysByUser.set(channel.user_id, new Set());
+            activeEventIdsByUser.get(channel.user_id).add(String(event.id));
+            activeKeysByUser.get(channel.user_id).add(idempotencyKey);
         }
 
     }
@@ -105,14 +112,18 @@ async function enqueueSchedules(supabase, env) {
 
     // Clean up stale queue entries only after latest rows are upserted.
     for (const channel of channels) {
+        const activeEventIds = [...(activeEventIdsByUser.get(channel.user_id) || new Set())];
+        if (activeEventIds.length === 0) continue;
+
         const { data: existingRows } = await supabase.from('notification_dispatch_queue')
             .select('id, idempotency_key, source_id, created_at, updated_at')
             .eq('user_id', channel.user_id)
-            .eq('source_type', 'schedule');
+            .eq('source_type', 'schedule')
+            .in('source_id', activeEventIds);
 
         if (!existingRows || existingRows.length === 0) continue;
 
-        const staleIds = computeEventVersionStaleIds(existingRows);
+        const staleIds = computeEventVersionStaleIds(existingRows, activeKeysByUser.get(channel.user_id));
         staleCandidates += staleIds.length;
 
         for (const staleId of staleIds) {

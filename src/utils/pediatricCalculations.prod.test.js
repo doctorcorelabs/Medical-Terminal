@@ -19,6 +19,7 @@ test('BROSELOW_WEIGHT_LIMITS exposes min/max from reference zones', () => {
 test('getBroselowZone returns null for invalid weight', () => {
     assert.strictEqual(getBroselowZone(0), null);
     assert.strictEqual(getBroselowZone(-5), null);
+    assert.strictEqual(getBroselowZone(BROSELOW_WEIGHT_LIMITS.max + 1), null);
 });
 
 test('getBroselowZone returns a zone for valid in-range weight', () => {
@@ -31,6 +32,7 @@ test('getBroselowZone returns a zone for valid in-range weight', () => {
 test('calcPediatricEmergencySummary returns empty for invalid weight', () => {
     assert.deepStrictEqual(calcPediatricEmergencySummary(0), []);
     assert.deepStrictEqual(calcPediatricEmergencySummary(null), []);
+    assert.deepStrictEqual(calcPediatricEmergencySummary(BROSELOW_WEIGHT_LIMITS.max + 1), []);
 });
 
 test('calcPediatricEmergencySummary returns computed emergency rows', () => {
@@ -43,6 +45,7 @@ test('calcPediatricEmergencySummary returns computed emergency rows', () => {
 test('calcCommonPediatricDose returns null for unknown drug or invalid weight', () => {
     assert.strictEqual(calcCommonPediatricDose('unknown-drug', 10), null);
     assert.strictEqual(calcCommonPediatricDose(PEDIATRIC_COMMON_DRUGS[0].id, 0), null);
+    assert.strictEqual(calcCommonPediatricDose(PEDIATRIC_COMMON_DRUGS[0].id, BROSELOW_WEIGHT_LIMITS.max + 1), null);
 });
 
 test('calcCommonPediatricDose computes dose and fluid bolus for known drug', () => {

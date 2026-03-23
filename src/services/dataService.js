@@ -434,7 +434,11 @@ export function deleteStase(id) {
     // Also delete all patients belonging to this stase
     const patients = getStoredData();
     const remainingPatients = patients.filter(p => p.stase_id !== id);
+    const hadCascadeDeletes = remainingPatients.length !== patients.length;
     saveData(remainingPatients);
+    if (hadCascadeDeletes && typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
+        pendingSync.markPatients();
+    }
 
     // Unpin if it was pinned
     if (getPinnedStaseId() === id) {

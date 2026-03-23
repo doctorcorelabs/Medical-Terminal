@@ -14,19 +14,25 @@ function formatNumber(value, decimals = 1) {
   });
 }
 
+function isWithinPediatricWeightRange(weightKg) {
+  if (!Number.isFinite(weightKg) || weightKg <= 0) return false;
+  if (!BROSELOW_WEIGHT_LIMITS.min || !BROSELOW_WEIGHT_LIMITS.max) return false;
+  return weightKg >= BROSELOW_WEIGHT_LIMITS.min && weightKg <= BROSELOW_WEIGHT_LIMITS.max;
+}
+
 export function getBroselowZone(weightKg) {
-  if (!weightKg || weightKg <= 0) return null;
+  if (!isWithinPediatricWeightRange(weightKg)) return null;
   return BROSelow_ZONES.find((zone) => weightKg >= zone.minWeight && weightKg <= zone.maxWeight) ?? null;
 }
 
 export function calcPediatricEmergencySummary(weightKg) {
-  if (!weightKg || weightKg <= 0) return [];
+  if (!isWithinPediatricWeightRange(weightKg)) return [];
   return calcEmergencyDoses(weightKg, EMERGENCY_DRUGS);
 }
 
 export function calcCommonPediatricDose(drugId, weightKg) {
   const drug = PEDIATRIC_COMMON_DRUGS.find((item) => item.id === drugId);
-  if (!drug || !weightKg || weightKg <= 0) return null;
+  if (!drug || !isWithinPediatricWeightRange(weightKg)) return null;
 
   const numericDose = weightKg * drug.dosePerKg;
   const doseDisplay = drug.unit === 'mEq'

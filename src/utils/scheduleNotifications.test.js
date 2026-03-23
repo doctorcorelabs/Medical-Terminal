@@ -93,3 +93,26 @@ test('computeEventVersionStaleIds keeps newest row per event and ignores manual-
   const staleIds = computeEventVersionStaleIds(rows);
   assert.deepEqual(staleIds, ['old-a']);
 });
+
+test('computeEventVersionStaleIds keeps active key for event and removes non-active variants', () => {
+  const rows = [
+    {
+      id: 'old-e1',
+      source_id: 'event-1',
+      idempotency_key: 'schedule:user-1:event-1:2026-03-20:10:00:10',
+      created_at: '2026-03-23T11:00:00.000Z',
+      updated_at: '2026-03-23T11:00:00.000Z',
+    },
+    {
+      id: 'active-e1',
+      source_id: 'event-1',
+      idempotency_key: 'schedule:user-1:event-1:2026-03-20:10:10:10',
+      created_at: '2026-03-23T11:01:00.000Z',
+      updated_at: '2026-03-23T11:01:00.000Z',
+    },
+  ];
+
+  const activeKeys = new Set(['schedule:user-1:event-1:2026-03-20:10:10:10']);
+  const staleIds = computeEventVersionStaleIds(rows, activeKeys);
+  assert.deepEqual(staleIds, ['old-e1']);
+});
