@@ -19,6 +19,15 @@ const DELETED_SCHEDULES_KEY = 'medterminal_deleted_schedules'; // Tombstones for
 let activeDataUserId = null;
 let activeScheduleUserId = null;
 
+function logSyncWarning(operation, userId, err, extra = {}) {
+    console.warn('[dataService] Sync warning', {
+        operation,
+        userId: userId || null,
+        error: err?.message || String(err || 'unknown'),
+        ...extra,
+    });
+}
+
 function getScopedDataKey(baseKey, userId = activeDataUserId) {
     return userId ? `${baseKey}:${userId}` : baseKey;
 }
@@ -200,7 +209,9 @@ export async function syncToSupabase(userId) {
     if (!userId) return;
     setDataStorageScope(userId);
     const localPatients = getStoredData();
-    await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: localPatients } }).catch(() => {});
+    await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: localPatients } }).catch((err) => {
+        logSyncWarning('patients.enqueue', userId, err);
+    });
     
     try {
         const { data: serverRow } = await supabase
@@ -224,7 +235,9 @@ export async function syncToSupabase(userId) {
         if (error) throw error;
         saveData(finalPatients);
         pendingSync.clearPatients();
-        clearQueueByType(userId, 'patients').catch(() => {});
+        clearQueueByType(userId, 'patients').catch((err) => {
+            logSyncWarning('patients.clearQueueByType', userId, err);
+        });
     } catch (err) {
         const errorMessage = String(err?.message || '');
         const deniedByRls = /row-level security|violates row-level security/i.test(errorMessage);
@@ -253,7 +266,9 @@ export async function deleteAllPatientsData(userId) {
     // This ensures other devices see an "empty but newer" state.
     if (userId) {
         try {
-            await clearQueueByType(userId, 'patients').catch(() => {});
+            await clearQueueByType(userId, 'patients').catch((err) => {
+                logSyncWarning('patients.reset.clearQueueByType', userId, err);
+            });
             const { error } = await supabase.from('user_patients').upsert({
                 user_id: userId,
                 patients_data: [],
@@ -334,7 +349,9 @@ export async function syncStasesToSupabase(userId) {
     const localStases = getStoredStases();
     const pinnedStaseId = getPinnedStaseId();
     
-    await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: localStases, pinned_stase_id: pinnedStaseId } }).catch(() => {});
+    await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: localStases, pinned_stase_id: pinnedStaseId } }).catch((err) => {
+        logSyncWarning('stases.enqueue', userId, err);
+    });
     
     try {
         const { data: serverRow } = await supabase
@@ -371,7 +388,9 @@ export async function syncStasesToSupabase(userId) {
         saveStases(finalStases);
         setPinnedStaseId(finalPinned);
         pendingSync.clearStases();
-        clearQueueByType(userId, 'stases').catch(() => {});
+        clearQueueByType(userId, 'stases').catch((err) => {
+            logSyncWarning('stases.clearQueueByType', userId, err);
+        });
     } catch (err) {
         console.error("Failed to sync stases to Supabase:", err);
         pendingSync.markStases();
@@ -398,7 +417,7 @@ export async function fetchStasesFromSupabase(userId) {
             const localStases = getStoredStases();
 
             if (pendingSync.hasStases() && localStases.length > 0) {
-                const merged = mergeItemsByIdForeground(localStases, serverStases, data.updated_at);
+                const merged = mergeItemsByIdForeground(localStases, serverStases, data.updated_at, DELETED_STASES_KEY);
                 saveStases(merged);
                 const pinned = data.pinned_stase_id || getPinnedStaseId();
                 const validPinned = pinned && merged.some(s => s.id === pinned) ? pinned : null;
@@ -426,7 +445,9 @@ export async function deleteAllStasesData(userId) {
     pendingSync.clearStases();
     if (userId) {
         try {
-            await clearQueueByType(userId, 'stases').catch(() => {});
+            await clearQueueByType(userId, 'stases').catch((err) => {
+                logSyncWarning('stases.reset.clearQueueByType', userId, err);
+            });
             const { error } = await supabase.from('user_stases').upsert({
                 user_id: userId,
                 stases_data: [],
@@ -967,7 +988,9 @@ export async function syncSchedulesToSupabase(userId) {
             schedules_data: localSchedules,
             deleted_schedules_state: deletedSchedulesState,
         },
-    }).catch(() => {});
+    }).catch((err) => {
+        logSyncWarning('schedules.enqueue', userId, err);
+    });
     
     try {
         // 1. Fetch current server state to avoid blind overwrite
@@ -998,7 +1021,9 @@ export async function syncSchedulesToSupabase(userId) {
         saveSchedules(merged); // Update local with merged result
         clearAllScheduleDeletionState();
         pendingSync.clearSchedules();
-        clearQueueByType(userId, 'schedules').catch(() => {});
+        clearQueueByType(userId, 'schedules').catch((err) => {
+            logSyncWarning('schedules.clearQueueByType', userId, err);
+        });
     } catch (err) {
         console.error('Failed to sync schedules to Supabase:', err);
         pendingSync.markSchedules();
@@ -1035,12 +1060,16 @@ export async function fetchSchedulesFromSupabase(userId) {
         if (
             !data && localSchedules.length > 0
         ) {
-            syncSchedulesToSupabase(userId).catch(() => {});
+            syncSchedulesToSupabase(userId).catch((err) => {
+                logSyncWarning('schedules.fetch.autoSync.missingRemoteRow', userId, err);
+            });
         } else if (
             (Array.isArray(data?.schedules_data) && serverSchedules.length !== data.schedules_data.length)
             || schedulesDiffer(serverSchedules, mergedWithDeletions)
         ) {
-            syncSchedulesToSupabase(userId).catch(() => {});
+            syncSchedulesToSupabase(userId).catch((err) => {
+                logSyncWarning('schedules.fetch.autoSync.reconcile', userId, err);
+            });
         }
 
         return mergedWithDeletions;
@@ -1123,7 +1152,9 @@ export async function deleteAllSchedulesData(userId) {
     }
     try {
         // 1. Clear IndexedDB queue to stop pending syncs from overwriting the reset
-        await clearQueueByType(userId, 'schedules').catch(() => {});
+        await clearQueueByType(userId, 'schedules').catch((err) => {
+            logSyncWarning('schedules.reset.clearQueueByType', userId, err);
+        });
         pendingSync.clearSchedules();
         
         // 2. Perform the remote reset by upserting an empty array instead of deleting the row.
