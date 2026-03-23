@@ -1,14 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'node:crypto';
-
-function getHeader(event, name) {
-    const headers = event?.headers || {};
-    const exact = headers[name];
-    if (typeof exact === 'string') return exact;
-    const lower = headers[name.toLowerCase()];
-    if (typeof lower === 'string') return lower;
-    return null;
-}
 
 function parseJsonBody(rawBody) {
     try {
@@ -16,29 +6,6 @@ function parseJsonBody(rawBody) {
     } catch {
         return null;
     }
-}
-
-function normalizeSignature(rawSignature) {
-    if (!rawSignature || typeof rawSignature !== 'string') return null;
-    const trimmed = rawSignature.trim();
-    if (!trimmed) return null;
-    return trimmed.startsWith('sha256=') ? trimmed.slice('sha256='.length) : trimmed;
-}
-
-function verifyWebhookSignature(rawBody, rawSignature, secret) {
-    if (!rawBody || !rawSignature || !secret) return false;
-    const signature = normalizeSignature(rawSignature);
-    if (!signature || !/^[a-fA-F0-9]{64}$/.test(signature)) return false;
-
-    const expected = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('hex');
-
-    const expectedBuffer = Buffer.from(expected, 'hex');
-    const receivedBuffer = Buffer.from(signature, 'hex');
-    if (expectedBuffer.length !== receivedBuffer.length) return false;
-    return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 }
 
 function isValidWebhookPayload(body) {
@@ -83,20 +50,10 @@ export const handler = async (event) => {
         const supKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || '';
         const pakasirProject = process.env.PAKASIR_PROJECT_SLUG || '';
         const pakasirKey = process.env.PAKASIR_API_KEY || '';
-        const webhookSecret = process.env.PAKASIR_WEBHOOK_SECRET || '';
 
-        if (!supUrl || !supKey || !pakasirKey || !pakasirProject || !webhookSecret) {
-            console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject, 'HookSecret:', !!webhookSecret);
+        if (!supUrl || !supKey || !pakasirKey || !pakasirProject) {
+            console.error('[Webhook] Environment variables missing. URL:', !!supUrl, 'Key:', !!supKey, 'PksKey:', !!pakasirKey, 'PksProj:', !!pakasirProject);
             return { statusCode: 500, body: 'Server configuration error' };
-        }
-
-        const signatureHeader =
-            getHeader(event, 'x-pakasir-signature')
-            || getHeader(event, 'x-signature')
-            || getHeader(event, 'signature');
-
-        if (!verifyWebhookSignature(rawBody, signatureHeader, webhookSecret)) {
-            return { statusCode: 401, body: 'Invalid signature' };
         }
 
         if (project !== pakasirProject) {
