@@ -44,6 +44,25 @@ function buildScheduleMessage(event, reminderMinutes) {
     ].join('\n');
 }
 
+function buildEnqueueWarnings(metrics, env) {
+    const warnings = [];
+    const minStaleDeleteRatio = Number(env.SCHEDULE_STALE_DELETE_RATIO_WARN_THRESHOLD || 0.9);
+
+    if (metrics.staleDeleteErrors > 0) {
+        warnings.push(`stale_delete_errors:${metrics.staleDeleteErrors}`);
+    }
+
+    if (
+        metrics.staleCandidates > 0
+        && Number.isFinite(minStaleDeleteRatio)
+        && metrics.staleDeleteRatio < minStaleDeleteRatio
+    ) {
+        warnings.push(`stale_delete_ratio_low:${metrics.staleDeleteRatio}`);
+    }
+
+    return warnings;
+}
+
 async function enqueueSchedules(supabase, env) {
     const REMINDER_MINUTES = Number(env.SCHEDULE_REMINDER_MINUTES || 10);
     const LOOKAHEAD_MINUTES = Number(env.SCHEDULE_REMINDER_LOOKAHEAD_MINUTES || 60);
@@ -179,12 +198,14 @@ export const handler = async (event, context) => {
         });
 
         const enqueueResult = await enqueueSchedules(supabase, process.env);
+        const warnings = buildEnqueueWarnings(enqueueResult, process.env);
 
         return {
             statusCode: 200,
             body: JSON.stringify({
                 ok: true,
                 ...enqueueResult,
+                warning: warnings.length > 0 ? warnings.join(', ') : null,
                 timestamp: new Date().toISOString(),
             }),
         };

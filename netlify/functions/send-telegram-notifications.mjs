@@ -7,6 +7,27 @@ function computeRetryDelayMs(nextAttemptCount, env) {
     return Math.min(maxMs, baseMs * (2 ** exp));
 }
 
+function buildDispatchWarnings(metrics, env) {
+    const warnings = [];
+    const lockMissWarnThreshold = Number(env.TELEGRAM_LOCK_MISS_RATIO_WARN_THRESHOLD || 0.3);
+    const lockMissRatio = metrics.candidates > 0
+        ? Number((metrics.lockMiss / metrics.candidates).toFixed(4))
+        : 0;
+
+    if (metrics.dead > 0) {
+        warnings.push(`dead_letter_count:${metrics.dead}`);
+    }
+
+    if (Number.isFinite(lockMissWarnThreshold) && lockMissRatio > lockMissWarnThreshold) {
+        warnings.push(`lock_miss_ratio_high:${lockMissRatio}`);
+    }
+
+    return {
+        warnings,
+        lockMissRatio,
+    };
+}
+
 async function dispatch(supabase, env) {
     const BATCH_SIZE = Number(env.TELEGRAM_MAX_BATCH_SIZE || 50);
     const MAX_RETRY_ATTEMPTS = Number(env.TELEGRAM_MAX_RETRY_ATTEMPTS || 5);
@@ -200,13 +221,18 @@ export const handler = async (event, context) => {
         });
 
         const metrics = await dispatch(supabase, process.env);
+        const { warnings, lockMissRatio } = buildDispatchWarnings(metrics, process.env);
 
         return {
             statusCode: 200,
             body: JSON.stringify({
                 ok: true,
                 sent: metrics.sent,
-                dispatch: metrics,
+                dispatch: {
+                    ...metrics,
+                    lockMissRatio,
+                },
+                warning: warnings.length > 0 ? warnings.join(', ') : null,
                 timestamp: new Date().toISOString(),
             }),
         };
