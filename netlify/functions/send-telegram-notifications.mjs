@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const WIB_TIMEZONE = 'Asia/Jakarta';
+function computeRetryDelayMs(nextAttemptCount, env) {
+    const baseMs = Number(env.TELEGRAM_RETRY_BASE_MS || 10000);
+    const maxMs = Number(env.TELEGRAM_RETRY_MAX_MS || 5 * 60 * 1000);
+    const exp = Math.max(0, nextAttemptCount - 1);
+    return Math.min(maxMs, baseMs * (2 ** exp));
+}
 
 async function dispatch(supabase, env) {
     const BATCH_SIZE = Number(env.TELEGRAM_MAX_BATCH_SIZE || 50);
+    const MAX_RETRY_ATTEMPTS = Number(env.TELEGRAM_MAX_RETRY_ATTEMPTS || 5);
     const startMs = Date.now();
     const runId = `netlify-${startMs}`;
 
@@ -68,13 +74,19 @@ async function dispatch(supabase, env) {
                 });
             } else {
                 const errBody = await res.text();
-                const status = (res.status === 429 || res.status >= 500) ? 'failed' : 'dead';
+                const nextAttemptCount = (lockedRow.attempt_count || 0) + 1;
+                const isRetriable = (res.status === 429 || res.status >= 500);
+                const canRetry = isRetriable && nextAttemptCount < MAX_RETRY_ATTEMPTS;
+                const status = canRetry ? 'failed' : 'dead';
+                const nextAttemptAt = canRetry
+                    ? new Date(Date.now() + computeRetryDelayMs(nextAttemptCount, env)).toISOString()
+                    : null;
 
                 const { error: updateErr } = await supabase.from('notification_dispatch_queue').update({
                     status,
                     last_error: errBody,
-                    attempt_count: (lockedRow.attempt_count || 0) + 1,
-                    next_attempt_at: status === 'failed' ? new Date(Date.now() + 10000).toISOString() : null,
+                    attempt_count: nextAttemptCount,
+                    next_attempt_at: nextAttemptAt,
                     lock_owner: null,
                     locked_at: null
                 }).eq('id', lockedRow.id);
@@ -87,8 +99,8 @@ async function dispatch(supabase, env) {
                         source_id: 'unknown',
                         user_id: 'unknown',
                         channel: 'telegram',
-                        status: status === 'failed' ? 'failed' : 'dead',
-                        attempt_number: (lockedRow.attempt_count || 0) + 1,
+                        status,
+                        attempt_number: nextAttemptCount,
                         provider_http_status: res.status,
                         error_message: errBody,
                     });
@@ -96,9 +108,18 @@ async function dispatch(supabase, env) {
             }
         } catch (err) {
             console.error(`[dispatch] Error sending to ${lockedRow.id}:`, err.message);
-            // Revert lock on network error so it can be retried
+            const nextAttemptCount = (lockedRow.attempt_count || 0) + 1;
+            const canRetry = nextAttemptCount < MAX_RETRY_ATTEMPTS;
+            const status = canRetry ? 'failed' : 'dead';
+            const nextAttemptAt = canRetry
+                ? new Date(Date.now() + computeRetryDelayMs(nextAttemptCount, env)).toISOString()
+                : null;
+
             await supabase.from('notification_dispatch_queue').update({
-                status: 'pending',
+                status,
+                attempt_count: nextAttemptCount,
+                last_error: err?.message || 'Network error',
+                next_attempt_at: nextAttemptAt,
                 lock_owner: null,
                 locked_at: null
             }).eq('id', lockedRow.id);

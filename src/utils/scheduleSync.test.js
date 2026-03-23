@@ -64,6 +64,15 @@ test('mergeSchedules keeps the most recently updated event for the same id', () 
     ]);
 });
 
+test('mergeSchedules ignores invalid serverUpdatedAt when applying deletion semantics', () => {
+    const local = [
+        { id: 'local-only', title: 'Only local', date: '2026-03-15', updatedAt: '2026-03-15T08:00:00.000Z' },
+    ];
+    const server = [];
+
+    assert.deepEqual(mergeSchedules(local, server, 'not-a-valid-timestamp'), local);
+});
+
 test('schedulesDiffer compares schedule content independent of order', () => {
     const left = [
         { id: 'a', title: 'A', date: '2026-03-14', startTime: '08:00' },

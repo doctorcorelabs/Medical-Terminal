@@ -188,7 +188,16 @@ export async function syncToSupabase(userId) {
         pendingSync.clearPatients();
         clearQueueByType(userId, 'patients').catch(() => {});
     } catch (err) {
-        console.error("Failed to sync Patients to Supabase:", err);
+        const errorMessage = String(err?.message || '');
+        const deniedByRls = /row-level security|violates row-level security/i.test(errorMessage);
+        if (deniedByRls && localPatients.length > 2) {
+            console.error('Patients sync blocked by server policy: patient limit exceeded for current role.', {
+                userId,
+                patientCount: localPatients.length,
+            });
+        } else {
+            console.error("Failed to sync Patients to Supabase:", err);
+        }
         pendingSync.markPatients();
         throw err;
     }

@@ -29,6 +29,12 @@ function getScheduleTimestamp(item) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseServerTimestamp(value) {
+    if (!value) return 0;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 /**
  * Merges local and server schedules.
  * If serverUpdatedAt is provided, it handles deletions: items in local but not 
@@ -36,7 +42,7 @@ function getScheduleTimestamp(item) {
  */
 export function mergeSchedules(localSchedules = [], serverSchedules = [], serverUpdatedAt = null) {
     const mergedById = new Map();
-    const serverTimestamp = serverUpdatedAt ? Date.parse(serverUpdatedAt) : 0;
+    const serverTimestamp = parseServerTimestamp(serverUpdatedAt);
     const serverIds = new Set(serverSchedules.map(s => normalizedScheduleId(s)).filter(Boolean));
 
     // 1. Process Local Schedules
