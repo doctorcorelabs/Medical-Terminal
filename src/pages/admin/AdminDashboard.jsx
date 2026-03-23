@@ -17,7 +17,9 @@ export default function AdminDashboard() {
                 today.setHours(0, 0, 0, 0);
                 const todayISO = today.toISOString();
                 const activeUserSampleLimit = 5000;
+                const since15m = new Date(Date.now() - (15 * 60 * 1000)).toISOString();
 
+                // Batch 1: Stats queries (lightweight + critical)
                 const [usersRes, usageTodayCountRes, usageActiveSampleRes, flagsRes] = await Promise.all([
                     supabase.from('profiles').select('id', { count: 'exact', head: true }),
                     supabase.from('usage_logs').select('id', { count: 'exact', head: true }).gte('accessed_at', todayISO),
@@ -25,11 +27,22 @@ export default function AdminDashboard() {
                     supabase.from('feature_flags').select('enabled'),
                 ]);
 
-                const since15m = new Date(Date.now() - (15 * 60 * 1000)).toISOString();
-                const [metricsRes, alertsRes] = await Promise.all([
-                    supabase.from('system_health_metrics').select('metric_name, metric_value').gte('measured_at', since15m),
-                    supabase.from('alert_events').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-                ]);
+                // Batch 2: Health metrics (can timeout, so fetch separately with timeout protection)
+                let metricsRes = { data: [] };
+                let alertsRes = { count: 0 };
+                try {
+                    const healthBatch = await Promise.race([
+                        Promise.all([
+                            supabase.from('system_health_metrics').select('metric_name, metric_value').gte('measured_at', since15m),
+                            supabase.from('alert_events').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+                        ]),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Health fetch timeout')), 8000)),
+                    ]);
+                    [metricsRes, alertsRes] = healthBatch;
+                } catch (healthErr) {
+                    console.warn('[AdminDashboard] Health metrics fetch timeout/failed:', healthErr.message);
+                    // Continue with empty metrics; non-fatal
+                }
 
                 const uniqueActiveToday = new Set((usageActiveSampleRes.data || []).map(r => r.user_id)).size;
                 const disabledCount = (flagsRes.data || []).filter(f => !f.enabled).length;

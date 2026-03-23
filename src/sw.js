@@ -111,11 +111,24 @@ async function processQueueOnce() {
     }
 
     let allOk = true;
+    const failedDequeue = [];
     for (const group of Object.values(groups)) {
         try {
             await flushGroup(group, syncWarnings);
             for (const item of group.items) {
-                await dequeue(item.id);
+                try {
+                    await dequeue(item.id);
+                } catch (dequeueErr) {
+                    failedDequeue.push(item.id);
+                    console.error('[SW] dequeue failed for item:', item.id, dequeueErr);
+                    allOk = false;
+                    syncWarnings.push({
+                        scope: 'sw',
+                        code: 'dequeue_failed',
+                        itemId: item.id,
+                        error: dequeueErr?.message,
+                    });
+                }
             }
         } catch (err) {
             console.error('[SW] flushGroup failed:', group.type, err);

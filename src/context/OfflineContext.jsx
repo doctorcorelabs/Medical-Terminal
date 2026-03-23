@@ -129,6 +129,8 @@ export function OfflineProvider({ children }) {
         return unsub;
     }, [refreshConflictCount, refreshPendingStatus]);
 
+    const syncInFlightRef = useRef(false);
+
     const flushPendingSync = useCallback(async (uid) => {
         const id = uid || userRef.current?.id;
         if (!id || !navigator.onLine) {
@@ -140,43 +142,55 @@ export function OfflineProvider({ children }) {
             return;
         }
 
+        // Prevent concurrent sync calls — guard re-entry
+        if (syncInFlightRef.current) {
+            console.warn('[OfflineContext] Sync already in flight, ignoring concurrent request');
+            return;
+        }
+
+        syncInFlightRef.current = true;
         setIsSyncing(true);
         setSyncFailed(false);
         let failed = false;
-        try {
-            if (pendingSync.hasPatients()) {
-                await syncToSupabase(id);
-                // syncToSupabase clears/marks the flag internally; if still set → failed
-            }
-        } catch (err) {
-            logSyncWarning('syncToSupabase', id, err);
-            failed = true;
-        }
-        try {
-            if (pendingSync.hasStases()) {
-                await syncStasesToSupabase(id);
-            }
-        } catch (err) {
-            logSyncWarning('syncStasesToSupabase', id, err);
-            failed = true;
-        }
-        try {
-            if (pendingSync.hasSchedules()) {
-                await syncSchedulesToSupabase(id);
-            }
-        } catch (err) {
-            logSyncWarning('syncSchedulesToSupabase', id, err);
-            failed = true;
-        }
-        // Also treat as failed if any flag is still set after sync attempts
-        if (pendingSync.hasAny()) failed = true;
 
-        setSyncFailed(failed);
-        setSyncDegraded(false);
-        setSyncWarnings([]);
-        if (!failed) setLastSyncAt(new Date());
-        setIsSyncing(false);
-        refreshPendingStatus();
+        try {
+            try {
+                if (pendingSync.hasPatients()) {
+                    await syncToSupabase(id);
+                    // syncToSupabase clears/marks the flag internally; if still set → failed
+                }
+            } catch (err) {
+                logSyncWarning('syncToSupabase', id, err);
+                failed = true;
+            }
+            try {
+                if (pendingSync.hasStases()) {
+                    await syncStasesToSupabase(id);
+                }
+            } catch (err) {
+                logSyncWarning('syncStasesToSupabase', id, err);
+                failed = true;
+            }
+            try {
+                if (pendingSync.hasSchedules()) {
+                    await syncSchedulesToSupabase(id);
+                }
+            } catch (err) {
+                logSyncWarning('syncSchedulesToSupabase', id, err);
+                failed = true;
+            }
+            // Also treat as failed if any flag is still set after sync attempts
+            if (pendingSync.hasAny()) failed = true;
+
+            setSyncFailed(failed);
+            setSyncDegraded(false);
+            setSyncWarnings([]);
+            if (!failed) setLastSyncAt(new Date());
+        } finally {
+            syncInFlightRef.current = false;
+            setIsSyncing(false);
+            refreshPendingStatus();
+        }
     }, [refreshPendingStatus]);
 
     // Listen to browser online/offline events
