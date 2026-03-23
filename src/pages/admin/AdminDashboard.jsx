@@ -8,6 +8,7 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({ totalUsers: 0, activeToday: 0, usageToday: 0, disabledFeatures: 0 });
     const [health, setHealth] = useState({ errorRate15m: 0, avgLatency15m: 0, offlineSyncDegraded15m: 0, openAlerts: 0 });
     const [loading, setLoading] = useState(true);
+    const [fetchWarning, setFetchWarning] = useState(null);
 
     useEffect(() => {
         async function fetchStats() {
@@ -15,10 +16,12 @@ export default function AdminDashboard() {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const todayISO = today.toISOString();
+                const activeUserSampleLimit = 5000;
 
-                const [usersRes, usageTodayRes, flagsRes] = await Promise.all([
+                const [usersRes, usageTodayCountRes, usageActiveSampleRes, flagsRes] = await Promise.all([
                     supabase.from('profiles').select('id', { count: 'exact', head: true }),
-                    supabase.from('usage_logs').select('user_id, feature_key').gte('accessed_at', todayISO),
+                    supabase.from('usage_logs').select('id', { count: 'exact', head: true }).gte('accessed_at', todayISO),
+                    supabase.from('usage_logs').select('user_id').gte('accessed_at', todayISO).limit(activeUserSampleLimit),
                     supabase.from('feature_flags').select('enabled'),
                 ]);
 
@@ -28,20 +31,36 @@ export default function AdminDashboard() {
                     supabase.from('alert_events').select('id', { count: 'exact', head: true }).eq('status', 'open'),
                 ]);
 
-                const uniqueActiveToday = new Set((usageTodayRes.data || []).map(r => r.user_id)).size;
+                const uniqueActiveToday = new Set((usageActiveSampleRes.data || []).map(r => r.user_id)).size;
                 const disabledCount = (flagsRes.data || []).filter(f => !f.enabled).length;
+                const usageSampleCapped = (usageActiveSampleRes.data || []).length >= activeUserSampleLimit;
+
+                if (usageSampleCapped) {
+                    setFetchWarning('Ringkasan pengguna aktif hari ini menggunakan sampel data (traffic tinggi).');
+                } else {
+                    setFetchWarning(null);
+                }
 
                 setStats({
                     totalUsers: usersRes.count ?? 0,
                     activeToday: uniqueActiveToday,
-                    usageToday: (usageTodayRes.data || []).length,
+                    usageToday: usageTodayCountRes.count ?? 0,
                     disabledFeatures: disabledCount,
                 });
 
                 const m = metricsRes.data || [];
-                const errorSamples = m.filter(x => x.metric_name === 'error_rate').map(x => Number(x.metric_value));
-                const latencySamples = m.filter(x => x.metric_name === 'latency_ms').map(x => Number(x.metric_value));
-                const degradedSamples = m.filter(x => x.metric_name === 'offline_sync_degraded_count').map(x => Number(x.metric_value));
+                const errorSamples = m
+                    .filter(x => x.metric_name === 'error_rate')
+                    .map(x => Number(x.metric_value))
+                    .filter(Number.isFinite);
+                const latencySamples = m
+                    .filter(x => x.metric_name === 'latency_ms')
+                    .map(x => Number(x.metric_value))
+                    .filter(Number.isFinite);
+                const degradedSamples = m
+                    .filter(x => x.metric_name === 'offline_sync_degraded_count')
+                    .map(x => Number(x.metric_value))
+                    .filter(Number.isFinite);
                 const avg = (arr) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
                 const max = (arr) => arr.length ? Math.max(...arr) : 0;
 
@@ -52,7 +71,8 @@ export default function AdminDashboard() {
                     openAlerts: alertsRes.count ?? 0,
                 });
             } catch (_err) {
-                // non-fatal
+                // Non-fatal: keep admin dashboard usable but show warning state.
+                setFetchWarning('Sebagian data dashboard gagal dimuat. Coba refresh lagi.');
             } finally {
                 setLoading(false);
             }
@@ -97,6 +117,11 @@ export default function AdminDashboard() {
                         <p className="text-sm md:text-base text-slate-500 dark:text-slate-400">Kelola pengguna, fitur, dan pantau penggunaan aplikasi.</p>
                     </div>
                 </div>
+                {fetchWarning && (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+                        {fetchWarning}
+                    </div>
+                )}
             </div>
 
             {/* Stat Cards */}

@@ -18,6 +18,12 @@ function parseLookbackMinutes(value, fallback = 15) {
   return Math.min(parsed, 24 * 60);
 }
 
+function getBucketStartIso(now, minutes) {
+  const windowMs = minutes * 60 * 1000;
+  const bucketStartMs = Math.floor(now.getTime() / windowMs) * windowMs;
+  return new Date(bucketStartMs).toISOString();
+}
+
 function summarizeWarningCodes(rows) {
   const counts = new Map();
 
@@ -42,6 +48,19 @@ async function verifyBearerUser(supabase, token) {
   return data.user.id;
 }
 
+async function isAdminUser(supabase, userId) {
+  if (!userId) return false;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) return false;
+  return String(data?.role || '').toLowerCase() === 'admin';
+}
+
 async function authorizeRequest(request, env, supabase) {
   const internalKey = request.headers.get('x-internal-key');
   const authHeader = request.headers.get('Authorization') || '';
@@ -58,7 +77,11 @@ async function authorizeRequest(request, env, supabase) {
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice('Bearer '.length).trim();
     const userId = await verifyBearerUser(supabase, token);
-    if (userId) return { ok: true, mode: 'user-bearer', userId };
+    if (userId) {
+      const isAdmin = await isAdminUser(supabase, userId);
+      if (isAdmin) return { ok: true, mode: 'admin-bearer', userId };
+      return { ok: false, status: 403, error: 'Admin access required' };
+    }
   }
 
   return { ok: false, status: 401, error: 'Unauthorized' };
@@ -79,6 +102,7 @@ async function runAggregation(env, options = {}) {
   const lookbackMinutes = parseLookbackMinutes(options.lookbackMinutes, parseLookbackMinutes(env.SYNC_HEALTH_LOOKBACK_MINUTES, 15));
   const now = new Date();
   const sinceIso = new Date(now.getTime() - lookbackMinutes * 60 * 1000).toISOString();
+  const bucketStart = getBucketStartIso(now, lookbackMinutes);
 
   const { data: events, error: eventsError } = await supabase
     .from('user_activity_events')
@@ -101,9 +125,43 @@ async function runAggregation(env, options = {}) {
   const measuredAt = now.toISOString();
   const labels = {
     window_minutes: lookbackMinutes,
+    bucket_start: bucketStart,
     invocation: options.invocation || 'manual',
     top_warning_codes: topWarningCodes,
   };
+
+  const metricNames = [
+    'offline_sync_degraded_count',
+    'offline_sync_degraded_users',
+    'offline_sync_warning_avg',
+  ];
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from('system_health_metrics')
+    .select('id, metric_name')
+    .eq('source', 'offline_sync')
+    .eq('labels->>bucket_start', bucketStart)
+    .in('metric_name', metricNames)
+    .limit(3);
+
+  if (existingError) throw existingError;
+
+  const existingMetricNames = new Set((existingRows || []).map((row) => row.metric_name));
+  if (metricNames.every((name) => existingMetricNames.has(name))) {
+    return {
+      lookbackMinutes,
+      measuredAt,
+      insertedMetrics: 0,
+      deduped: true,
+      summarized: {
+        eventCount,
+        uniqueUsers,
+        warningCountTotal,
+        warningAvg: Number(warningAvg.toFixed(2)),
+        topWarningCodes,
+      },
+    };
+  }
 
   const metricRows = [
     {

@@ -7,6 +7,7 @@ Cloudflare Worker ini mengagregasi event `offline_sync_degraded` dari tabel `use
 - Cron aggregation setiap 5 menit (`*/5 * * * *`)
 - Endpoint manual `POST /run-sync-health`
 - Health endpoint `GET /health`
+- Akses manual endpoint: hanya `x-internal-key`/internal bearer atau bearer user dengan role `admin`
 - Metrik yang ditulis:
   - `offline_sync_degraded_count`
   - `offline_sync_degraded_users`

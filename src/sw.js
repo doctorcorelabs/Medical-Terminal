@@ -95,7 +95,9 @@ async function broadcastToClients(message) {
 }
 
 // ── Background Sync processor ─────────────────────────────────────
-async function processQueue() {
+let processQueueInFlight = null;
+
+async function processQueueOnce() {
     const items = await peekQueue();
     if (items.length === 0) return;
     const syncWarnings = [];
@@ -129,6 +131,22 @@ async function processQueue() {
         warnings: syncWarnings.slice(0, 10),
         processedAt: new Date().toISOString(),
     });
+}
+
+function processQueue() {
+    if (processQueueInFlight) {
+        return processQueueInFlight;
+    }
+
+    processQueueInFlight = (async () => {
+        try {
+            await processQueueOnce();
+        } finally {
+            processQueueInFlight = null;
+        }
+    })();
+
+    return processQueueInFlight;
 }
 
 // ── Fetch current server row ──────────────────────────────────────
