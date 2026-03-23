@@ -9,6 +9,14 @@ import { getPendingStatusFromQueue } from './offlineContextUtils';
 
 const OfflineContext = createContext();
 
+function logSyncWarning(operation, userId, err) {
+    console.warn('[OfflineContext] Sync warning', {
+        operation,
+        userId: userId || null,
+        error: err?.message || String(err || 'unknown'),
+    });
+}
+
 export function OfflineProvider({ children }) {
     const { user } = useAuth();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -42,7 +50,11 @@ export function OfflineProvider({ children }) {
 
     // Refresh conflict count from IDB
     const refreshConflictCount = useCallback(() => {
-        countConflicts().then(setConflictCount).catch(() => {});
+        countConflicts()
+            .then(setConflictCount)
+            .catch((err) => {
+                logSyncWarning('countConflicts', userRef.current?.id, err);
+            });
     }, []);
 
     const refreshPendingStatus = useCallback(() => {
@@ -89,21 +101,24 @@ export function OfflineProvider({ children }) {
                 await syncToSupabase(id);
                 // syncToSupabase clears/marks the flag internally; if still set → failed
             }
-        } catch {
+        } catch (err) {
+            logSyncWarning('syncToSupabase', id, err);
             failed = true;
         }
         try {
             if (pendingSync.hasStases()) {
                 await syncStasesToSupabase(id);
             }
-        } catch {
+        } catch (err) {
+            logSyncWarning('syncStasesToSupabase', id, err);
             failed = true;
         }
         try {
             if (pendingSync.hasSchedules()) {
                 await syncSchedulesToSupabase(id);
             }
-        } catch {
+        } catch (err) {
+            logSyncWarning('syncSchedulesToSupabase', id, err);
             failed = true;
         }
         // Also treat as failed if any flag is still set after sync attempts
@@ -120,7 +135,9 @@ export function OfflineProvider({ children }) {
         const handleOnline = () => {
             setIsOnline(true);
             // Try Background Sync via SW first, then fallback to page-level flush
-            triggerSwSync().catch(() => {});
+            triggerSwSync().catch((err) => {
+                logSyncWarning('triggerSwSync', userRef.current?.id, err);
+            });
             flushPendingSync();
         };
         const handleOffline = () => {

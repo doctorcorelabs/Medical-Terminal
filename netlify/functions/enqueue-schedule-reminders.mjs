@@ -22,6 +22,10 @@ function buildScheduleIdempotencyKey(userId, eventId, eventDate, eventTime, remi
     return `schedule:${userId}:${eventId || 'na'}:${eventDate}:${eventTime}:${reminderMinutes}`;
 }
 
+function getEffectiveEventTime(event) {
+    return event?.isAllDay ? '09:00' : (event?.startTime || '09:00');
+}
+
 function escapeHtml(value = '') {
     return String(value)
         .replaceAll('&', '&amp;')
@@ -58,6 +62,10 @@ function buildEnqueueWarnings(metrics, env) {
         && metrics.staleDeleteRatio < minStaleDeleteRatio
     ) {
         warnings.push(`stale_delete_ratio_low:${metrics.staleDeleteRatio}`);
+    }
+
+    if (metrics.enqueueInsertMismatch > 0) {
+        warnings.push(`enqueue_insert_mismatch:${metrics.enqueueInsertMismatch}`);
     }
 
     return warnings;
@@ -98,13 +106,20 @@ async function enqueueSchedules(supabase, env) {
         const events = scheduleMap.get(channel.user_id) || [];
 
         for (const event of events) {
-            const utcTime = localDateTimeToUtcWib(event.date, event.isAllDay ? '09:00' : (event.startTime || '09:00'));
+            const effectiveEventTime = getEffectiveEventTime(event);
+            const utcTime = localDateTimeToUtcWib(event.date, effectiveEventTime);
             if (!utcTime) continue;
 
             const reminderAt = new Date(utcTime.getTime() - REMINDER_MINUTES * 60 * 1000);
             if (reminderAt < windowStart || reminderAt > windowEnd) continue;
 
-            const idempotencyKey = buildScheduleIdempotencyKey(channel.user_id, event.id, event.date, event.startTime, REMINDER_MINUTES);
+            const idempotencyKey = buildScheduleIdempotencyKey(
+                channel.user_id,
+                event.id,
+                event.date,
+                effectiveEventTime,
+                REMINDER_MINUTES,
+            );
             const nextAttempt = reminderAt > now ? reminderAt.toISOString() : now.toISOString();
 
             rowsToInsert.push({
@@ -133,10 +148,15 @@ async function enqueueSchedules(supabase, env) {
     let staleCandidates = 0;
     let staleDeleted = 0;
     let staleDeleteErrors = 0;
+    let enqueueInsertMismatch = 0;
     if (rowsToInsert.length > 0) {
-        const { data } = await supabase.from('notification_dispatch_queue')
+        const { data, error: upsertErr } = await supabase.from('notification_dispatch_queue')
             .upsert(rowsToInsert, { onConflict: 'idempotency_key', ignoreDuplicates: true }).select('id');
+        if (upsertErr) throw upsertErr;
         enqueuedCount = data?.length || 0;
+        if (enqueuedCount === 0) {
+            enqueueInsertMismatch = rowsToInsert.length;
+        }
     }
 
     // Clean up stale queue entries only after latest rows are upserted.
@@ -175,6 +195,7 @@ async function enqueueSchedules(supabase, env) {
         staleCandidates,
         staleDeleted,
         staleDeleteErrors,
+        enqueueInsertMismatch,
         channelsScanned: channels.length,
         activeUsers: activeEventIdsByUser.size,
         staleDeleteRatio: staleCandidates > 0 ? Number((staleDeleted / staleCandidates).toFixed(4)) : 1,
