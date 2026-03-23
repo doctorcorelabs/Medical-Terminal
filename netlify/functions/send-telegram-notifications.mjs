@@ -18,6 +18,14 @@ function buildDispatchWarnings(metrics, env) {
         warnings.push(`dead_letter_count:${metrics.dead}`);
     }
 
+    if (metrics.logWriteFailures > 0) {
+        warnings.push(`dispatch_log_write_failures:${metrics.logWriteFailures}`);
+    }
+
+    if (metrics.queueUpdateFailures > 0) {
+        warnings.push(`dispatch_queue_update_failures:${metrics.queueUpdateFailures}`);
+    }
+
     if (Number.isFinite(lockMissWarnThreshold) && lockMissRatio > lockMissWarnThreshold) {
         warnings.push(`lock_miss_ratio_high:${lockMissRatio}`);
     }
@@ -26,6 +34,24 @@ function buildDispatchWarnings(metrics, env) {
         warnings,
         lockMissRatio,
     };
+}
+
+async function insertDispatchLog(supabase, logEntry) {
+    const { error } = await supabase
+        .from('notification_dispatch_logs')
+        .insert(logEntry);
+
+    if (error) {
+        console.warn('[dispatch] Failed to write dispatch log', {
+            queueId: logEntry.queue_id,
+            status: logEntry.status,
+            attemptNumber: logEntry.attempt_number,
+            error: error.message,
+        });
+        return false;
+    }
+
+    return true;
 }
 
 async function dispatch(supabase, env) {
@@ -50,6 +76,8 @@ async function dispatch(supabase, env) {
             failed: 0,
             dead: 0,
             retried: 0,
+            logWriteFailures: 0,
+            queueUpdateFailures: 0,
             durationMs: Date.now() - startMs,
         };
     }
@@ -61,6 +89,8 @@ async function dispatch(supabase, env) {
     let failedCount = 0;
     let deadCount = 0;
     let retriedCount = 0;
+    let logWriteFailures = 0;
+    let queueUpdateFailures = 0;
 
     for (const item of candidates) {
         // ATOMIC LOCK: Only proceed if we can change status from 'pending' to 'processing'
@@ -74,7 +104,7 @@ async function dispatch(supabase, env) {
             })
             .eq('id', item.id)
             .eq('status', 'pending')
-            .select('id, payload, attempt_count')
+            .select('id, payload, attempt_count, source_id, user_id')
             .maybeSingle();
 
         if (!lockedRow) {
@@ -105,19 +135,28 @@ async function dispatch(supabase, env) {
                     locked_at: null
                 }).eq('id', lockedRow.id);
 
-                if (!updateErr) sentCount++;
+                if (!updateErr) {
+                    sentCount++;
+                } else {
+                    queueUpdateFailures += 1;
+                    console.warn('[dispatch] Failed to update queue status to sent', {
+                        queueId: lockedRow.id,
+                        error: updateErr.message,
+                    });
+                }
 
                 // Log the successful send
-                await supabase.from('notification_dispatch_logs').insert({
+                const wroteLog = await insertDispatchLog(supabase, {
                     queue_id: lockedRow.id,
                     source_type: 'schedule',
-                    source_id: 'unknown',
-                    user_id: 'unknown',
+                    source_id: lockedRow.source_id || 'unknown',
+                    user_id: lockedRow.user_id || 'unknown',
                     channel: 'telegram',
                     status: 'sent',
                     attempt_number: (lockedRow.attempt_count || 0) + 1,
                     provider_http_status: res.status,
                 });
+                if (!wroteLog) logWriteFailures += 1;
             } else {
                 const errBody = await res.text();
                 const nextAttemptCount = (lockedRow.attempt_count || 0) + 1;
@@ -145,16 +184,24 @@ async function dispatch(supabase, env) {
                     } else {
                         deadCount += 1;
                     }
-                    await supabase.from('notification_dispatch_logs').insert({
+                    const wroteLog = await insertDispatchLog(supabase, {
                         queue_id: lockedRow.id,
                         source_type: 'schedule',
-                        source_id: 'unknown',
-                        user_id: 'unknown',
+                        source_id: lockedRow.source_id || 'unknown',
+                        user_id: lockedRow.user_id || 'unknown',
                         channel: 'telegram',
                         status,
                         attempt_number: nextAttemptCount,
                         provider_http_status: res.status,
                         error_message: errBody,
+                    });
+                    if (!wroteLog) logWriteFailures += 1;
+                } else {
+                    queueUpdateFailures += 1;
+                    console.warn('[dispatch] Failed to update queue status after provider error', {
+                        queueId: lockedRow.id,
+                        status,
+                        error: updateErr.message,
                     });
                 }
             }
@@ -167,7 +214,7 @@ async function dispatch(supabase, env) {
                 ? new Date(Date.now() + computeRetryDelayMs(nextAttemptCount, env)).toISOString()
                 : null;
 
-            await supabase.from('notification_dispatch_queue').update({
+            const { error: updateErr } = await supabase.from('notification_dispatch_queue').update({
                 status,
                 attempt_count: nextAttemptCount,
                 last_error: err?.message || 'Network error',
@@ -176,12 +223,34 @@ async function dispatch(supabase, env) {
                 locked_at: null
             }).eq('id', lockedRow.id);
 
+            if (updateErr) {
+                queueUpdateFailures += 1;
+                console.warn('[dispatch] Failed to update queue status after network exception', {
+                    queueId: lockedRow.id,
+                    status,
+                    error: updateErr.message,
+                });
+            }
+
             if (status === 'failed') {
                 failedCount += 1;
                 retriedCount += 1;
             } else {
                 deadCount += 1;
             }
+
+            const wroteLog = await insertDispatchLog(supabase, {
+                queue_id: lockedRow.id,
+                source_type: 'schedule',
+                source_id: lockedRow.source_id || 'unknown',
+                user_id: lockedRow.user_id || 'unknown',
+                channel: 'telegram',
+                status,
+                attempt_number: nextAttemptCount,
+                provider_http_status: null,
+                error_message: err?.message || 'Network error',
+            });
+            if (!wroteLog) logWriteFailures += 1;
         }
     }
     return {
@@ -193,6 +262,8 @@ async function dispatch(supabase, env) {
         failed: failedCount,
         dead: deadCount,
         retried: retriedCount,
+        logWriteFailures,
+        queueUpdateFailures,
         durationMs: Date.now() - startMs,
     };
 }
