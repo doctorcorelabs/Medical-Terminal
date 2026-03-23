@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
@@ -293,13 +293,15 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                 {activeTab === 'vitals' && <TabVitalSigns patient={patient}
                     onAdd={(vitals) => addVitalSign(patient.id, vitals)}
                     onUpdate={(vsId, updates) => updateVitalSign(patient.id, vsId, updates)}
-                    onRemove={(vsId) => removeVitalSign(patient.id, vsId)} />}
+                    onRemove={(vsId) => removeVitalSign(patient.id, vsId)} 
+                    canEditPatient={canEditPatient} />}
                 {activeTab === 'symptoms' && <TabGejala patient={patient} input={symptomInput} setInput={setSymptomInput}
                     onAdd={(e) => { e.preventDefault(); if (!symptomInput.name.trim()) return; addSymptom(patient.id, { ...symptomInput, recordedAt: symptomInput.recordedAt ? new Date(symptomInput.recordedAt).toISOString() : new Date().toISOString() }); setSymptomInput({ name: '', severity: 'sedang', notes: '', recordedAt: getNowLocalISO() }); }}
                     onRemove={(symptomId) => removeSymptom(patient.id, symptomId)}
                     onUpdate={(symptomId, updates) => updateSymptom(patient.id, symptomId, updates)}
                     onAI={() => callAI('symptoms', () => getSymptomInsight((patient.symptoms || []).map(s => s.name), `${patient.name}, ${patient.age} tahun`))}
-                    aiResult={aiResults.symptoms} aiLoading={aiLoading.symptoms} />}
+                    aiResult={aiResults.symptoms} aiLoading={aiLoading.symptoms} 
+                    canEditPatient={canEditPatient} />}
                 {activeTab === 'physical' && <TabDataUmum judul="Pemeriksaan Fisik" storageKey="physical" items={patient.physicalExams || []} input={examInput} setInput={setExamInput}
                     fields={[
                         { key: 'system', type: 'select', label: 'Sistem', options: ['umum', 'kepala', 'leher', 'thorax', 'abdomen', 'ekstremitas', 'neurologis', 'kulit'] },
@@ -310,26 +312,126 @@ ${aiText || 'Belum ada evaluasi AI'}`;
                     onUpdate={(examId, updates) => updatePhysicalExam(patient.id, examId, updates)}
                     renderItem={(item) => <div className="min-w-0"><span className="text-xs font-bold text-primary uppercase">{item.system}</span><p className="text-sm text-slate-600 dark:text-slate-400 mt-1 wrap-break-word leading-relaxed">{item.findings}</p></div>}
                     onAI={() => callAI('physical', () => getPhysicalExamInsight((patient.physicalExams || []).map(e => e.findings).join('; '), (patient.symptoms || []).map(s => s.name).join(', ')))}
-                    aiResult={aiResults.physical} aiLoading={aiLoading.physical} />}
+                    aiResult={aiResults.physical} aiLoading={aiLoading.physical} 
+                    canEditPatient={canEditPatient} />}
                 {activeTab === 'labs' && <TabLab patient={patient} input={labInput} setInput={setLabInput}
                     onAdd={(e) => { e.preventDefault(); if (!labInput.testName.trim() && labInput.labKey !== 'custom') return; addSupportingExam(patient.id, { type: 'lab', ...labInput, date: labInput.date ? new Date(labInput.date).toISOString() : new Date().toISOString(), result: checkLabValue(labInput.labKey, labInput.value, patient.gender) }); setLabInput({ testName: '', value: '', unit: '', labKey: '', date: getNowLocalISO() }); }}
                     onRemove={(examId) => removeSupportingExam(patient.id, examId)}
                     onUpdate={(examId, updates) => updateSupportingExam(patient.id, examId, updates)}
                     onAI={() => callAI('labs', () => getSupportingExamInsight((patient.supportingExams || []).map(e => `${e.testName}: ${e.value} ${e.unit}`).join(', '), patient.diagnosis || ''))}
-                    aiResult={aiResults.labs} aiLoading={aiLoading.labs} />}
+                    aiResult={aiResults.labs} aiLoading={aiLoading.labs} 
+                    canEditPatient={canEditPatient} />}
                 {activeTab === 'prescriptions' && <TabObat patient={patient} input={prescInput} setInput={setPrescInput}
                     onAdd={(e) => { e.preventDefault(); if (!prescInput.name.trim()) return; addPrescription(patient.id, { ...prescInput, date: prescInput.date ? new Date(prescInput.date).toISOString() : new Date().toISOString() }); setPrescInput({ name: '', dosage: '', frequency: '', route: 'oral', date: getNowLocalISO(), fornas_source: false, fornas_form: '', fornas_category: '' }); }}
                     onRemove={(prescId) => removePrescription(patient.id, prescId)}
                     onUpdate={(prescId, updates) => updatePrescription(patient.id, prescId, updates)}
                     onAI={() => callAI('drugs', () => getMedicationRecommendation(patient.diagnosis, (patient.symptoms || []).map(s => s.name).join(', ')))}
-                    aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} />}
+                    aiResult={aiResults.drugs} aiLoading={aiLoading.drugs} 
+                    canEditPatient={canEditPatient} />}
                 {activeTab === 'reports' && <TabLaporan patient={patient} input={reportInput} setInput={setReportInput}
                     onAdd={(e) => { e.preventDefault(); if (!reportInput.notes.trim()) return; addDailyReport(patient.id, { ...reportInput, date: reportInput.date ? new Date(reportInput.date).toISOString() : new Date().toISOString() }); if (reportInput.condition) updatePatient(patient.id, { condition: reportInput.condition }); setReportInput({ notes: '', condition: '', date: getNowLocalISO() }); }}
                     onRemove={(reportId) => removeDailyReport(patient.id, reportId)}
                     onUpdate={(reportId, updates) => updateDailyReport(patient.id, reportId, updates)}
                     onAI={() => { const r = patient.dailyReports || []; callAI('daily', () => getDailyEvaluation(r[r.length - 1] || {}, r[r.length - 2] || {})); }}
-                    aiResult={aiResults.daily} aiLoading={aiLoading.daily} />}
+                    aiResult={aiResults.daily} aiLoading={aiLoading.daily} 
+                    canEditPatient={canEditPatient} />}
                 {activeTab === 'ai' && <TabAI patient={patient} callAI={callAI} aiResults={aiResults} aiLoading={aiLoading} onSaveAI={handleSaveAI} canEditPatient={canEditPatient} />}
+            </div>
+        </div>
+    );
+}
+
+/* ====== PATIENT ACTIONS ====== */
+function PatientActions({ patient, canEditPatient, recovery, stases }) {
+    const { updatePatient } = usePatients();
+    const [showTransfer, setShowTransfer] = useState(false);
+    const transferRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (transferRef.current && !transferRef.current.contains(e.target)) setShowTransfer(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const currentStase = useMemo(() => stases.find(s => s.id === patient.stase_id), [stases, patient.stase_id]);
+
+    const handleTransfer = (staseId) => {
+        updatePatient(patient.id, { stase_id: staseId });
+        setShowTransfer(false);
+    };
+
+    return (
+        <div className="relative z-40 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 animate-[slideDown_0.3s_ease-out]">
+            <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/50 dark:border-slate-700/50 shadow-sm transition-all hover:shadow-md">
+                {/* Stase Indicator/Picker */}
+                <div className="flex items-center gap-3 pr-4 sm:border-r border-slate-100 dark:border-slate-800">
+                    <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 border-2 ${currentStase ? '' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'}`}
+                        style={currentStase ? { backgroundColor: `${currentStase.color}15`, borderColor: `${currentStase.color}30`, color: currentStase.color } : {}}>
+                        <span className="material-symbols-outlined text-[20px]">{currentStase ? 'assignment' : 'person_pin_circle'}</span>
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Stase Saat Ini</p>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{currentStase ? currentStase.name : 'Belum Ditentukan'}</span>
+                            {currentStase && <span className="size-2 rounded-full animate-pulse" style={{ backgroundColor: currentStase.color }} />}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Progress Mini Widget */}
+                {recovery && (
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status Pemulihan</p>
+                            <span className={`text-[10px] font-black ${recovery.progress > 70 ? 'text-green-500' : 'text-primary'}`}>{Math.min(100, Math.round(recovery.progress))}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${recovery.progress > 100 ? 'bg-red-500' : recovery.progress > 70 ? 'bg-green-500' : 'bg-primary'}`}
+                                style={{ width: `${Math.min(100, recovery.progress)}%` }} />
+                        </div>
+                    </div>
+                )}
+
+                {/* Pin/Quick Actions if any */}
+                <div className="flex items-center gap-2 shrink-0 ml-auto pt-2 sm:pt-0">
+                    {canEditPatient && (
+                        <div className="relative" ref={transferRef}>
+                            <button onClick={() => setShowTransfer(!showTransfer)} 
+                                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary transition-all text-xs font-bold shadow-sm hover:shadow-md active:scale-95">
+                                <span className="material-symbols-outlined text-sm transition-transform group-hover:rotate-180">swap_horiz</span>
+                                Pindah Stase
+                            </button>
+                            
+                            {showTransfer && (
+                                <div className="absolute top-full right-0 mt-3 w-60 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl z-50 overflow-hidden animate-[fadeIn_0.15s_ease-out] ring-4 ring-black/5">
+                                    <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rotasi Stase</p>
+                                        <span className="material-symbols-outlined text-slate-400 text-sm">layers</span>
+                                    </div>
+                                    <div className="max-h-72 overflow-y-auto custom-scrollbar p-1.5 space-y-1">
+                                        {stases.map(s => (
+                                            <button key={s.id} onClick={() => handleTransfer(s.id)}
+                                                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all text-left group/item ${patient.stase_id === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                                                <span className="size-3 rounded-full shrink-0 shadow-sm border border-white/50" style={{ backgroundColor: s.color }} />
+                                                <span className="text-xs font-bold flex-1">{s.name}</span>
+                                                {patient.stase_id === s.id && <span className="material-symbols-outlined text-primary text-base">check_circle</span>}
+                                            </button>
+                                        ))}
+                                        {patient.stase_id && (
+                                            <button onClick={() => handleTransfer(null)}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 transition-all text-left border-t border-slate-100 dark:border-slate-800 mt-1">
+                                                <span className="material-symbols-outlined text-sm">link_off</span>
+                                                <span className="text-xs font-black uppercase tracking-wider">Lepas dari Stase</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -800,39 +902,48 @@ function TabVitalSigns({ patient, onAdd, onUpdate, onRemove, canEditPatient }) {
         <div className="space-y-5 lg:space-y-6">
             {/* Input Form */}
             <Kartu judul="Catat Vital Signs" className="border-primary/20 bg-primary/5">
-                {canEditPatient && (<form onSubmit={handleAdd} className="space-y-4">
-                    <div className="space-y-5">
-                        <div className="space-y-1.5 px-1">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><span className="material-symbols-outlined text-sm">calendar_month</span> Waktu Pencatatan</label>
-                            <input type="datetime-local" value={vitalInput.recordedAt} onChange={setV('recordedAt')}
-                                className="w-full sm:w-auto rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3 px-4 shadow-sm hover:shadow-md" />
+                {canEditPatient && (
+                    <form onSubmit={handleAdd} className="space-y-6">
+                        {/* Waktu Pencatatan */}
+                        <div className="space-y-2 px-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm">calendar_month</span> 
+                                Waktu Pencatatan
+                            </label>
+                            <div className="relative group max-w-xs">
+                                <input type="datetime-local" value={vitalInput.recordedAt} onChange={setV('recordedAt')}
+                                    className="w-full rounded-2xl border border-white dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 text-sm font-semibold transition-all py-3.5 px-4 shadow-sm hover:shadow-md" />
+                            </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+
+                        {/* Vital Signs Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
                             {[
-                                { k: 'heartRate', l: 'Jantung', u: 'bpm', i: 'favorite', c: 'text-red-500' },
-                                { k: 'bloodPressure', l: 'TD', u: 'mmHg', i: 'rebase_edit', c: 'text-blue-500' },
-                                { k: 'temperature', l: 'Suhu', u: '°C', i: 'thermostat', c: 'text-amber-500' },
-                                { k: 'respRate', l: 'Napas', u: '/min', i: 'air', c: 'text-teal-500' },
-                                { k: 'spO2', l: 'SpO2', u: '%', i: 'lungs', c: 'text-indigo-500' },
+                                { k: 'heartRate', l: 'Detak Jantung', u: 'bpm', i: 'favorite', c: 'text-red-500' },
+                                { k: 'bloodPressure', l: 'Tekanan Darah', u: 'mmHg', i: 'rebase_edit', c: 'text-blue-500' },
+                                { k: 'temperature', l: 'Suhu Tubuh', u: '°C', i: 'thermostat', c: 'text-amber-500' },
+                                { k: 'respRate', l: 'Frek. Napas', u: '/min', i: 'air', c: 'text-teal-500' },
+                                { k: 'spO2', l: 'Saturasi SpO2', u: '%', i: 'pulmonology', c: 'text-indigo-500' },
                             ].map(f => (
-                                <div key={f.k} className="p-4 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md rounded-2xl border border-white/50 dark:border-slate-700/50 flex flex-col items-center group hover:border-primary/40 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all duration-300 shadow-sm hover:shadow-md">
-                                    <div className={`p-2 rounded-xl bg-white/60 dark:bg-slate-900 mb-2 group-hover:scale-110 shadow-sm transition-transform ${f.c}`}>
-                                        <span className="material-symbols-outlined text-[16px] block">{f.i}</span>
+                                <div key={f.k} className="p-4 bg-white/40 dark:bg-slate-800/40 backdrop-blur-md rounded-2xl border border-white/50 dark:border-slate-700/50 flex flex-col items-center group hover:border-primary/40 hover:bg-white/60 dark:hover:bg-slate-800/60 transition-all duration-300 shadow-sm hover:shadow-md h-full">
+                                    <div className={`p-2 rounded-xl bg-white dark:bg-slate-900 mb-3 group-hover:scale-110 shadow-sm transition-transform ${f.c}`}>
+                                        <span className="material-symbols-outlined text-[18px] block">{f.i}</span>
                                     </div>
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-widest text-center">{f.l}</span>
-                                    <div className="flex items-baseline gap-1 relative">
-                                        <input type="text" value={vitalInput[f.k]} onChange={setV(f.k)} placeholder="-" className="w-16 bg-transparent border-none p-0 text-center font-bold text-xl text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-200" />
-                                        <span className="text-[7px] text-slate-400 font-bold uppercase tracking-tighter absolute -right-3 bottom-1">{f.u}</span>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase mb-2.5 tracking-wider text-center leading-tight">{f.l}</span>
+                                    <div className="flex items-baseline gap-1 relative mt-auto">
+                                        <input type="text" value={vitalInput[f.k]} onChange={setV(f.k)} placeholder="-" className="w-16 bg-transparent border-none p-0 text-center font-black text-2xl text-slate-900 dark:text-white focus:ring-0 placeholder:text-slate-200" />
+                                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter absolute -right-3 bottom-1">{f.u}</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
-                    <button type="submit" 
-                        className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined font-bold">add_circle</span> Simpan Data Vital
-                    </button>
-                </form>)}
+
+                        <button type="submit" 
+                            className="w-full bg-primary text-white py-4.5 rounded-2xl font-black text-sm shadow-xl shadow-primary/25 hover:shadow-primary/40 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                            <span className="material-symbols-outlined font-black">add_circle</span> Simpan Data Vital
+                        </button>
+                    </form>
+                )}
             </Kartu>
 
             {/* Chart tren */}

@@ -9,10 +9,6 @@ export default function AdminSubscriptions() {
     const [searchTerm, setSearchTerm] = useState('');
     const { addToast } = useToast();
 
-    useEffect(() => {
-        fetchTransactions();
-    }, [fetchTransactions]);
-
     const fetchTransactions = useCallback(async () => {
         setLoading(true);
         try {
@@ -55,6 +51,11 @@ export default function AdminSubscriptions() {
             setLoading(false);
         }
     }, [addToast]);
+
+    useEffect(() => {
+        fetchTransactions();
+    }, [fetchTransactions]);
+
 
     const filteredTransactions = transactions.filter(t => 
         t.gateway_order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
