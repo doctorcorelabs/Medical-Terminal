@@ -55,7 +55,17 @@ async function enqueueSchedules(supabase, env) {
 
     const { data: channels } = await supabase.from('notification_channels')
         .select('*').eq('channel', 'telegram').eq('is_enabled', true).eq('is_verified', true).eq('schedule_enabled', true);
-    if (!channels || channels.length === 0) return 0;
+    if (!channels || channels.length === 0) {
+        return {
+            enqueued: 0,
+            staleCandidates: 0,
+            staleDeleted: 0,
+            staleDeleteErrors: 0,
+            channelsScanned: 0,
+            activeUsers: 0,
+            staleDeleteRatio: 1,
+        };
+    }
 
     const userIds = channels.map(c => c.user_id);
     const { data: schedulesRows } = await supabase.from('user_schedules').select('user_id, schedules_data').in('user_id', userIds);
@@ -146,6 +156,9 @@ async function enqueueSchedules(supabase, env) {
         staleCandidates,
         staleDeleted,
         staleDeleteErrors,
+        channelsScanned: channels.length,
+        activeUsers: activeEventIdsByUser.size,
+        staleDeleteRatio: staleCandidates > 0 ? Number((staleDeleted / staleCandidates).toFixed(4)) : 1,
     };
 }
 

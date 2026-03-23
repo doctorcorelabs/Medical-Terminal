@@ -19,9 +19,28 @@ async function dispatch(supabase, env) {
         .lte('next_attempt_at', new Date().toISOString())
         .limit(BATCH_SIZE);
 
-    if (!candidates || candidates.length === 0) return 0;
+    if (!candidates || candidates.length === 0) {
+        return {
+            sent: 0,
+            candidates: 0,
+            processed: 0,
+            locked: 0,
+            lockMiss: 0,
+            failed: 0,
+            dead: 0,
+            retried: 0,
+            durationMs: Date.now() - startMs,
+        };
+    }
 
     let sentCount = 0;
+    let processedCount = 0;
+    let lockedCount = 0;
+    let lockMissCount = 0;
+    let failedCount = 0;
+    let deadCount = 0;
+    let retriedCount = 0;
+
     for (const item of candidates) {
         // ATOMIC LOCK: Only proceed if we can change status from 'pending' to 'processing'
         const { data: lockedRow } = await supabase
@@ -37,7 +56,13 @@ async function dispatch(supabase, env) {
             .select('id, payload, attempt_count')
             .maybeSingle();
 
-        if (!lockedRow) continue; // Row grabbed by another worker
+        if (!lockedRow) {
+            lockMissCount += 1;
+            continue; // Row grabbed by another worker
+        }
+
+        lockedCount += 1;
+        processedCount += 1;
 
         try {
             const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -93,6 +118,12 @@ async function dispatch(supabase, env) {
 
                 // Log the failed send
                 if (!updateErr) {
+                    if (status === 'failed') {
+                        failedCount += 1;
+                        retriedCount += 1;
+                    } else {
+                        deadCount += 1;
+                    }
                     await supabase.from('notification_dispatch_logs').insert({
                         queue_id: lockedRow.id,
                         source_type: 'schedule',
@@ -123,9 +154,26 @@ async function dispatch(supabase, env) {
                 lock_owner: null,
                 locked_at: null
             }).eq('id', lockedRow.id);
+
+            if (status === 'failed') {
+                failedCount += 1;
+                retriedCount += 1;
+            } else {
+                deadCount += 1;
+            }
         }
     }
-    return sentCount;
+    return {
+        sent: sentCount,
+        candidates: candidates.length,
+        processed: processedCount,
+        locked: lockedCount,
+        lockMiss: lockMissCount,
+        failed: failedCount,
+        dead: deadCount,
+        retried: retriedCount,
+        durationMs: Date.now() - startMs,
+    };
 }
 
 export const handler = async (event, context) => {
@@ -151,13 +199,14 @@ export const handler = async (event, context) => {
             auth: { persistSession: false, autoRefreshToken: false },
         });
 
-        const sent = await dispatch(supabase, process.env);
+        const metrics = await dispatch(supabase, process.env);
 
         return {
             statusCode: 200,
             body: JSON.stringify({
                 ok: true,
-                sent,
+                sent: metrics.sent,
+                dispatch: metrics,
                 timestamp: new Date().toISOString(),
             }),
         };
