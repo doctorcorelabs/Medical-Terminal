@@ -11,6 +11,14 @@ import {
 
 const ScheduleContext = createContext();
 
+function logSyncWarning(operation, userId, err) {
+    console.warn('[ScheduleContext] Sync warning', {
+        operation,
+        userId: userId || null,
+        error: err?.message || String(err || 'unknown'),
+    });
+}
+
 export function ScheduleProvider({ children }) {
     const { user } = useAuth();
     const [schedules, setSchedules] = useState([]);
@@ -40,7 +48,9 @@ export function ScheduleProvider({ children }) {
         if (canSyncSchedules(user)) {
             dataService.syncSchedulesToSupabase(user.id)
                 .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('add'), force: true }))
-                .catch(() => {});
+                .catch((err) => {
+                    logSyncWarning('addSchedule.syncAndNotify', user.id, err);
+                });
         }
         return created;
     }, [refreshSchedules, user]);
@@ -51,7 +61,9 @@ export function ScheduleProvider({ children }) {
         if (canSyncSchedules(user)) {
             dataService.syncSchedulesToSupabase(user.id)
                 .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('update'), force: true }))
-                .catch(() => {});
+                .catch((err) => {
+                    logSyncWarning('updateSchedule.syncAndNotify', user.id, err);
+                });
         }
         return updated;
     }, [refreshSchedules, user]);
@@ -62,7 +74,9 @@ export function ScheduleProvider({ children }) {
         if (canSyncSchedules(user)) {
             dataService.syncSchedulesToSupabase(user.id)
                 .then(() => triggerNotificationCycle({ reason: getScheduleMutationReason('delete'), force: true }))
-                .catch(() => {});
+                .catch((err) => {
+                    logSyncWarning('deleteSchedule.syncAndNotify', user.id, err);
+                });
         }
     }, [refreshSchedules, user]);
 
@@ -73,8 +87,8 @@ export function ScheduleProvider({ children }) {
             try {
                 await dataService.syncSchedulesToSupabase(user.id);
                 await triggerNotificationCycle({ reason: getScheduleMutationReason('import'), force: true });
-            } catch (_err) {
-                // Silent fail — sync errors don't block UI
+            } catch (err) {
+                logSyncWarning('importSchedulesBulk.syncAndNotify', user.id, err);
             }
         }
         return merged;

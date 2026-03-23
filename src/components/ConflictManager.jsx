@@ -198,6 +198,15 @@ export default function ConflictManager() {
     const { refreshConflictCount } = useOffline();
     const { user } = useAuth();
 
+    const logConflictWarning = useCallback((operation, err, extra = {}) => {
+        console.warn('[ConflictManager] Warning', {
+            operation,
+            userId: user?.id || null,
+            error: err?.message || String(err || 'unknown'),
+            ...extra,
+        });
+    }, [user?.id]);
+
     const load = useCallback(() => {
         setLoading(true);
         listConflicts()
@@ -205,9 +214,11 @@ export default function ConflictManager() {
                 setConflicts(data);
                 if (!activeId && data.length > 0) setActiveId(data[0].id);
             })
-            .catch(() => {})
+            .catch((err) => {
+                logConflictWarning('load.listConflicts', err);
+            })
             .finally(() => setLoading(false));
-    }, [activeId]);
+    }, [activeId, logConflictWarning]);
 
     useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,12 +226,14 @@ export default function ConflictManager() {
         const conflict = conflicts.find(c => c.id === id);
         if (conflict?.type === 'patients' && merged?.id) {
             updatePatient(merged.id, merged);
-            syncToSupabase(user?.id).catch(() => {});
+            syncToSupabase(user?.id).catch((err) => {
+                logConflictWarning('resolve.syncToSupabase', err, { conflictId: id });
+            });
         }
         setConflicts(prev => prev.filter(c => c.id !== id));
         setActiveId(prev => prev === id ? null : (prev === id ? null : prev));
         refreshConflictCount();
-    }, [conflicts, refreshConflictCount, user?.id]);
+    }, [conflicts, logConflictWarning, refreshConflictCount, user?.id]);
 
     const handleDismiss = useCallback(async (id) => {
         await deleteConflict(id);

@@ -5,6 +5,14 @@ import { canSyncStases, findPinnedStase, getNextPinnedStaseId } from './staseCon
 
 const StaseContext = createContext();
 
+function logSyncWarning(operation, userId, err) {
+    console.warn('[StaseContext] Sync warning', {
+        operation,
+        userId: userId || null,
+        error: err?.message || String(err || 'unknown'),
+    });
+}
+
 export function StaseProvider({ children }) {
     const { user } = useAuth();
     const [stases, setStases] = useState([]);
@@ -33,34 +41,54 @@ export function StaseProvider({ children }) {
     const addStase = useCallback((name, color) => {
         const newStase = dataService.addStase({ name, color });
         refreshStases();
-        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) {
+            dataService.syncStasesToSupabase(user.id).catch((err) => {
+                logSyncWarning('addStase.syncStasesToSupabase', user.id, err);
+            });
+        }
         return newStase;
     }, [refreshStases, user]);
 
     const updateStase = useCallback((id, updates) => {
         const updated = dataService.updateStase(id, updates);
         refreshStases();
-        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) {
+            dataService.syncStasesToSupabase(user.id).catch((err) => {
+                logSyncWarning('updateStase.syncStasesToSupabase', user.id, err);
+            });
+        }
         return updated;
     }, [refreshStases, user]);
 
     const deleteStase = useCallback((id) => {
         dataService.deleteStase(id);
         refreshStases();
-        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) {
+            dataService.syncStasesToSupabase(user.id).catch((err) => {
+                logSyncWarning('deleteStase.syncStasesToSupabase', user.id, err);
+            });
+        }
     }, [refreshStases, user]);
 
     const pinStase = useCallback((id) => {
         const newPinned = getNextPinnedStaseId(pinnedStaseId, id);
         dataService.setPinnedStaseId(newPinned);
         setPinnedStaseIdState(newPinned);
-        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) {
+            dataService.syncStasesToSupabase(user.id).catch((err) => {
+                logSyncWarning('pinStase.syncStasesToSupabase', user.id, err);
+            });
+        }
     }, [pinnedStaseId, user]);
 
     const reorderStase = useCallback((id, direction) => {
         dataService.reorderStase(id, direction);
         refreshStases();
-        if (canSyncStases(user)) dataService.syncStasesToSupabase(user.id).catch(() => {});
+        if (canSyncStases(user)) {
+            dataService.syncStasesToSupabase(user.id).catch((err) => {
+                logSyncWarning('reorderStase.syncStasesToSupabase', user.id, err);
+            });
+        }
     }, [refreshStases, user]);
 
     const pinnedStase = findPinnedStase(stases, pinnedStaseId);

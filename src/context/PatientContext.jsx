@@ -5,6 +5,14 @@ import { canAddPatients, canEditPatients, resolveSelectedPatient } from './patie
 
 const PatientContext = createContext();
 
+function logSyncWarning(operation, userId, err) {
+    console.warn('[PatientContext] Sync warning', {
+        operation,
+        userId: userId || null,
+        error: err?.message || String(err || 'unknown'),
+    });
+}
+
 export function PatientProvider({ children }) {
     const { user, isIntern, isSpecialist, isExpiredSpecialist, isAdmin } = useAuth();
     const [patients, setPatients] = useState([]);
@@ -27,7 +35,9 @@ export function PatientProvider({ children }) {
     const refreshPatients = useCallback((skipSync = false) => {
         setPatients(dataService.getAllPatients());
         if (!skipSync && user) {
-            dataService.syncToSupabase(user.id).catch(() => {}); // Sync in background
+            dataService.syncToSupabase(user.id).catch((err) => {
+                logSyncWarning('syncToSupabase', user.id, err);
+            }); // Sync in background
         }
     }, [user]);
 
