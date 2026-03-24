@@ -88,6 +88,8 @@ export default function VitalSignsChart({ vitalSigns }) {
     const syncTimeoutRef = useRef(null);
     const lastSyncedRef = useRef(JSON.stringify(activeMetrics));
     const lastLocalChangeRef = useRef(null); // Track timestamp of recent local changes
+    const syncRetryCountRef = useRef(0);
+    const [prefsSyncState, setPrefsSyncState] = useState('idle');
 
     // 3. Handle Metadata Arrival / Sync from Other Devices
     useEffect(() => {
@@ -137,21 +139,40 @@ export default function VitalSignsChart({ vitalSigns }) {
         const serverPrefs = user.user_metadata?.vital_signs_prefs;
         if (Array.isArray(serverPrefs) && JSON.stringify(serverPrefs) === activeStr) {
             lastSyncedRef.current = activeStr;
+            syncRetryCountRef.current = 0;
+            setPrefsSyncState('synced');
             if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
             return;
         }
 
         if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-        
-        syncTimeoutRef.current = setTimeout(async () => {
+        setPrefsSyncState('syncing');
+
+        const maxSyncRetries = 4;
+        const syncAttempt = async () => {
             try {
                 await updateProfile({ vital_signs_prefs: activeMetrics });
                 lastSyncedRef.current = activeStr;
                 lastLocalChangeRef.current = null; // Clear the marker after successful sync
+                syncRetryCountRef.current = 0;
+                setPrefsSyncState('synced');
             } catch (err) {
                 console.error('[VitalSignsChart] Sync failed:', err);
+                const nextRetry = syncRetryCountRef.current + 1;
+                syncRetryCountRef.current = nextRetry;
+
+                if (nextRetry > maxSyncRetries) {
+                    setPrefsSyncState('failed');
+                    return;
+                }
+
+                setPrefsSyncState('retrying');
+                const backoffMs = Math.min(2000 * (2 ** (nextRetry - 1)), 30000);
+                syncTimeoutRef.current = setTimeout(syncAttempt, backoffMs);
             }
-        }, 2000); // 2-second debounce
+        };
+
+        syncTimeoutRef.current = setTimeout(syncAttempt, 2000); // 2-second debounce
 
         return () => {
             if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -215,6 +236,17 @@ export default function VitalSignsChart({ vitalSigns }) {
                     </button>
                 ))}
             </div>
+
+            {prefsSyncState === 'retrying' && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                    Sinkron preferensi vital sedang dicoba ulang.
+                </p>
+            )}
+            {prefsSyncState === 'failed' && (
+                <p className="text-[11px] text-red-600 dark:text-red-400">
+                    Preferensi belum tersimpan ke server. Periksa koneksi, perubahan tetap aman di perangkat ini.
+                </p>
+            )}
 
             {/* Chart */}
             <ResponsiveContainer width="100%" height={260} minWidth={0}>

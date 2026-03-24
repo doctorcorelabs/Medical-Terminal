@@ -165,7 +165,8 @@ async function dispatch(supabase, env) {
                 const errBody = await res.text();
                 const nextAttemptCount = (lockedRow.attempt_count || 0) + 1;
                 const isRetriable = (res.status === 429 || res.status >= 500);
-                const canRetry = isRetriable && nextAttemptCount < MAX_RETRY_ATTEMPTS;
+                const isNonRetriable = [400, 401, 403, 404, 422].includes(res.status);
+                const canRetry = !isNonRetriable && isRetriable && nextAttemptCount < MAX_RETRY_ATTEMPTS;
                 const status = canRetry ? 'failed' : 'dead';
                 const nextAttemptAt = canRetry
                     ? new Date(Date.now() + computeRetryDelayMs(nextAttemptCount, env)).toISOString()

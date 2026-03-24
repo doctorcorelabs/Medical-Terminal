@@ -28,21 +28,47 @@ export const handler = async (event) => {
             .limit(200);
         
         // Add 15-second timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('News fetch timeout after 15s')), 15000)
-        );
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                const timeoutErr = new Error('Supabase query timeout after 15s');
+                timeoutErr.code = 'TIMEOUT_15S';
+                reject(timeoutErr);
+            }, 15000);
+        });
         
-        const { data: dbArticles, error: dbError } = await Promise.race([
-            newsPromise,
-            timeoutPromise,
-        ]);
+        let dbArticles;
+        let dbError;
+        try {
+            ({ data: dbArticles, error: dbError } = await Promise.race([
+                newsPromise,
+                timeoutPromise,
+            ]));
+        } catch (raceErr) {
+            if (raceErr?.code === 'TIMEOUT_15S') {
+                console.error('[fetch-news] Timeout membaca Supabase:', raceErr.message);
+                return {
+                    statusCode: 504,
+                    headers,
+                    body: JSON.stringify({
+                        success: false,
+                        error: raceErr.message,
+                        errorCode: 'TIMEOUT_15S',
+                    }),
+                };
+            }
+            throw raceErr;
+        }
 
         if (dbError) {
             console.error('[fetch-news] Error membaca dari Supabase:', dbError.message);
             return {
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({ success: false, error: dbError.message }),
+                body: JSON.stringify({
+                    success: false,
+                    error: dbError.message,
+                    errorCode: 'SUPABASE_DB_ERROR',
+                }),
             };
         }
 
@@ -82,7 +108,11 @@ export const handler = async (event) => {
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ success: false, error: error.message }),
+            body: JSON.stringify({
+                success: false,
+                error: error.message,
+                errorCode: 'UNEXPECTED_ERROR',
+            }),
         };
     }
 };

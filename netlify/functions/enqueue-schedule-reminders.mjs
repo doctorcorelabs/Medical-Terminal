@@ -68,6 +68,10 @@ function buildEnqueueWarnings(metrics, env) {
         warnings.push(`enqueue_insert_mismatch:${metrics.enqueueInsertMismatch}`);
     }
 
+    if (metrics.malformedChannelsSkipped > 0) {
+        warnings.push(`malformed_channels_skipped:${metrics.malformedChannelsSkipped}`);
+    }
+
     return warnings;
 }
 
@@ -94,7 +98,36 @@ async function enqueueSchedules(supabase, env) {
         };
     }
 
-    const userIds = channels.map(c => c.user_id);
+    let malformedChannelsSkipped = 0;
+    const validChannels = [];
+    for (const channel of channels) {
+        if (!channel?.user_id || !channel?.telegram_chat_id) {
+            malformedChannelsSkipped += 1;
+            console.warn('[enqueue-schedule-reminders] Skipping malformed notification channel', {
+                id: channel?.id || null,
+                hasUserId: Boolean(channel?.user_id),
+                hasTelegramChatId: Boolean(channel?.telegram_chat_id),
+            });
+            continue;
+        }
+        validChannels.push(channel);
+    }
+
+    const userIds = validChannels.map(c => c.user_id);
+    if (userIds.length === 0) {
+        return {
+            enqueued: 0,
+            staleCandidates: 0,
+            staleDeleted: 0,
+            staleDeleteErrors: 0,
+            enqueueInsertMismatch: 0,
+            malformedChannelsSkipped,
+            channelsScanned: channels.length,
+            activeUsers: 0,
+            staleDeleteRatio: 1,
+        };
+    }
+
     const { data: schedulesRows } = await supabase.from('user_schedules').select('user_id, schedules_data').in('user_id', userIds);
     const scheduleMap = new Map((schedulesRows || []).map(row => [row.user_id, row.schedules_data || []]));
 
@@ -102,7 +135,7 @@ async function enqueueSchedules(supabase, env) {
     const activeEventIdsByUser = new Map();
     const activeKeysByUser = new Map();
 
-    for (const channel of channels) {
+    for (const channel of validChannels) {
         const events = scheduleMap.get(channel.user_id) || [];
 
         for (const event of events) {
@@ -160,7 +193,7 @@ async function enqueueSchedules(supabase, env) {
     }
 
     // Clean up stale queue entries only after latest rows are upserted.
-    for (const channel of channels) {
+    for (const channel of validChannels) {
         const activeEventIds = [...(activeEventIdsByUser.get(channel.user_id) || new Set())];
         if (activeEventIds.length === 0) continue;
 
@@ -197,6 +230,7 @@ async function enqueueSchedules(supabase, env) {
         staleDeleted,
         staleDeleteErrors,
         enqueueInsertMismatch,
+        malformedChannelsSkipped,
         channelsScanned: channels.length,
         activeUsers: activeEventIdsByUser.size,
         staleDeleteRatio: staleCandidates > 0 ? Number((staleDeleted / staleCandidates).toFixed(4)) : 1,
