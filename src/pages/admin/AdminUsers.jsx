@@ -16,6 +16,8 @@ export default function AdminUsers() {
     const [search, setSearch] = useState('');
     const [pending, setPending] = useState(null); // { profile, newRole, newExpiresAt }
     const [saving, setSaving] = useState(false);
+    const [banPolicies, setBanPolicies] = useState({});
+    const [banSavingUserId, setBanSavingUserId] = useState(null);
     const returnTo = location.state?.returnTo;
     const returnState = location.state?.returnState ?? null;
     const hasReturnTarget = typeof returnTo === 'string' && returnTo.startsWith('/admin');
@@ -27,7 +29,26 @@ export default function AdminUsers() {
                 .from('profiles')
                 .select('id, user_id, username, full_name, role, created_at, subscription_expires_at')
                 .order('created_at', { ascending: false });
-            if (!error) setProfiles(data || []);
+            if (!error) {
+                const nextProfiles = data || [];
+                setProfiles(nextProfiles);
+
+                const userIds = [...new Set(nextProfiles.map((item) => item.user_id).filter(Boolean))];
+                if (userIds.length > 0) {
+                    const { data: banData, error: banError } = await supabase
+                        .from('user_ban_policies')
+                        .select('user_id, is_banned, reason, ban_expires_at')
+                        .in('user_id', userIds);
+
+                    if (!banError) {
+                        const map = (banData || []).reduce((acc, row) => {
+                            acc[row.user_id] = row;
+                            return acc;
+                        }, {});
+                        setBanPolicies(map);
+                    }
+                }
+            }
         } catch (_err) {
             addToast('Gagal memuat daftar pengguna.', 'error');
         } finally {
@@ -115,6 +136,113 @@ export default function AdminUsers() {
         navigate('/admin');
     };
 
+    const handleToggleBan = async (profile) => {
+        const targetUserId = profile?.user_id;
+        if (!targetUserId) return;
+
+        const currentlyBanned = banPolicies[targetUserId]?.is_banned === true;
+        const nowIso = new Date().toISOString();
+        setBanSavingUserId(targetUserId);
+
+        try {
+            const { data: authData } = await supabase.auth.getUser();
+            const actorUserId = authData?.user?.id || null;
+
+            if (currentlyBanned) {
+                const { error: unbanError } = await supabase
+                    .from('user_ban_policies')
+                    .upsert({
+                        user_id: targetUserId,
+                        is_banned: false,
+                        reason: null,
+                        unbanned_by: actorUserId,
+                        unbanned_at: nowIso,
+                        updated_at: nowIso,
+                    }, { onConflict: 'user_id' });
+
+                if (unbanError) throw unbanError;
+
+                await supabase
+                    .from('security_events')
+                    .insert({
+                        user_id: targetUserId,
+                        event_type: 'admin_manual_unban',
+                        severity: 'medium',
+                        metadata: {
+                            source: 'admin_users',
+                            actor_user_id: actorUserId,
+                        },
+                    });
+
+                addToast(`User ${profile.username || 'unknown'} berhasil di-unban.`, 'success');
+            } else {
+                const reasonInput = window.prompt('Alasan ban user (wajib):', 'Aktivitas login mencurigakan');
+                const reason = (reasonInput || '').trim();
+                if (!reason) {
+                    addToast('Ban dibatalkan karena alasan wajib diisi.', 'info');
+                    return;
+                }
+
+                const { error: banError } = await supabase
+                    .from('user_ban_policies')
+                    .upsert({
+                        user_id: targetUserId,
+                        is_banned: true,
+                        reason,
+                        banned_by: actorUserId,
+                        banned_at: nowIso,
+                        unbanned_at: null,
+                        unbanned_by: null,
+                        updated_at: nowIso,
+                    }, { onConflict: 'user_id' });
+
+                if (banError) throw banError;
+
+                await supabase
+                    .from('user_login_sessions')
+                    .update({
+                        is_active: false,
+                        revoked_at: nowIso,
+                        revoke_reason: 'admin_ban_enforced',
+                        updated_at: nowIso,
+                    })
+                    .eq('user_id', targetUserId)
+                    .eq('is_active', true);
+
+                await supabase
+                    .from('user_devices')
+                    .update({
+                        revoked_at: nowIso,
+                        revoked_reason: 'admin_ban_enforced',
+                        updated_at: nowIso,
+                    })
+                    .eq('user_id', targetUserId)
+                    .is('revoked_at', null);
+
+                await supabase
+                    .from('security_events')
+                    .insert({
+                        user_id: targetUserId,
+                        event_type: 'admin_manual_ban',
+                        severity: 'critical',
+                        metadata: {
+                            source: 'admin_users',
+                            actor_user_id: actorUserId,
+                            reason,
+                        },
+                    });
+
+                addToast(`User ${profile.username || 'unknown'} berhasil diban.`, 'success');
+            }
+
+            await fetchProfiles();
+        } catch (err) {
+            addToast(`Gagal mengubah status ban: ${err.message || ''}`, 'error');
+        } finally {
+            setBanSavingUserId(null);
+        }
+    };
+
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6 pb-20 lg:pb-8 max-w-5xl animate-[fadeIn_0.3s_ease-out]">
             {/* Header */}
@@ -191,6 +319,7 @@ export default function AdminUsers() {
                                 {filtered.map(profile => {
                                     const isSelf = profile.user_id === currentUser?.id;
                                     const isAdmin = profile.role === 'admin';
+                                    const isBanned = banPolicies[profile.user_id]?.is_banned === true;
                                     return (
                                         <tr key={profile.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                                             <td className="px-5 py-3.5">
@@ -202,8 +331,12 @@ export default function AdminUsers() {
                                                         <p className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                                                             {profile.username || '—'}
                                                             {isSelf && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">Anda</span>}
+                                                            {isBanned && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">BANNED</span>}
                                                         </p>
                                                         <p className="text-xs text-slate-400">{profile.full_name || ''}</p>
+                                                        {isBanned && (
+                                                            <p className="text-[10px] text-red-500 mt-0.5">{banPolicies[profile.user_id]?.reason || 'Tidak ada alasan'}</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -241,21 +374,36 @@ export default function AdminUsers() {
                                                     : '—'}
                                             </td>
                                             <td className="px-5 py-3.5 text-right">
-                                                <button
-                                                    onClick={() => setPending({ 
-                                                        profile, 
-                                                        newRole: profile.role || 'user',
-                                                        newExpiresAt: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toISOString().split('T')[0] : ''
-                                                    })}
-                                                    disabled={isSelf}
-                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                                                        isSelf
-                                                            ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
-                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                                    }`}
-                                                >
-                                                    Ubah Peran
-                                                </button>
+                                                <div className="inline-flex items-center gap-2 flex-wrap justify-end">
+                                                    <button
+                                                        onClick={() => setPending({ 
+                                                            profile, 
+                                                            newRole: profile.role || 'user',
+                                                            newExpiresAt: profile.subscription_expires_at ? new Date(profile.subscription_expires_at).toISOString().split('T')[0] : ''
+                                                        })}
+                                                        disabled={isSelf}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                            isSelf
+                                                                ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                        }`}
+                                                    >
+                                                        Ubah Peran
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleToggleBan(profile)}
+                                                        disabled={isSelf || banSavingUserId === profile.user_id}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                            isSelf || banSavingUserId === profile.user_id
+                                                                ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                                                : isBanned
+                                                                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                                                    : 'bg-red-500 text-white hover:bg-red-600'
+                                                        }`}
+                                                    >
+                                                        {banSavingUserId === profile.user_id ? 'Memproses...' : (isBanned ? 'Unban' : 'Ban')}
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -273,7 +421,7 @@ export default function AdminUsers() {
 
             {/* Role Edit Modal */}
             {pending && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
                     <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col animate-[slideUpScale_0.3s_cubic-bezier(0.16,1,0.3,1)]">
                         <div className="p-6 border-b border-slate-100 dark:border-slate-800">
                             <h3 className="text-xl font-black text-slate-900 dark:text-white">Ubah Peran Pengguna</h3>

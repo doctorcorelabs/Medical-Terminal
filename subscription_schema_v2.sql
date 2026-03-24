@@ -28,6 +28,23 @@ SET price = EXCLUDED.price,
     max_patients = EXCLUDED.max_patients,
     features = EXCLUDED.features;
 
+-- 2.1 Enable RLS for Plans
+ALTER TABLE public.subscription_plans ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Everyone (anon/auth) can view plans
+DROP POLICY IF EXISTS "Plans are viewable by everyone" ON public.subscription_plans;
+CREATE POLICY "Plans are viewable by everyone" 
+ON public.subscription_plans FOR SELECT 
+USING (true);
+
+-- Policy: Only admin can manage plans
+DROP POLICY IF EXISTS "Admins can manage plans" ON public.subscription_plans;
+CREATE POLICY "Admins can manage plans" 
+ON public.subscription_plans FOR ALL 
+TO authenticated 
+USING (public.is_admin()) 
+WITH CHECK (public.is_admin());
+
 -- 2. Transaksi/Riwayat Langganan User (Untuk Payment Gateway)
 -- Tabel ini akan di-insert ketika user klik "Beli" (menunggu bayar) dan di-update via Webhook dari Midtrans/Stripe/Pakasir.
 CREATE TABLE IF NOT EXISTS public.user_subscriptions (
@@ -47,6 +64,24 @@ CREATE TABLE IF NOT EXISTS public.user_subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+-- 2.2 Enable RLS for User Subscriptions
+ALTER TABLE public.user_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can view their own subscriptions
+DROP POLICY IF EXISTS "Users can view own subscriptions" ON public.user_subscriptions;
+CREATE POLICY "Users can view own subscriptions" 
+ON public.user_subscriptions FOR SELECT 
+TO authenticated 
+USING (auth.uid() = user_id);
+
+-- Policy: Admins can view and manage all subscriptions
+DROP POLICY IF EXISTS "Admins can manage all subscriptions" ON public.user_subscriptions;
+CREATE POLICY "Admins can manage all subscriptions" 
+ON public.user_subscriptions FOR ALL 
+TO authenticated 
+USING (public.is_admin()) 
+WITH CHECK (public.is_admin());
 
 -- 3. Memperbarui Tabel Profiles
 -- Kita tetap memakai kolom role/subscription_expires_at yang ada sekarang, 
@@ -96,7 +131,8 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 -- Trigger untuk menjalankan fungsi di atas
 DROP TRIGGER IF EXISTS on_subscription_active ON public.user_subscriptions;

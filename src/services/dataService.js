@@ -483,12 +483,8 @@ export async function syncStasesToSupabase(userId) {
             : localStases;
 
         let finalPinned = pinnedStaseId;
-        if (serverRow) {
-            const serverTs = serverRow.updated_at ? Date.parse(serverRow.updated_at) : 0;
-            if (serverTs > 0 && serverRow.pinned_stase_id !== undefined) {
-                finalPinned = serverRow.pinned_stase_id;
-            }
-        }
+        // Note: In this push-sync function, we favor the local pinned state.
+        // Validation against finalStases follows below.
         if (finalPinned && !finalStases.some(s => s.id === finalPinned)) {
             finalPinned = null;
         }

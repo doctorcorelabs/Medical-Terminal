@@ -27,6 +27,7 @@ const PatientDetail   = lazyRetry(() => import('./pages/PatientDetail'));
 const News            = lazyRetry(() => import('./pages/News'));
 const Reports         = lazyRetry(() => import('./pages/Reports'));
 const Settings        = lazyRetry(() => import('./pages/Settings'));
+const UserDevices     = lazyRetry(() => import('./pages/UserDevices'));
 const Schedule        = lazyRetry(() => import('./pages/Schedule'));
 const Tools           = lazyRetry(() => import('./pages/Tools'));
 const ICD10Tool       = lazyRetry(() => import('./pages/tools/ICD10Tool'));
@@ -46,6 +47,7 @@ const AdminAnnouncements = lazyRetry(() => import('./pages/admin/AdminAnnounceme
 const AdminAlerts = lazyRetry(() => import('./pages/admin/AdminAlerts'));
 const AdminUserTimeline = lazyRetry(() => import('./pages/admin/AdminUserTimeline'));
 const AdminSubscriptions = lazyRetry(() => import('./pages/admin/AdminSubscriptions'));
+const AdminUserDevices = lazyRetry(() => import('./pages/admin/AdminUserDevices'));
 const Subscription = lazyRetry(() => import('./pages/Subscription'));
 import { ScheduleProvider } from './context/ScheduleContext';
 
@@ -60,7 +62,7 @@ function PageLoader() {
 }
 
 function AppContent() {
-  const { user, isRecoveryMode } = useAuth();
+  const { user, isRecoveryMode, sessionSecurityPending } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
@@ -71,6 +73,14 @@ function AppContent() {
 
   if (!user || isRecoveryMode) {
     return <Login />;
+  }
+
+  if (sessionSecurityPending) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
+        <PageLoader />
+      </div>
+    );
   }
 
   return (
@@ -96,6 +106,7 @@ function AppContent() {
                   <Route path="/add-patient" element={<AddPatient />} />
                   <Route path="/patient/:id" element={<PatientDetail />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/settings/devices" element={<UserDevices />} />
                   <Route path="/schedule" element={<Schedule />} />
                   <Route path="/subscription" element={<Subscription />} />
                   <Route path="/tools" element={<Tools />} />
@@ -118,6 +129,7 @@ function AppContent() {
                   <Route path="/admin/alerts" element={<AdminRoute><AdminAlerts /></AdminRoute>} />
                   <Route path="/admin/timeline" element={<AdminRoute><AdminUserTimeline /></AdminRoute>} />
                   <Route path="/admin/subscriptions" element={<AdminRoute><AdminSubscriptions /></AdminRoute>} />
+                  <Route path="/admin/user-devices" element={<AdminRoute><AdminUserDevices /></AdminRoute>} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

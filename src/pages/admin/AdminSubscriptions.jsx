@@ -77,7 +77,7 @@ export default function AdminSubscriptions() {
     };
 
     return (
-        <div className="p-4 md:p-6 lg:p-10 max-w-[1400px] mx-auto animate-[fadeIn_0.3s_ease-out]">
+        <div className="p-4 md:p-6 lg:p-10 max-w-350 mx-auto animate-[fadeIn_0.3s_ease-out]">
             <div className="mb-8">
                 <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Manajemen Langganan</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Pantau semua transaksi masuk dan cetak ulang bukti pembayaran.</p>
@@ -172,7 +172,7 @@ export default function AdminSubscriptions() {
                                                     ACTIVE
                                                 </span>
                                             ) : t.status === 'pending' ? (
-                                                <span className="inline-flex items-center gap-1 text-amber-500 font-bold text-xs text-amber-500">
+                                                <span className="inline-flex items-center gap-1 text-amber-500 font-bold text-xs">
                                                     <span className="size-1.5 rounded-full bg-amber-500"></span>
                                                     PENDING
                                                 </span>

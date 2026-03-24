@@ -31,12 +31,12 @@ export default defineConfig({
         icons: [
           {
             src: '/Favicon.png',
-            sizes: '192x192',
+            sizes: '96x96',
             type: 'image/png',
           },
           {
             src: '/Favicon.png',
-            sizes: '512x512',
+            sizes: '96x96',
             type: 'image/png',
             purpose: 'any maskable',
           },

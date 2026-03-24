@@ -85,7 +85,9 @@ CREATE TABLE IF NOT EXISTS public.admin_exports (
 CREATE INDEX IF NOT EXISTS idx_admin_exports_admin_time ON public.admin_exports(admin_id, created_at DESC);
 
 -- 6) Views for Top users and inactivity (30 days)
-CREATE OR REPLACE VIEW public.v_top_users_30d AS
+CREATE OR REPLACE VIEW public.v_top_users_30d 
+WITH (security_invoker = true)
+AS
 SELECT
   p.user_id,
   p.username,
@@ -98,7 +100,9 @@ WHERE e.occurred_at >= now() - interval '30 days'
 GROUP BY p.user_id, p.username, p.full_name
 ORDER BY total_events_30d DESC;
 
-CREATE OR REPLACE VIEW public.v_inactive_users_30d AS
+CREATE OR REPLACE VIEW public.v_inactive_users_30d 
+WITH (security_invoker = true)
+AS
 SELECT
   p.user_id,
   p.username,

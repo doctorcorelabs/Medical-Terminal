@@ -7,19 +7,44 @@
  */
 
 import { openDB } from './idbQueue.js';
+import { getDeviceFingerprint, getBrowserName } from '../utils/deviceDetection.js';
 
 const DEVICE_ID_KEY = 'medterminal_device_id';
+const SESSION_ID_KEY = 'medterminal_session_id';
 
 export function getOrCreateDeviceId() {
     try {
         let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-        if (!deviceId) {
-            deviceId = crypto.randomUUID();
+        const fingerprint = getDeviceFingerprint();
+
+        if (!deviceId || !deviceId.startsWith('hw-')) {
+            deviceId = fingerprint;
             localStorage.setItem(DEVICE_ID_KEY, deviceId);
         }
+        
         return deviceId;
     } catch {
         return `fallback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+}
+
+export function getOrCreateSessionId() {
+    try {
+        let sessionId = localStorage.getItem(SESSION_ID_KEY);
+        const deviceId = getOrCreateDeviceId();
+        const browser = getBrowserName().replace(/\s+/g, '');
+        
+        // Session ID is device-specific AND browser-specific
+        const expectedPrefix = `${deviceId}-${browser}`;
+
+        if (!sessionId || !sessionId.startsWith(expectedPrefix)) {
+            sessionId = `${expectedPrefix}-${crypto.randomUUID().slice(0, 8)}`;
+            localStorage.setItem(SESSION_ID_KEY, sessionId);
+        }
+        
+        return sessionId;
+    } catch {
+        return `sess-fallback-${Date.now()}`;
     }
 }
 

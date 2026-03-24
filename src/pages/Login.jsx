@@ -6,7 +6,18 @@ import { useToast } from '../context/ToastContext';
 const TURNSTILE_TELEMETRY_KEY = 'medterminal_turnstile_events';
 
 export default function Login() {
-    const { signIn, signUp, resetPassword, updatePassword, isRecoveryMode, setIsRecoveryMode, isUsernameAvailable, signInWithGoogle } = useAuth();
+    const {
+        signIn,
+        signUp,
+        resetPassword,
+        updatePassword,
+        isRecoveryMode,
+        setIsRecoveryMode,
+        isUsernameAvailable,
+        signInWithGoogle,
+        authDenial,
+        clearAuthDenial,
+    } = useAuth();
     const { addToast } = useToast();
     const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'forgot' | 'recovery'
     const [email, setEmail] = useState('');
@@ -134,6 +145,7 @@ export default function Login() {
     };
 
     const switchMode = (newMode) => {
+        clearAuthDenial();
         setMode(newMode);
         setError('');
         setMessage('');
@@ -153,6 +165,66 @@ export default function Login() {
     };
 
     const cfg = modeConfig[mode];
+
+    if (authDenial && mode !== 'recovery') {
+        return (
+            <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4">
+                <div className="w-full max-w-xl rounded-3xl border border-red-200 dark:border-red-900/60 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+                    <div className="bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900/60 p-6">
+                        <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/60 text-red-600 dark:text-red-300 mb-3">
+                            <span className="material-symbols-outlined text-3xl">gpp_maybe</span>
+                        </div>
+                        <h1 className="text-2xl font-black text-red-700 dark:text-red-300 tracking-tight">
+                            {authDenial.title || 'Akses Ditolak'}
+                        </h1>
+                        <p className="mt-2 text-sm font-semibold text-red-700/90 dark:text-red-300/90">
+                            {authDenial.type === 'ban'
+                                ? 'Akun Anda tidak dapat masuk sampai status ban dicabut oleh admin.'
+                                : 'Perangkat ini sedang tidak diizinkan untuk masuk ke akun ini.'}
+                        </p>
+                    </div>
+
+                    <div className="p-6 space-y-4">
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-4">
+                            <p className="text-[11px] uppercase tracking-wider font-black text-slate-500 dark:text-slate-400">Alasan</p>
+                            <p className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-100 leading-relaxed">
+                                {authDenial.message || 'Akun dibatasi oleh admin. Hubungi administrator.'}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    clearAuthDenial();
+                                    setError('');
+                                    setMessage('');
+                                    setMode('login');
+                                }}
+                                className="flex-1 py-3 px-4 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-black hover:opacity-90 transition-opacity"
+                            >
+                                Kembali ke Login
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    clearAuthDenial();
+                                    switchMode('forgot');
+                                }}
+                                className="flex-1 py-3 px-4 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-black hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Coba Reset Password
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Jika Anda merasa ini tidak sesuai, hubungi administrator klinik untuk verifikasi akun.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4 animate-[fadeIn_0.3s_ease-out]">

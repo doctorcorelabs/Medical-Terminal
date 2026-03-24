@@ -643,6 +643,22 @@ export default function Settings() {
                                     </div>
                                 </div>
 
+                                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Keamanan Device</p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-300">Lihat device aktif dan keluarkan device lama yang tidak dikenal.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => navigate('/settings/devices')}
+                                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-wider hover:bg-blue-600 transition-all"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">devices</span>
+                                            Kelola Device
+                                        </button>
+                                    </div>
+                                </div>
+
                                 {/* Subscription Status Section - Unique UI */}
                                 {(isSpecialist || isAdmin) && subInfo && (
                                     <div className="mt-8 border-t border-slate-100 dark:border-slate-800 pt-8">

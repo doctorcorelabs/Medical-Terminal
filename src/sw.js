@@ -38,15 +38,33 @@ self.skipWaiting();
 clientsClaim();
 
 // Injected by vite-plugin-pwa at build time
-precacheAndRoute(self.__WB_MANIFEST || []);
+const PRECACHE_MANIFEST = self.__WB_MANIFEST || [];
+precacheAndRoute(PRECACHE_MANIFEST);
 cleanupOutdatedCaches();
 
 // SPA Navigation fallback
-registerRoute(
-    new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-        denylist: [/^\/.netlify\//, /^\/api\//],
-    })
-);
+const NAVIGATION_DENYLIST = [/^\/.netlify\//, /^\/api\//];
+
+const hasPrecachedIndex = PRECACHE_MANIFEST.some((entry) => {
+    const url = typeof entry === 'string' ? entry : entry?.url;
+    return url === '/index.html' || url === 'index.html';
+});
+
+if (hasPrecachedIndex) {
+    registerRoute(
+        new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+            denylist: NAVIGATION_DENYLIST,
+        })
+    );
+} else {
+    registerRoute(
+        ({ request, url }) => request.mode === 'navigate' && !NAVIGATION_DENYLIST.some((regex) => regex.test(url.pathname)),
+        async () => {
+            // Dev mode fallback: index.html may not be in precache manifest.
+            return fetch('/index.html');
+        }
+    );
+}
 
 // ── Runtime caching ──────────────────────────────────────────────
 

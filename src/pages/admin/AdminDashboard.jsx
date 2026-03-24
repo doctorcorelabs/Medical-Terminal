@@ -158,6 +158,7 @@ export default function AdminDashboard() {
         { label: 'Pengumuman Global', desc: 'Publikasikan banner informasi realtime untuk user.', icon: 'campaign', to: '/admin/announcements', color: 'amber' },
         { label: 'Alert Center', desc: 'Monitor alert realtime dan tangani insiden sistem.', icon: 'notification_important', to: '/admin/alerts', color: 'blue' },
         { label: 'Timeline User', desc: 'Audit aktivitas pengguna per akun secara kronologis.', icon: 'timeline', to: '/admin/timeline', color: 'emerald' },
+        { label: 'Perangkat Pengguna', desc: 'Pantau sesi device aktif dan revoke akses mencurigakan.', icon: 'devices', to: '/admin/user-devices', color: 'violet' },
         { label: 'Manajemen Langganan', desc: 'Pantau transaksi masuk dan cetak ulang kuitansi pembayaran.', icon: 'receipt_long', to: '/admin/subscriptions', color: 'amber' },
     ];
 

@@ -61,4 +61,134 @@ BEGIN
     END LOOP;
     ALTER TABLE public.profiles ADD CONSTRAINT profiles_active_subscription_id_fkey FOREIGN KEY (active_subscription_id) REFERENCES public.user_subscriptions(id) ON DELETE SET NULL;
 
+        -- 10. user_devices (user_id -> CASCADE)
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'user_devices'
+                    AND kcu.column_name = 'user_id'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.user_devices DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_devices') THEN
+        ALTER TABLE public.user_devices ADD CONSTRAINT user_devices_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+
+        -- 11. user_login_sessions (user_id -> CASCADE)
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'user_login_sessions'
+                    AND kcu.column_name = 'user_id'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.user_login_sessions DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_login_sessions') THEN
+        ALTER TABLE public.user_login_sessions ADD CONSTRAINT user_login_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+
+        -- 12. user_ban_policies (user_id -> CASCADE, banned_by -> SET NULL, unbanned_by -> SET NULL)
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'user_ban_policies'
+                    AND kcu.column_name = 'user_id'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.user_ban_policies DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_ban_policies') THEN
+        ALTER TABLE public.user_ban_policies ADD CONSTRAINT user_ban_policies_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'user_ban_policies'
+                    AND kcu.column_name = 'banned_by'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.user_ban_policies DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_ban_policies') THEN
+        ALTER TABLE public.user_ban_policies ADD CONSTRAINT user_ban_policies_banned_by_fkey FOREIGN KEY (banned_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'user_ban_policies'
+                    AND kcu.column_name = 'unbanned_by'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.user_ban_policies DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_ban_policies') THEN
+        ALTER TABLE public.user_ban_policies ADD CONSTRAINT user_ban_policies_unbanned_by_fkey FOREIGN KEY (unbanned_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+
+        -- 13. security_events (user_id -> CASCADE, resolved_by -> SET NULL)
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'security_events'
+                    AND kcu.column_name = 'user_id'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.security_events DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'security_events') THEN
+        ALTER TABLE public.security_events ADD CONSTRAINT security_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+
+        FOR r IN (
+                SELECT kcu.constraint_name
+                FROM information_schema.key_column_usage kcu
+                JOIN information_schema.table_constraints tc
+                    ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                 AND tc.table_name = kcu.table_name
+                WHERE kcu.table_name = 'security_events'
+                    AND kcu.column_name = 'resolved_by'
+                    AND kcu.table_schema = 'public'
+                    AND tc.constraint_type = 'FOREIGN KEY'
+        ) LOOP
+        EXECUTE 'ALTER TABLE public.security_events DROP CONSTRAINT ' || r.constraint_name;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'security_events') THEN
+        ALTER TABLE public.security_events ADD CONSTRAINT security_events_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+    END IF;
+
 END $$;
