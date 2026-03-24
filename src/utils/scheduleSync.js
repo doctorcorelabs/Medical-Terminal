@@ -74,7 +74,7 @@ export function mergeSchedules(localSchedules = [], serverSchedules = [], server
 
         const serverTs = getScheduleTimestamp(item);
         const localDeleteTs = deletedMap[id] ? parseServerTimestamp(deletedMap[id]) : 0;
-        if (localDeleteTs > serverTs) {
+        if (localDeleteTs >= serverTs && localDeleteTs > 0) {
             return;
         }
 

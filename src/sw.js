@@ -21,8 +21,17 @@ import { NetworkFirst, CacheFirst, NetworkOnly } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 // IDB helpers — canonical schema lives in idbQueue.js (bundled by Vite injectManifest)
-import { openDB, peekQueue, dequeue, addConflict } from './services/idbQueue';
+import {
+    openDB,
+    peekQueue,
+    dequeue,
+    addConflict,
+    markQueueItemSynced,
+    markQueueItemSyncFailure,
+    compactSyncedQueueItems,
+} from './services/idbQueue';
 import { mergeSchedules } from './utils/scheduleSync';
+import { getQueueRetryState } from './utils/syncRetry';
 
 // ── Workbox boilerplate ──────────────────────────────────────────
 self.skipWaiting();
@@ -97,15 +106,86 @@ async function broadcastToClients(message) {
 // ── Background Sync processor ─────────────────────────────────────
 let processQueueInFlight = null;
 const PROCESS_QUEUE_TIMEOUT_MS = 30_000;
+const MAX_SYNC_ATTEMPTS = 8;
+const SW_QUEUE_RETRY_OPTIONS = {
+    baseDelayMs: 2_000,
+    maxDelayMs: 5 * 60_000,
+    jitterRatio: 0.25,
+};
 
 async function processQueueOnce() {
+    await compactSyncedQueueItems().catch((err) => {
+        console.warn('[SW] compactSyncedQueueItems failed:', err);
+    });
+
     const items = await peekQueue();
     if (items.length === 0) return;
     const syncWarnings = [];
 
+    const retryableItems = [];
+    const deferredItems = [];
+    const maxAttemptItems = [];
+    const nowMs = Date.now();
+
+    for (const item of items) {
+        const attempts = Number(item?.attemptCount || 0);
+        if (attempts >= MAX_SYNC_ATTEMPTS) {
+            maxAttemptItems.push({
+                id: item.id,
+                userId: item.userId,
+                type: item.type,
+                attemptCount: attempts,
+            });
+            continue;
+        }
+
+        const retryState = getQueueRetryState(item, SW_QUEUE_RETRY_OPTIONS, nowMs);
+        if (retryState.ready) {
+            retryableItems.push(item);
+            continue;
+        }
+        deferredItems.push({
+            id: item.id,
+            userId: item.userId,
+            type: item.type,
+            waitMs: retryState.waitMs,
+            attemptCount: retryState.attemptCount,
+        });
+    }
+
+    if (retryableItems.length === 0) {
+        const warnings = [];
+        if (deferredItems.length > 0) {
+            warnings.push({
+                scope: 'sw',
+                code: 'retry_backoff_deferred',
+                deferredCount: deferredItems.length,
+                minWaitMs: Math.min(...deferredItems.map((item) => item.waitMs || 0)),
+            });
+        }
+        if (maxAttemptItems.length > 0) {
+            warnings.push({
+                scope: 'sw',
+                code: 'retry_max_attempts_reached',
+                itemCount: maxAttemptItems.length,
+                maxAttempts: MAX_SYNC_ATTEMPTS,
+            });
+        }
+
+        await broadcastToClients({
+            type: 'SYNC_COMPLETE',
+            success: true,
+            degraded: warnings.length > 0,
+            warningCount: warnings.length,
+            warnings: warnings.slice(0, 10),
+            processedAt: new Date().toISOString(),
+        });
+        return;
+    }
+
     // Group by userId + type to batch into single upsert per group
     const groups = {};
-    for (const item of items) {
+    for (const item of retryableItems) {
         const key = `${item.userId}::${item.type}`;
         if (!groups[key]) groups[key] = { userId: item.userId, type: item.type, items: [] };
         groups[key].items.push(item);
@@ -118,6 +198,9 @@ async function processQueueOnce() {
             await flushGroup(group, syncWarnings);
             for (const item of group.items) {
                 try {
+                    await markQueueItemSynced(item.id, {
+                        syncedBy: 'sw',
+                    });
                     await dequeue(item.id);
                 } catch (dequeueErr) {
                     failedDequeue.push(item.id);
@@ -134,16 +217,39 @@ async function processQueueOnce() {
         } catch (err) {
             console.error('[SW] flushGroup failed:', group.type, err);
             allOk = false;
+            for (const item of group.items) {
+                await markQueueItemSyncFailure(item.id, err?.message || String(err || 'flush_failed')).catch(() => {
+                    // Best effort metadata only.
+                });
+            }
         }
     }
 
     await broadcastToClients({
         type: 'SYNC_COMPLETE',
         success: allOk,
-        degraded: syncWarnings.length > 0,
-        warningCount: syncWarnings.length,
+        degraded: syncWarnings.length > 0 || deferredItems.length > 0 || maxAttemptItems.length > 0,
+        warningCount: syncWarnings.length + (deferredItems.length > 0 ? 1 : 0) + (maxAttemptItems.length > 0 ? 1 : 0),
         failedDequeueCount: failedDequeue.length,
-        warnings: syncWarnings.slice(0, 10),
+        warnings: [
+            ...syncWarnings,
+            ...(deferredItems.length > 0
+                ? [{
+                    scope: 'sw',
+                    code: 'retry_backoff_deferred',
+                    deferredCount: deferredItems.length,
+                    minWaitMs: Math.min(...deferredItems.map((item) => item.waitMs || 0)),
+                }]
+                : []),
+            ...(maxAttemptItems.length > 0
+                ? [{
+                    scope: 'sw',
+                    code: 'retry_max_attempts_reached',
+                    itemCount: maxAttemptItems.length,
+                    maxAttempts: MAX_SYNC_ATTEMPTS,
+                }]
+                : []),
+        ].slice(0, 10),
         processedAt: new Date().toISOString(),
     });
 }
@@ -418,11 +524,68 @@ function mergeSimple(dataKey, localPayload, serverRow) {
     return { ...localPayload, [dataKey]: merged };
 }
 
+function diffObjectKeys(left, right) {
+    const keys = new Set([
+        ...Object.keys(left || {}),
+        ...Object.keys(right || {}),
+    ]);
+    const changed = [];
+    for (const key of keys) {
+        if (JSON.stringify(left?.[key]) !== JSON.stringify(right?.[key])) {
+            changed.push(key);
+        }
+    }
+    return changed;
+}
+
+async function captureNonPatientConflicts(type, localItems = [], serverItems = [], userId) {
+    const serverMap = new Map(serverItems.map((item) => [item?.id, item]).filter(([id]) => Boolean(id)));
+    const now = Date.now();
+
+    for (const local of localItems) {
+        if (!local?.id) continue;
+        const server = serverMap.get(local.id);
+        if (!server) continue;
+        if (JSON.stringify(local) === JSON.stringify(server)) continue;
+
+        const preferred = choosePreferredForMerge(local, server);
+        if (preferred !== server) continue;
+
+        const changedFields = diffObjectKeys(local, server).slice(0, 30);
+        if (changedFields.length === 0) continue;
+
+        await addConflict({
+            id: `${userId}_${type}_${local.id}_${now}`,
+            userId,
+            type,
+            entityId: local.id,
+            entityName: local.title || local.name || local.id,
+            localSnapshot: local,
+            serverSnapshot: server,
+            changedFields,
+        });
+    }
+}
+
 // ── Dispatch to correct merge strategy ───────────────────────────
 async function mergeWithConflictDetection(type, localPayload, serverRow, userId) {
     if (type === 'patients')  return mergePatients(localPayload, serverRow, userId);
-    if (type === 'stases')    return mergeSimple('stases_data',    localPayload, serverRow);
+    if (type === 'stases') {
+        await captureNonPatientConflicts(
+            'stases',
+            localPayload?.stases_data || [],
+            serverRow?.stases_data || [],
+            userId,
+        );
+        return mergeSimple('stases_data', localPayload, serverRow);
+    }
     if (type === 'schedules') {
+        await captureNonPatientConflicts(
+            'schedules',
+            localPayload?.schedules_data || [],
+            serverRow?.schedules_data || [],
+            userId,
+        );
         const mergedSchedules = mergeSchedules(
             localPayload?.schedules_data || [],
             serverRow?.schedules_data || [],
@@ -444,7 +607,17 @@ async function flushGroup(group, warningSink = null) {
         throw new Error('[SW] Missing Supabase config. Page must call storeSwConfig() first.');
     }
 
-    const { supabaseUrl, supabaseKey, accessToken } = config;
+    const { supabaseUrl, supabaseKey, accessToken, accessTokenExpiresAt } = config;
+    const nowEpochSec = Math.floor(Date.now() / 1000);
+    if (accessToken && accessTokenExpiresAt && accessTokenExpiresAt <= (nowEpochSec + 30)) {
+        warningSink?.push({
+            scope: 'sw',
+            code: 'auth_expired_deferred',
+            userId: group.userId,
+            expiresAt: accessTokenExpiresAt,
+        });
+        throw new Error('[SW] Deferred sync due to expired access token');
+    }
     const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
     
     const tableMap = {

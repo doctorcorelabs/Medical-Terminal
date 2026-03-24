@@ -6,7 +6,7 @@
  * Uses the canonical openDB from idbQueue.js to avoid schema version skew.
  */
 
-import { openDB } from './idbQueue';
+import { openDB } from './idbQueue.js';
 
 const DEVICE_ID_KEY = 'medterminal_device_id';
 
@@ -27,11 +27,15 @@ export function getOrCreateDeviceId() {
  * Store Supabase URL + anon key into IDB so the service worker can read them.
  * Call this once after the app boots (e.g., in main.jsx or OfflineContext).
  */
-export async function storeSwConfig(accessToken = null) {
+export async function storeSwConfig(sessionOrToken = null) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) return;
     const deviceId = getOrCreateDeviceId();
+    const accessToken = typeof sessionOrToken === 'string'
+        ? sessionOrToken
+        : (sessionOrToken?.access_token || null);
+    const accessTokenExpiresAt = Number(sessionOrToken?.expires_at || 0) || null;
 
     try {
         const db = await openDB();
@@ -39,7 +43,13 @@ export async function storeSwConfig(accessToken = null) {
             const tx = db.transaction('swConfig', 'readwrite');
             tx.objectStore('swConfig').put({ 
                 key: 'config', 
-                data: { supabaseUrl, supabaseKey, accessToken, deviceId } 
+                data: {
+                    supabaseUrl,
+                    supabaseKey,
+                    accessToken,
+                    accessTokenExpiresAt,
+                    deviceId,
+                }
             });
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error);

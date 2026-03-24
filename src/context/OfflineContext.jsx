@@ -38,6 +38,8 @@ export function OfflineProvider({ children }) {
     const [conflictCount, setConflictCount] = useState(0);
     const [pendingStatus, setPendingStatus] = useState(() => getPendingStatusFromQueue(pendingSync));
     const degradedTelemetryRef = useRef({ fingerprint: null, timestamp: 0 });
+    const syncSourcesRef = useRef({ page: false, sw: false });
+    const swSyncTimeoutRef = useRef(null);
     // Keep user ref so the `online` event handler can always access the latest user
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
@@ -48,17 +50,44 @@ export function OfflineProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
 
+    const setSyncSource = useCallback((source, active) => {
+        syncSourcesRef.current[source] = Boolean(active);
+        const anyActive = syncSourcesRef.current.page || syncSourcesRef.current.sw;
+        setIsSyncing(anyActive);
+    }, []);
+
+    const beginSwSyncWindow = useCallback(() => {
+        setSyncSource('sw', true);
+        if (swSyncTimeoutRef.current) {
+            clearTimeout(swSyncTimeoutRef.current);
+        }
+        swSyncTimeoutRef.current = setTimeout(() => {
+            setSyncSource('sw', false);
+            swSyncTimeoutRef.current = null;
+        }, 30000);
+    }, [setSyncSource]);
+
     // Store Supabase config + session into IDB for the service worker
     useEffect(() => { 
         const syncSessionToSw = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                await storeSwConfig(session?.access_token || null);
+                await storeSwConfig(session || null);
             } catch (err) {
                 console.warn('[OfflineContext] Failed to sync session to SW:', err);
             }
         };
         syncSessionToSw();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            storeSwConfig(session || null).catch((err) => {
+                console.warn('[OfflineContext] Failed to update SW auth session:', err);
+            });
+        });
+
+        return () => {
+            authListener?.subscription?.unsubscribe?.();
+        };
     }, [user]);
 
     // Refresh conflict count from IDB
@@ -82,6 +111,11 @@ export function OfflineProvider({ children }) {
     // Listen to SYNC_COMPLETE messages from the service worker
     useEffect(() => {
         const unsub = onSwSyncComplete(({ success, degraded, warningCount, warnings }) => {
+            if (swSyncTimeoutRef.current) {
+                clearTimeout(swSyncTimeoutRef.current);
+                swSyncTimeoutRef.current = null;
+            }
+            setSyncSource('sw', false);
             if (success) {
                 setLastSyncAt(new Date());
                 setSyncFailed(false);
@@ -122,12 +156,11 @@ export function OfflineProvider({ children }) {
                     });
                 }
             }
-            setIsSyncing(false);
             refreshConflictCount();
             refreshPendingStatus();
         });
         return unsub;
-    }, [refreshConflictCount, refreshPendingStatus]);
+    }, [refreshConflictCount, refreshPendingStatus, setSyncSource]);
 
     const syncInFlightRef = useRef(false);
 
@@ -149,7 +182,7 @@ export function OfflineProvider({ children }) {
         }
 
         syncInFlightRef.current = true;
-        setIsSyncing(true);
+        setSyncSource('page', true);
         setSyncFailed(false);
         let failed = false;
 
@@ -188,17 +221,19 @@ export function OfflineProvider({ children }) {
             if (!failed) setLastSyncAt(new Date());
         } finally {
             syncInFlightRef.current = false;
-            setIsSyncing(false);
+            setSyncSource('page', false);
             refreshPendingStatus();
         }
-    }, [refreshPendingStatus]);
+    }, [refreshPendingStatus, setSyncSource]);
 
     // Listen to browser online/offline events
     useEffect(() => {
         const handleOnline = () => {
             setIsOnline(true);
             // Try Background Sync via SW first, then fallback to page-level flush
+            beginSwSyncWindow();
             triggerSwSync().catch((err) => {
+                setSyncSource('sw', false);
                 logSyncWarning('triggerSwSync', userRef.current?.id, err);
             });
             flushPendingSync();
@@ -212,7 +247,15 @@ export function OfflineProvider({ children }) {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, [flushPendingSync]);
+    }, [beginSwSyncWindow, flushPendingSync, setSyncSource]);
+
+    useEffect(() => {
+        return () => {
+            if (swSyncTimeoutRef.current) {
+                clearTimeout(swSyncTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // When user logs in and is online, flush any leftover pending syncs from previous session
     useEffect(() => {

@@ -149,7 +149,14 @@ function withStore(storeName, mode, fn) {
  */
 export function enqueue(item) {
     return withStore('syncQueue', 'readwrite', store =>
-        store.add({ ...item, enqueuedAt: new Date().toISOString() })
+        store.add({
+            ...item,
+            enqueuedAt: new Date().toISOString(),
+            attemptCount: Number(item?.attemptCount || 0),
+            lastAttemptAt: item?.lastAttemptAt || null,
+            lastError: item?.lastError || null,
+            syncedAt: item?.syncedAt || null,
+        })
     );
 }
 
@@ -158,7 +165,16 @@ export function peekQueue() {
     return openDB().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction('syncQueue', 'readonly');
         const req = tx.objectStore('syncQueue').getAll();
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => {
+            const pending = (req.result || [])
+                .filter((item) => !item?.syncedAt)
+                .sort((a, b) => {
+                    const left = Date.parse(a?.enqueuedAt || '1970-01-01T00:00:00.000Z');
+                    const right = Date.parse(b?.enqueuedAt || '1970-01-01T00:00:00.000Z');
+                    return left - right;
+                });
+            resolve(pending);
+        };
         req.onerror = () => reject(req.error);
     }));
 }
@@ -166,6 +182,73 @@ export function peekQueue() {
 /** Remove a single queue item by its auto-increment id */
 export function dequeue(id) {
     return withStore('syncQueue', 'readwrite', store => store.delete(id));
+}
+
+/** Mark queue item as successfully synced before dequeue to avoid replay duplication on transient dequeue errors */
+export function markQueueItemSynced(id, extra = {}) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction('syncQueue', 'readwrite');
+        const store = tx.objectStore('syncQueue');
+        const req = store.get(id);
+        req.onsuccess = () => {
+            const item = req.result;
+            if (!item) return;
+            store.put({
+                ...item,
+                syncedAt: new Date().toISOString(),
+                lastAttemptAt: new Date().toISOString(),
+                lastError: null,
+                ...extra,
+            });
+        };
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    }));
+}
+
+/** Record sync attempt failure metadata for diagnostics and backoff decisions */
+export function markQueueItemSyncFailure(id, errorMessage) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction('syncQueue', 'readwrite');
+        const store = tx.objectStore('syncQueue');
+        const req = store.get(id);
+        req.onsuccess = () => {
+            const item = req.result;
+            if (!item) return;
+            store.put({
+                ...item,
+                attemptCount: Number(item?.attemptCount || 0) + 1,
+                lastAttemptAt: new Date().toISOString(),
+                lastError: String(errorMessage || 'sync_failed'),
+            });
+        };
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    }));
+}
+
+/** Cleanup already-synced queue items to avoid unbounded IndexedDB growth */
+export function compactSyncedQueueItems(maxAgeMs = 24 * 60 * 60 * 1000) {
+    const cutoff = Date.now() - Math.max(0, Number(maxAgeMs) || 0);
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction('syncQueue', 'readwrite');
+        const store = tx.objectStore('syncQueue');
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (!cursor) return;
+            const syncedAtMs = cursor.value?.syncedAt ? Date.parse(cursor.value.syncedAt) : Number.NaN;
+            if (Number.isFinite(syncedAtMs) && syncedAtMs <= cutoff) {
+                cursor.delete();
+            }
+            cursor.continue();
+        };
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    }));
 }
 
 /** Remove all queue items for a userId */
