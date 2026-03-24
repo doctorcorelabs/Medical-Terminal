@@ -236,9 +236,11 @@ export function addConflict(item) {
 export function listConflicts() {
     return openDB().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction('conflicts', 'readonly');
-        const index = tx.objectStore('conflicts').index('by_resolved');
-        const req = index.getAll(IDBKeyRange.only(false));
-        req.onsuccess = () => resolve(req.result);
+        const req = tx.objectStore('conflicts').getAll();
+        req.onsuccess = () => {
+            const unresolved = (req.result || []).filter((item) => !item?.resolved);
+            resolve(unresolved);
+        };
         req.onerror = () => reject(req.error);
     }));
 }
@@ -247,9 +249,13 @@ export function listConflicts() {
 export function countConflicts() {
     return openDB().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction('conflicts', 'readonly');
-        const index = tx.objectStore('conflicts').index('by_resolved');
-        const req = index.count(IDBKeyRange.only(false));
-        req.onsuccess = () => resolve(req.result);
+        const req = tx.objectStore('conflicts').getAll();
+        req.onsuccess = () => {
+            const unresolvedCount = (req.result || []).reduce((count, item) => (
+                item?.resolved ? count : count + 1
+            ), 0);
+            resolve(unresolvedCount);
+        };
         req.onerror = () => reject(req.error);
     }));
 }

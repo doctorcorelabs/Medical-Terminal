@@ -138,7 +138,7 @@ export const generateReceiptPDF = (data) => {
     doc.text('Catatan Penting:', 25, checkY + 8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...MUTED);
-    const note = 'Kuitansi ini adalah bukti pembayaran yang sah. Simpan kuitansi ini untuk keperluan audit atau jika terjadi kendala pada sinkronisasi akun Anda. Hubungi support@daivanlabs.com untuk bantuan lebih lanjut.';
+    const note = 'Kuitansi ini adalah bukti pembayaran yang sah. Simpan kuitansi ini untuk keperluan audit atau jika terjadi kendala pada sinkronisasi akun Anda. Hubungi daivanlabs@gmail.com untuk bantuan lebih lanjut. Dengan subject "Bukti Bayar - [Nama Anda]".';
     const splitNote = doc.splitTextToSize(note, pageWidth - 50);
     doc.text(splitNote, 25, checkY + 13);
 

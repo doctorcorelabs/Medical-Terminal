@@ -1,4 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+let createSupabaseClient;
+
+async function getCreateClient() {
+  if (createSupabaseClient) return createSupabaseClient;
+  const mod = await import('@supabase/supabase-js');
+  createSupabaseClient = mod.createClient;
+  return createSupabaseClient;
+}
 
 function json(status, body) {
   return new Response(JSON.stringify(body), {
@@ -7,7 +14,20 @@ function json(status, body) {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-internal-key',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-internal-key, apikey, x-client-info, Accept, Origin',
+      Vary: 'Origin',
+    },
+  });
+}
+
+function empty(status = 204) {
+  return new Response(null, {
+    status,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-internal-key, apikey, x-client-info, Accept, Origin',
+      Vary: 'Origin',
     },
   });
 }
@@ -95,6 +115,7 @@ async function runAggregation(env, options = {}) {
     throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   }
 
+  const createClient = await getCreateClient();
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -227,7 +248,7 @@ export default {
 
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
-      return json(204, { ok: true });
+      return empty(204);
     }
 
     const url = new URL(request.url);
@@ -253,6 +274,7 @@ export default {
       });
     }
 
+    const createClient = await getCreateClient();
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabaseClient';
 
@@ -9,9 +9,12 @@ export default function AdminDashboard() {
     const [health, setHealth] = useState({ errorRate15m: 0, avgLatency15m: 0, offlineSyncDegraded15m: 0, openAlerts: 0 });
     const [loading, setLoading] = useState(true);
     const [fetchWarning, setFetchWarning] = useState(null);
+    const [syncHealthLookbackMinutes, setSyncHealthLookbackMinutes] = useState(15);
+    const [runningSyncHealth, setRunningSyncHealth] = useState(false);
+    const [syncHealthStatus, setSyncHealthStatus] = useState(null);
 
-    useEffect(() => {
-        async function fetchStats() {
+    const fetchStats = useCallback(async () => {
+            setLoading(true);
             try {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -89,9 +92,64 @@ export default function AdminDashboard() {
             } finally {
                 setLoading(false);
             }
-        }
-        fetchStats();
     }, []);
+
+    const runSyncHealth = useCallback(async () => {
+        setRunningSyncHealth(true);
+        setSyncHealthStatus(null);
+
+        try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+            if (!token) {
+                throw new Error('Sesi login tidak ditemukan. Silakan login ulang.');
+            }
+
+            const workerUrl = import.meta.env.VITE_SYNC_HEALTH_WORKER_URL;
+            if (!workerUrl) {
+                throw new Error('VITE_SYNC_HEALTH_WORKER_URL belum dikonfigurasi.');
+            }
+
+            const res = await fetch(`${workerUrl}/run-sync-health`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ lookbackMinutes: syncHealthLookbackMinutes }),
+            });
+
+            let payload = {};
+            try {
+                payload = await res.json();
+            } catch {
+                payload = {};
+            }
+
+            if (!res.ok || payload?.ok === false) {
+                throw new Error(payload?.error || 'Gagal menjalankan sync health.');
+            }
+
+            const eventCount = payload?.summarized?.eventCount ?? 0;
+            setSyncHealthStatus({
+                type: 'success',
+                message: `Sync health selesai. Event degraded: ${eventCount}.`,
+            });
+
+            await fetchStats();
+        } catch (err) {
+            setSyncHealthStatus({
+                type: 'error',
+                message: err?.message || 'Sync health gagal dijalankan.',
+            });
+        } finally {
+            setRunningSyncHealth(false);
+        }
+    }, [fetchStats, syncHealthLookbackMinutes]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
 
     const shortcutCards = [
         { label: 'Manajemen Pengguna', desc: 'Lihat semua akun, angkat atau turunkan administrator.', icon: 'manage_accounts', to: '/admin/users', color: 'blue' },
@@ -191,7 +249,35 @@ export default function AdminDashboard() {
 
             {/* Health Snapshot */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 md:p-6 shadow-sm">
-                <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Snapshot Kesehatan Sistem (15 Menit)</h2>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">Snapshot Kesehatan Sistem (15 Menit)</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <select
+                            value={syncHealthLookbackMinutes}
+                            onChange={(e) => setSyncHealthLookbackMinutes(Number(e.target.value) || 15)}
+                            disabled={runningSyncHealth}
+                            className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-700 dark:text-slate-200"
+                        >
+                            <option value={15}>Lookback 15m</option>
+                            <option value={30}>Lookback 30m</option>
+                            <option value={60}>Lookback 60m</option>
+                        </select>
+                        <button
+                            type="button"
+                            onClick={runSyncHealth}
+                            disabled={runningSyncHealth}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 transition"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">sync</span>
+                            {runningSyncHealth ? 'Menjalankan...' : 'Run Sync Health'}
+                        </button>
+                    </div>
+                </div>
+                {syncHealthStatus && (
+                    <div className={`mb-4 rounded-lg border px-3 py-2 text-xs font-medium ${syncHealthStatus.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/20 dark:text-emerald-300' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-300'}`}>
+                        {syncHealthStatus.message}
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
                     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 md:p-5 min-h-27.5 flex flex-col justify-between">
                         <p className="text-xs text-slate-500">Error Rate</p>

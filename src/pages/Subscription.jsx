@@ -14,14 +14,6 @@ export default function Subscription() {
     const [receiptData, setReceiptData] = useState(null);
     const [verifying, setVerifying] = useState(false);
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('success')) {
-            handleSuccessRedirect();
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    }, [profile, handleSuccessRedirect]);
-
     const handleSuccessRedirect = useCallback(async () => {
         if (!profile?.id) return;
         setVerifying(true);
@@ -82,6 +74,14 @@ export default function Subscription() {
             }
         }, 2000);
     }, [profile, user?.email]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('success')) {
+            handleSuccessRedirect();
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, [profile, handleSuccessRedirect]);
 
     const handleCheckout = async (planCode, amount) => {
         setLoading(true);
