@@ -12,6 +12,7 @@ export default function UserDevices() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState([]);
+    const [busySessionId, setBusySessionId] = useState(null);
 
     const currentSessionId = useMemo(() => getOrCreateSessionId(), []);
     const currentDeviceId = useMemo(() => getOrCreateDeviceId(), []);
@@ -29,7 +30,6 @@ export default function UserDevices() {
 
             if (error) throw error;
             
-            // Enrich with device names
             const { data: devices } = await supabase
                 .from('user_devices')
                 .select('device_id, device_name')
@@ -57,175 +57,205 @@ export default function UserDevices() {
 
     const handleRevoke = async (row) => {
         if (!user?.id || row.session_id === currentSessionId) {
-            addToast('Sesi aktif saat ini tidak bisa direvoke dari layar ini.', 'info');
+            addToast('Sesi aktif saat ini tidak bisa direvoke.', 'info');
             return;
         }
 
+        if (!window.confirm('Putuskan koneksi perangkat ini?')) return;
+
+        setBusySessionId(row.id);
         const nowIso = new Date().toISOString();
 
-        const { error } = await supabase
-            .from('user_login_sessions')
-            .update({
-                is_active: false,
-                revoked_at: nowIso,
-                revoke_reason: 'user_self_revoke',
-                updated_at: nowIso,
-            })
-            .eq('id', row.id)
-            .eq('user_id', user.id);
+        try {
+            const { error } = await supabase
+                .from('user_login_sessions')
+                .update({
+                    is_active: false,
+                    revoked_at: nowIso,
+                    revoke_reason: 'user_self_revoke',
+                    updated_at: nowIso,
+                })
+                .eq('id', row.id)
+                .eq('user_id', user.id);
 
-        if (error) {
-            addToast(`Gagal revoke perangkat: ${error.message}`, 'error');
-            return;
+            if (error) throw error;
+
+            await supabase
+                .from('user_devices')
+                .update({
+                    revoked_at: nowIso,
+                    revoked_reason: 'user_self_revoke',
+                    updated_at: nowIso,
+                })
+                .eq('user_id', user.id)
+                .eq('device_id', row.device_id)
+                .is('revoked_at', null);
+
+            await supabase
+                .from('security_events')
+                .insert({
+                    user_id: user.id,
+                    device_id: row.device_id,
+                    event_type: 'user_self_revoke_device',
+                    severity: 'low',
+                    metadata: { source: 'user_devices_page' },
+                });
+
+            addToast('Perangkat berhasil direvoke.', 'success');
+            fetchSessions();
+        } catch (err) {
+            addToast(`Gagal revoke: ${err.message}`, 'error');
+        } finally {
+            setBusySessionId(null);
         }
-
-        await supabase
-            .from('user_devices')
-            .update({
-                revoked_at: nowIso,
-                revoked_reason: 'user_self_revoke',
-                updated_at: nowIso,
-            })
-            .eq('user_id', user.id)
-            .eq('device_id', row.device_id)
-            .is('revoked_at', null);
-
-        await supabase
-            .from('security_events')
-            .insert({
-                user_id: user.id,
-                device_id: row.device_id,
-                event_type: 'user_self_revoke_device',
-                severity: 'low',
-                metadata: { source: 'user_devices_page' },
-            });
-
-        addToast('Perangkat berhasil direvoke.', 'success');
-        fetchSessions();
     };
 
     return (
-        <div className="w-full max-w-295 mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8 space-y-6 md:space-y-8 pb-20 lg:pb-8 animate-[fadeIn_0.3s_ease-out]">
-            <button
-                onClick={() => navigate('/settings')}
-                className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition"
-            >
-                <span className="material-symbols-outlined text-base">chevron_left</span>
-                Kembali ke Pengaturan
-            </button>
-
-            <div>
-                <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Perangkat Saya</h1>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Kelola sesi login Anda. Maksimal 2 perangkat aktif secara bersamaan.</p>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Sesi Perangkat</p>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950/40">
+            <div className="w-full max-w-5xl mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12 space-y-8 pb-32 lg:pb-12 animate-[fadeIn_0.3s_ease-out]">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="space-y-4">
+                        <button
+                            onClick={() => navigate('/settings')}
+                            className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors group"
+                        >
+                            <span className="material-symbols-outlined text-sm transition-transform group-hover:-translate-x-1">arrow_back</span>
+                            Pengaturan
+                        </button>
+                        <div>
+                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">Perangkat Saya</h1>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-medium">Kelola akses akun Anda. Anda dapat menggunakan maksimal 2 perangkat aktif.</p>
+                        </div>
+                    </div>
+                    
                     <button
                         onClick={fetchSessions}
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                        disabled={loading}
+                        className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs font-black uppercase tracking-widest hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm active:scale-95 disabled:opacity-50"
                     >
                         <span className={`material-symbols-outlined text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
-                        Refresh
+                        Refresh Data
                     </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50/50 dark:bg-slate-800/50 text-[10px] uppercase tracking-widest text-slate-500 font-black">
-                                <th className="px-6 py-4">Device</th>
-                                <th className="px-6 py-4">Aktivitas</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {loading && rows.length === 0 ? (
-                                <tr>
-                                    <td colSpan="4" className="px-6 py-20 text-center">
-                                        <span className="material-symbols-outlined animate-spin text-4xl text-primary">progress_activity</span>
-                                    </td>
-                                </tr>
-                            ) : rows.length === 0 ? (
-                                <tr>
-                                    <td colSpan="4" className="px-6 py-20 text-center text-sm text-slate-500">Belum ada sesi perangkat.</td>
-                                </tr>
-                            ) : (
-                                rows.map((row) => {
-                                    const isCurrentSession = row.session_id === currentSessionId;
-                                    const deviceIcon = getDeviceTypeIcon(row.user_agent);
-                                    
-                                    return (
-                                        <tr key={row.id} className={`transition-colors ${isCurrentSession ? 'bg-primary/5 dark:bg-primary/5' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'}`}>
-                                            <td className="px-6 py-4 align-top">
-                                                <div className="flex items-start gap-4">
-                                                    <div className={`size-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                                        isCurrentSession 
-                                                        ? 'bg-primary text-white' 
-                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                                    }`}>
-                                                        <span className="material-symbols-outlined text-xl">{deviceIcon}</span>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                                            {row.device_name || 'Perangkat Tanpa Nama'}
-                                                        </p>
-                                                        {isCurrentSession && (
-                                                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-primary text-white">
-                                                                Sesi Saat Ini
-                                                            </span>
-                                                        )}
-                                                        <p className="text-[10px] font-mono text-slate-400 mt-1 max-w-64 truncate">ID: {row.device_id}</p>
-                                                        <p className="text-[11px] text-slate-500 mt-1 max-w-120 truncate">{row.user_agent || '-'}</p>
+                {/* Stats Summary Area (Optional) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                <span className="material-symbols-outlined text-2xl font-bold">sensors</span>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sesi Aktif</p>
+                                <p className="text-2xl font-black text-slate-900 dark:text-white">{rows.filter(r => r.is_active).length} / 2</p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Placeholder for more stats if needed */}
+                </div>
+
+                {/* Device Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+                    {loading && rows.length === 0 ? (
+                        Array.from({ length: 2 }).map((_, i) => (
+                            <div key={i} className="h-48 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 animate-pulse" />
+                        ))
+                    ) : rows.length === 0 ? (
+                        <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                            <div className="flex flex-col items-center gap-4 opacity-30">
+                                <span className="material-symbols-outlined text-6xl">devices_off</span>
+                                <p className="text-sm font-black uppercase tracking-widest">Belum ada sesi perangkat tercatat</p>
+                            </div>
+                        </div>
+                    ) : (
+                        rows.map((row) => {
+                            const isCurrentSession = row.session_id === currentSessionId;
+                            const deviceIcon = getDeviceTypeIcon(row.user_agent);
+                            
+                            return (
+                                <div 
+                                    key={row.id} 
+                                    className={`group relative p-6 rounded-3xl border transition-all duration-300 ${
+                                        isCurrentSession 
+                                        ? 'bg-white dark:bg-slate-900 border-primary/30 shadow-xl shadow-primary/5 ring-1 ring-primary/10' 
+                                        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-700'
+                                    }`}
+                                >
+                                    {isCurrentSession && (
+                                        <div className="absolute -top-3 left-6 px-3 py-1 bg-primary text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-primary/30">
+                                            Sesi Saat Ini
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-start gap-5">
+                                        <div className={`size-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${
+                                            isCurrentSession 
+                                            ? 'bg-primary/10 text-primary' 
+                                            : 'bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-slate-100 dark:group-hover:bg-slate-700'
+                                        }`}>
+                                            <span className="material-symbols-outlined text-3xl font-bold">{deviceIcon}</span>
+                                        </div>
+                                        
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-lg font-black text-slate-800 dark:text-white truncate">
+                                                {row.device_name || 'Perangkat Tanpa Nama'}
+                                            </h3>
+                                            <p className="text-[11px] font-medium text-slate-400 line-clamp-1 mt-1">{row.user_agent}</p>
+                                            
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Terakhir Aktif</span>
+                                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                        {new Date(row.last_activity_at || row.session_started_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Status</span>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <span className={`size-1.5 rounded-full ${row.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${row.is_active ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                                            {row.is_active ? 'Online' : 'Sesi Berakhir'}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                            </td>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                            <td className="px-6 py-4 align-top">
-                                                <p className="text-sm text-slate-700 dark:text-slate-200">
-                                                    {new Date(row.last_activity_at || row.session_started_at).toLocaleString('id-ID')}
-                                                </p>
-                                                <p className="text-[11px] text-slate-400">Mulai: {new Date(row.session_started_at).toLocaleString('id-ID')}</p>
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top">
-                                                {row.is_active ? (
-                                                    <span className="inline-flex items-center gap-1 text-green-500 font-bold text-xs">
-                                                        <span className="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                                        ACTIVE
-                                                    </span>
+                                    {row.is_active && !isCurrentSession && (
+                                        <div className="mt-6 pt-5 border-t border-slate-50 dark:border-slate-800">
+                                            <button
+                                                onClick={() => handleRevoke(row)}
+                                                disabled={busySessionId === row.id}
+                                                className="w-full py-3 rounded-2xl bg-rose-50 dark:bg-rose-500/5 text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-sm active:scale-[0.98] flex items-center justify-center gap-2 group/btn disabled:opacity-50"
+                                            >
+                                                {busySessionId === row.id ? (
+                                                    <div className="size-4 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
                                                 ) : (
-                                                    <div>
-                                                        <span className="inline-flex items-center gap-1 text-slate-500 font-bold text-xs">
-                                                            <span className="size-1.5 rounded-full bg-slate-400"></span>
-                                                            REVOKED
-                                                        </span>
-                                                        <p className="text-[10px] text-slate-400 mt-1">{row.revoke_reason || '-'}</p>
-                                                    </div>
+                                                    <>
+                                                        <span className="material-symbols-outlined text-lg transition-transform group-hover/btn:scale-110">power_settings_new</span>
+                                                        Putuskan Koneksi
+                                                    </>
                                                 )}
-                                            </td>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
 
-                                            <td className="px-6 py-4 align-top text-right">
-                                                {row.is_active && !isCurrentSession ? (
-                                                    <button
-                                                        onClick={() => handleRevoke(row)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-[11px] font-black uppercase tracking-wider rounded-lg hover:bg-red-500 hover:text-white transition-all"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[16px]">logout</span>
-                                                        Putus
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-[11px] text-slate-400">-</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                {/* Footer Tip */}
+                <div className="p-6 rounded-3xl bg-blue-500/5 border border-blue-500/10 flex items-start gap-4">
+                    <span className="material-symbols-outlined text-blue-500 text-2xl font-bold">info</span>
+                    <div>
+                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">Keamanan Akun</p>
+                        <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1 leading-relaxed">
+                            Jika Anda melihat perangkat yang tidak dikenal, segera putuskan koneksi dan ganti kata sandi Anda untuk keamanan akun yang lebih baik.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

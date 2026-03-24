@@ -48,9 +48,11 @@ export function getDeviceFingerprint(options = {}) {
         const parts = [
             nav.platform || 'unknown',
             nav.hardwareConcurrency || 'unknown',
+            nav.maxTouchPoints || 0,
             scr.width || 0,
             scr.height || 0,
             scr.colorDepth || 0,
+            window.devicePixelRatio || 1,
             timezone,
             nav.language || 'unknown'
         ];
