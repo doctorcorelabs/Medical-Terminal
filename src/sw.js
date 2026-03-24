@@ -226,6 +226,87 @@ async function fetchServerRow(supabaseUrl, supabaseKey, table, userId, accessTok
     }
 }
 
+function getTimestampForMerge(item) {
+    const parsed = Date.parse(item?.updatedAt || item?.updated_at || item?.createdAt || item?.created_at || '1970-01-01T00:00:00.000Z');
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getSyncMetaForMerge(item) {
+    const deviceId =
+        item?._device_id
+        || item?._sync?.deviceId
+        || item?.deviceId
+        || 'legacy';
+    const sequence = Number(
+        item?._sequence
+        ?? item?._sync?.sequenceNum
+        ?? item?.sequenceNum
+        ?? 0
+    );
+    return {
+        deviceId: typeof deviceId === 'string' ? deviceId : 'legacy',
+        sequence: Number.isFinite(sequence) ? sequence : 0,
+    };
+}
+
+function choosePreferredForMerge(localItem, serverItem) {
+    const localTs = getTimestampForMerge(localItem);
+    const serverTs = getTimestampForMerge(serverItem);
+    if (localTs !== serverTs) {
+        return serverTs > localTs ? serverItem : localItem;
+    }
+
+    const localMeta = getSyncMetaForMerge(localItem);
+    const serverMeta = getSyncMetaForMerge(serverItem);
+    if (localMeta.sequence !== serverMeta.sequence) {
+        return serverMeta.sequence > localMeta.sequence ? serverItem : localItem;
+    }
+
+    const deviceCmp = String(serverMeta.deviceId).localeCompare(String(localMeta.deviceId));
+    if (deviceCmp !== 0) {
+        return deviceCmp > 0 ? serverItem : localItem;
+    }
+
+    return localItem;
+}
+
+async function fetchCurrentProfileRole(supabaseUrl, supabaseKey, userId, accessToken, warningSink = null) {
+    try {
+        const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${supabaseKey}`;
+        const res = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?user_id=eq.${userId}&select=role&limit=1`,
+            {
+                headers: {
+                    'apikey': supabaseKey,
+                    'Authorization': authHeader,
+                    'Accept': 'application/json',
+                },
+                cache: 'no-store',
+            }
+        );
+        if (!res.ok) {
+            warningSink?.push({
+                scope: 'sw',
+                code: 'profile_role_fetch_failed',
+                userId,
+                status: res.status,
+            });
+            return null;
+        }
+        const rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) return null;
+        return typeof rows[0]?.role === 'string' ? rows[0].role : null;
+    } catch (err) {
+        warningSink?.push({
+            scope: 'sw',
+            code: 'profile_role_fetch_error',
+            userId,
+            error: err?.message || String(err || 'unknown'),
+        });
+        return null;
+    }
+}
+
 // ── Per-patient conflict detection ───────────────────────────────
 /**
  * Compare each patient by `id`.
@@ -259,9 +340,9 @@ async function mergePatients(localPayload, serverRow, userId) {
             continue;
         }
 
-        const serverTs = Date.parse(server.updatedAt || server.updated_at || '1970-01-01T00:00:00.000Z');
+        const preferred = choosePreferredForMerge(local, server);
 
-        if (serverTs > localTs) {
+        if (preferred === server) {
             const changedFields = checkFields.filter(
                 f => JSON.stringify(local[f]) !== JSON.stringify(server[f])
             );
@@ -326,8 +407,7 @@ function mergeSimple(dataKey, localPayload, serverRow) {
             continue;
         }
 
-        const serverTs = Date.parse(serverItem.updatedAt || serverItem.updated_at || serverItem.createdAt || serverItem.created_at || '1970-01-01');
-        merged.push(serverTs > localTs ? serverItem : item);
+        merged.push(choosePreferredForMerge(item, serverItem));
         mergedIds.add(id);
     }
 
@@ -383,12 +463,35 @@ async function flushGroup(group, warningSink = null) {
         upserts.sort((a, b) => a.enqueuedAt.localeCompare(b.enqueuedAt));
         const lastUpsert = upserts[upserts.length - 1];
         const lastPayload = lastUpsert.payload;
+        const roleSnapshot = typeof lastUpsert.roleSnapshot === 'string' && lastUpsert.roleSnapshot
+            ? lastUpsert.roleSnapshot
+            : null;
         const deviceId = typeof lastUpsert.deviceId === 'string' && lastUpsert.deviceId
             ? lastUpsert.deviceId
             : 'legacy';
         const sequenceNum = Number.isFinite(Number(lastUpsert.sequenceNum))
             ? Number(lastUpsert.sequenceNum)
             : 0;
+
+        if (roleSnapshot) {
+            const currentRole = await fetchCurrentProfileRole(
+                supabaseUrl,
+                supabaseKey,
+                group.userId,
+                accessToken,
+                warningSink,
+            );
+            if (currentRole && currentRole !== roleSnapshot) {
+                warningSink?.push({
+                    scope: 'sw',
+                    code: 'role_mismatch_deferred',
+                    userId: group.userId,
+                    queuedRole: roleSnapshot,
+                    currentRole,
+                });
+                throw new Error(`[SW] Deferred sync due to role mismatch (${roleSnapshot} -> ${currentRole})`);
+            }
+        }
 
         // 1. Fetch current server state
         const serverRow = await fetchServerRow(supabaseUrl, supabaseKey, table, group.userId, accessToken, warningSink);

@@ -210,6 +210,55 @@ function getItemTimestamp(item) {
     return parsed;
 }
 
+function getItemSyncMeta(item) {
+    const deviceId =
+        item?._device_id
+        || item?._sync?.deviceId
+        || item?.deviceId
+        || 'legacy';
+    const sequence = Number(
+        item?._sequence
+        ?? item?._sync?.sequenceNum
+        ?? item?.sequenceNum
+        ?? 0
+    );
+    return {
+        deviceId: typeof deviceId === 'string' ? deviceId : 'legacy',
+        sequence: Number.isFinite(sequence) ? sequence : 0,
+    };
+}
+
+function choosePreferredByTimestampAndSyncMeta(localItem, serverItem) {
+    const localTs = getItemTimestamp(localItem);
+    const serverTs = getItemTimestamp(serverItem);
+    if (localTs !== serverTs) {
+        return serverTs > localTs ? serverItem : localItem;
+    }
+
+    const localMeta = getItemSyncMeta(localItem);
+    const serverMeta = getItemSyncMeta(serverItem);
+    if (localMeta.sequence !== serverMeta.sequence) {
+        return serverMeta.sequence > localMeta.sequence ? serverItem : localItem;
+    }
+
+    const deviceCmp = String(serverMeta.deviceId).localeCompare(String(localMeta.deviceId));
+    if (deviceCmp !== 0) {
+        return deviceCmp > 0 ? serverItem : localItem;
+    }
+
+    // Stable fallback: prefer local when everything is equivalent.
+    return localItem;
+}
+
+function stampItemSyncMeta(item, userId, type) {
+    const meta = buildSyncMetadata(userId, type);
+    return {
+        ...item,
+        _device_id: meta.deviceId,
+        _sequence: meta.sequenceNum,
+    };
+}
+
 function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr, deletedKey) {
     const serverTimestamp = serverUpdatedAtStr ? Date.parse(serverUpdatedAtStr) : 0;
     const serverMap = new Map();
@@ -234,8 +283,7 @@ function mergeItemsByIdForeground(localItems, serverItems, serverUpdatedAtStr, d
             continue;
         }
 
-        const serverTs = getItemTimestamp(server);
-        merged.push(serverTs > localTs ? server : local);
+        merged.push(choosePreferredByTimestampAndSyncMeta(local, server));
         mergedIds.add(local.id);
     }
 
@@ -539,12 +587,12 @@ export function getAllStases() {
 
 export function addStase({ name, color }) {
     const stases = getStoredStases();
-    const newStase = {
+    const newStase = stampItemSyncMeta({
         id: crypto.randomUUID(),
         name,
         color,
         createdAt: new Date().toISOString(),
-    };
+    }, activeDataUserId, 'stases');
     stases.push(newStase);
     saveStases(stases);
     return newStase;
@@ -554,7 +602,11 @@ export function updateStase(id, updates) {
     const stases = getStoredStases();
     const index = stases.findIndex(s => s.id === id);
     if (index === -1) return null;
-    stases[index] = { ...stases[index], ...updates, updatedAt: new Date().toISOString() };
+    stases[index] = stampItemSyncMeta(
+        { ...stases[index], ...updates, updatedAt: new Date().toISOString() },
+        activeDataUserId,
+        'stases'
+    );
     saveStases(stases);
     return stases[index];
 }
@@ -651,7 +703,7 @@ export function addPatient(patient) {
         }] : []
     );
 
-    const newPatient = {
+    const newPatient = stampItemSyncMeta({
         ...patient,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
@@ -663,7 +715,7 @@ export function addPatient(patient) {
         prescriptions: patient.prescriptions || [],
         vitalSigns: seedVitalSigns,
         aiInsights: patient.aiInsights || [],
-    };
+    }, activeDataUserId, 'patients');
     patients.push(newPatient);
     saveData(patients);
     if (typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
@@ -677,11 +729,15 @@ export function updatePatient(id, updates) {
     const index = patients.findIndex(p => p.id === id);
     if (index === -1) return null;
 
-    patients[index] = {
-        ...patients[index],
-        ...updates,
-        updatedAt: new Date().toISOString(),
-    };
+    patients[index] = stampItemSyncMeta(
+        {
+            ...patients[index],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+        },
+        activeDataUserId,
+        'patients'
+    );
     saveData(patients);
     if (typeof pendingSync !== 'undefined' && pendingSync.markPatients) {
         pendingSync.markPatients();
@@ -1164,12 +1220,12 @@ export function getAllSchedules() {
 export function addSchedule(schedule) {
     const schedules = getStoredSchedules();
     const nowIso = new Date().toISOString();
-    const newSchedule = {
+    const newSchedule = stampItemSyncMeta({
         ...schedule,
         id: crypto.randomUUID(),
         createdAt: nowIso,
         updatedAt: nowIso,
-    };
+    }, activeScheduleUserId, 'schedules');
     schedules.push(newSchedule);
     saveSchedules(schedules);
     return newSchedule;
@@ -1179,7 +1235,11 @@ export function updateSchedule(id, updates) {
     const schedules = getStoredSchedules();
     const index = schedules.findIndex(s => s.id === id);
     if (index === -1) return null;
-    schedules[index] = { ...schedules[index], ...updates, updatedAt: new Date().toISOString() };
+    schedules[index] = stampItemSyncMeta(
+        { ...schedules[index], ...updates, updatedAt: new Date().toISOString() },
+        activeScheduleUserId,
+        'schedules'
+    );
     saveSchedules(schedules);
     return schedules[index];
 }
