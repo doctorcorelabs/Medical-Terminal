@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { getDeviceTypeIcon } from '../../utils/deviceDetection';
 import RevocationModal from '../../components/modals/RevocationModal';
 import BanModal from '../../components/modals/BanModal';
+import CleanupModal from '../../components/modals/CleanupModal';
 
 export default function AdminUserDevices() {
     const { addToast } = useToast();
@@ -32,6 +33,13 @@ export default function AdminUserDevices() {
         userId: null,
         username: '',
         currentStatus: false
+    });
+
+    const [cleanupModal, setCleanupModal] = useState({
+        isOpen: false,
+        userId: null,
+        deviceId: null,
+        deviceName: '',
     });
 
     const fetchRows = useCallback(async () => {
@@ -199,12 +207,14 @@ export default function AdminUserDevices() {
                     return tsB - tsA;
                 }).map(device => ({
                     ...device,
+                    hasActiveSession: device.sessions.some(s => s.is_active),
                     sessions: [...device.sessions].sort((as, bs) => {
                         const tsAs = new Date(as.last_activity_at || as.session_started_at || 0).getTime();
                         const tsBs = new Date(bs.last_activity_at || bs.session_started_at || 0).getTime();
                         return tsBs - tsAs;
                     })
                 })),
+                activeDevicesCount: Array.from(user.devices.values()).filter(d => d.sessions.some(s => s.is_active)).length,
             }))
             .sort((a, b) => {
                 const tsA = new Date(a.lastActivityAt || 0).getTime();
@@ -218,9 +228,9 @@ export default function AdminUserDevices() {
         const totalActiveSessions = rows.filter(s => s.is_active).length;
         const totalBanned = groupedUsers.filter(u => u.isBanned).length;
         const totalWhitelisted = groupedUsers.filter(u => u.isWhitelisted).length;
-        const uniqueDevices = new Set(rows.map(s => `${s.user_id}:${s.device_id}`)).size;
+        const totalActiveDevices = new Set(rows.filter(s => s.is_active).map(s => `${s.user_id}:${s.device_id}`)).size;
 
-        return { totalUsers, totalActiveSessions, totalBanned, totalWhitelisted, uniqueDevices };
+        return { totalUsers, totalActiveSessions, totalBanned, totalWhitelisted, totalActiveDevices };
     }, [groupedUsers, rows]);
 
     const filteredUsers = useMemo(() => {
@@ -410,6 +420,47 @@ export default function AdminUserDevices() {
         });
     };
 
+    const handleDeleteDeviceHistory = (userId, deviceId, deviceName) => {
+        setCleanupModal({
+            isOpen: true,
+            userId,
+            deviceId,
+            deviceName: deviceName || deviceId,
+        });
+    };
+
+    const handleConfirmDeleteDevice = async () => {
+        const { userId, deviceId, deviceName } = cleanupModal;
+        setBusyUserId(userId);
+        try {
+            // 1. Delete associated sessions
+            const { error: sessErr } = await supabase
+                .from('user_login_sessions')
+                .delete()
+                .eq('user_id', userId)
+                .eq('device_id', deviceId);
+            
+            if (sessErr) throw sessErr;
+
+            // 2. Delete device registry
+            const { error: devErr } = await supabase
+                .from('user_devices')
+                .delete()
+                .eq('user_id', userId)
+                .eq('device_id', deviceId);
+            
+            if (devErr) throw devErr;
+
+            addToast(`Riwayat perangkat "${deviceName}" telah dibersihkan secara permanen.`, 'success');
+            fetchRows();
+        } catch (err) {
+            addToast(`Gagal menghapus riwayat: ${err.message}`, 'error');
+        } finally {
+            setBusyUserId(null);
+            setCleanupModal(prev => ({ ...prev, isOpen: false }));
+        }
+    };
+
     const handleToggleWhitelist = async (userId, newStatus) => {
         setBusyStatus(prev => ({ ...prev, [userId]: true }));
         const { error } = await supabase
@@ -526,11 +577,11 @@ export default function AdminUserDevices() {
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="size-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-                            <span className="material-symbols-outlined text-emerald-500">sensors</span>
+                            <span className="material-symbols-outlined text-emerald-500">devices</span>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sesi Aktif</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Device Aktif</span>
                     </div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.totalActiveSessions}</div>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">{stats.totalActiveDevices}</div>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
@@ -635,8 +686,12 @@ export default function AdminUserDevices() {
                                                             {user.user_id.split('-')[0]}...
                                                         </div>
                                                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                                                            <span className="material-symbols-outlined text-[14px] text-emerald-500">sensors</span>
-                                                            {user.activeCount} Sesi Aktif
+                                                            <span className="material-symbols-outlined text-[14px] text-emerald-500">devices</span>
+                                                            {user.activeDevicesCount} Perangkat Aktif
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-3">
+                                                            <span className="material-symbols-outlined text-[14px] text-blue-400">sensors</span>
+                                                            {user.activeCount} Sesi
                                                         </div>
                                                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                                                             <span className="material-symbols-outlined text-[14px]">history</span>
@@ -688,14 +743,24 @@ export default function AdminUserDevices() {
                                                                                 <p className="text-[9px] font-mono text-slate-400 truncate">ID: {device.device_id}</p>
                                                                             </div>
                                                                         </div>
-                                                                        <button 
-                                                                            onClick={() => handleRevokeDevice(user.user_id, device.device_id, device.device_name)}
-                                                                            disabled={busyUserId === user.user_id}
-                                                                            className="px-3 py-1.5 rounded-lg border border-rose-500/20 text-[9px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center gap-1.5"
-                                                                        >
-                                                                            <span className="material-symbols-outlined text-sm">phonelink_erase</span>
-                                                                            Revoke Device
-                                                                        </button>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <button 
+                                                                                onClick={() => handleRevokeDevice(user.user_id, device.device_id, device.device_name)}
+                                                                                disabled={busyUserId === user.user_id || !device.hasActiveSession}
+                                                                                className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${device.hasActiveSession ? 'border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white' : 'border-slate-200 text-slate-300 cursor-not-allowed'}`}
+                                                                            >
+                                                                                <span className="material-symbols-outlined text-sm">phonelink_erase</span>
+                                                                                Revoke
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => handleDeleteDeviceHistory(user.user_id, device.device_id, device.device_name)}
+                                                                                disabled={busyUserId === user.user_id || device.hasActiveSession}
+                                                                                className={`p-1.5 rounded-lg border transition-all flex items-center justify-center ${!device.hasActiveSession ? 'border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-rose-600 hover:border-rose-200' : 'border-slate-100 text-slate-200 cursor-not-allowed'}`}
+                                                                                title="Hapus Riwayat Perangkat"
+                                                                            >
+                                                                                <span className="material-symbols-outlined text-sm">delete_sweep</span>
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                     <div className="p-3 space-y-2">
                                                                         {device.sessions.map((session) => (
@@ -816,6 +881,14 @@ export default function AdminUserDevices() {
                 targetName={banModal.username}
                 currentStatus={banModal.currentStatus}
                 loading={busyStatus[banModal.userId]}
+            />
+
+            <CleanupModal
+                isOpen={cleanupModal.isOpen}
+                onClose={() => setCleanupModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={handleConfirmDeleteDevice}
+                targetName={cleanupModal.deviceName}
+                loading={busyUserId === cleanupModal.userId}
             />
         </div>
     );

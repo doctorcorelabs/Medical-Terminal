@@ -45,6 +45,30 @@ export function getDeviceFingerprint(options = {}) {
         const scr = options.screen || (typeof screen !== 'undefined' ? screen : {});
         const timezone = options.timezone || (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC');
 
+        // Create a canvas fingerprint buffer (more stable than devicePixelRatio)
+        let canvasHash = '';
+        if (typeof document !== 'undefined') {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    canvas.width = 200;
+                    canvas.height = 30;
+                    ctx.textBaseline = "top";
+                    ctx.font = "14px 'Arial'";
+                    ctx.fillStyle = "#f60";
+                    ctx.fillRect(125, 1, 62, 20);
+                    ctx.fillStyle = "#069";
+                    ctx.fillText("MT-Fingerprint", 2, 15);
+                    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+                    ctx.fillText("MT-Fingerprint", 4, 17);
+                    canvasHash = canvas.toDataURL().slice(-50); // Take last 50 chars for uniqueness
+                }
+            } catch (ce) {
+                canvasHash = 'no-canvas';
+            }
+        }
+
         const parts = [
             nav.platform || 'unknown',
             nav.hardwareConcurrency || 'unknown',
@@ -52,9 +76,10 @@ export function getDeviceFingerprint(options = {}) {
             scr.width || 0,
             scr.height || 0,
             scr.colorDepth || 0,
-            window.devicePixelRatio || 1,
+            // Removed: window.devicePixelRatio (too volatile)
             timezone,
-            nav.language || 'unknown'
+            nav.language || 'unknown',
+            canvasHash
         ];
         
         const raw = parts.join('|');
