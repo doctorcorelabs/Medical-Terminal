@@ -37,11 +37,15 @@ export function AdminAlertProvider({ children }) {
       .channel('admin_alert_events_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'alert_events' }, () => {
         load();
-      })
-      .subscribe();
+      });
+
+    const subTimeoutId = setTimeout(() => {
+      channel.subscribe();
+    }, 2000);
 
     return () => {
       mounted = false;
+      clearTimeout(subTimeoutId);
       supabase.removeChannel(channel);
     };
   }, [isAdmin]);

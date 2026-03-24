@@ -47,11 +47,15 @@ export default function Header({ onMenuToggle }) {
             .channel('admin_announcements_header')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_announcements' }, () => {
                 loadAnnouncement();
-            })
-            .subscribe();
+            });
+
+        const subTimeoutId = setTimeout(() => {
+            channel.subscribe();
+        }, 2200);
 
         return () => {
             isMounted = false;
+            clearTimeout(subTimeoutId);
             supabase.removeChannel(channel);
         };
     }, [isAdmin]);

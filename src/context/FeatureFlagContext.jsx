@@ -42,10 +42,17 @@ export function FeatureFlagProvider({ children }) {
                 (payload) => {
                     setFlags(prev => reduceFeatureFlagRealtimePayload(prev, payload));
                 }
-            )
-            .subscribe();
+            );
 
-        return () => { supabase.removeChannel(channel); };
+        // Delay subscription to prevent "interrupted" error
+        const subTimeoutId = setTimeout(() => {
+            channel.subscribe();
+        }, 1800);
+
+        return () => { 
+            clearTimeout(subTimeoutId);
+            supabase.removeChannel(channel); 
+        };
     }, [loadFlags]);
 
     const isEnabled = useCallback((key) => {

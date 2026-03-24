@@ -309,13 +309,18 @@ export function AuthProvider({ children }) {
                 () => {
                     runGuard();
                 }
-            )
-            .subscribe();
+            );
+
+        // Delay subscription to avoid "interrupted while page was loading" error in some browsers (e.g. Firefox)
+        const subTimeoutId = setTimeout(() => {
+            channel.subscribe();
+        }, 1500);
 
         return () => {
             window.clearInterval(intervalId);
             document.removeEventListener('visibilitychange', onVisibilityChange);
             window.removeEventListener('focus', onFocus);
+            clearTimeout(subTimeoutId);
             supabase.removeChannel(channel);
         };
     }, [enforceCurrentDeviceStillActive, user?.id]);
@@ -342,10 +347,15 @@ export function AuthProvider({ children }) {
                     // Optional: If role changed to specialist, show a global celebration maybe?
                     // We can handle specific UI logic in the components that consume this.
                 }
-            )
-            .subscribe();
+            );
+
+        // Delay subscription to prevent Firefox handshake interruptions during burst loads
+        const subTimeoutId = setTimeout(() => {
+            channel.subscribe();
+        }, 1200);
 
         return () => {
+            clearTimeout(subTimeoutId);
             supabase.removeChannel(channel);
         };
     }, [user?.id]);
