@@ -381,7 +381,14 @@ async function flushGroup(group, warningSink = null) {
     // ── Upserts ──────────────────────────────────────────────────
     if (upserts.length > 0) {
         upserts.sort((a, b) => a.enqueuedAt.localeCompare(b.enqueuedAt));
-        const lastPayload = upserts[upserts.length - 1].payload;
+        const lastUpsert = upserts[upserts.length - 1];
+        const lastPayload = lastUpsert.payload;
+        const deviceId = typeof lastUpsert.deviceId === 'string' && lastUpsert.deviceId
+            ? lastUpsert.deviceId
+            : 'legacy';
+        const sequenceNum = Number.isFinite(Number(lastUpsert.sequenceNum))
+            ? Number(lastUpsert.sequenceNum)
+            : 0;
 
         // 1. Fetch current server state
         const serverRow = await fetchServerRow(supabaseUrl, supabaseKey, table, group.userId, accessToken, warningSink);
@@ -392,7 +399,13 @@ async function flushGroup(group, warningSink = null) {
         );
 
         // 3. Upsert merged result
-        const body = { user_id: group.userId, ...mergedPayload, updated_at: new Date().toISOString() };
+        const body = {
+            user_id: group.userId,
+            ...mergedPayload,
+            updated_at: new Date().toISOString(),
+            _device_id: deviceId,
+            _sequence: sequenceNum,
+        };
         const res = await fetch(`${supabaseUrl}/rest/v1/${table}?on_conflict=user_id`, {
             method: 'POST',
             headers: {

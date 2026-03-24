@@ -8,6 +8,10 @@ CREATE TABLE IF NOT EXISTS public.user_patients (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+ALTER TABLE public.user_patients
+    ADD COLUMN IF NOT EXISTS _device_id TEXT NOT NULL DEFAULT 'legacy',
+    ADD COLUMN IF NOT EXISTS _sequence BIGINT NOT NULL DEFAULT 0;
+
 -- Atur Row Level Security (RLS) agar data aman dan hanya bisa diakses oleh pemiliknya
 ALTER TABLE public.user_patients ENABLE ROW LEVEL SECURITY;
 
@@ -39,6 +43,10 @@ CREATE TABLE IF NOT EXISTS public.user_stases (
     pinned_stase_id TEXT DEFAULT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+ALTER TABLE public.user_stases
+    ADD COLUMN IF NOT EXISTS _device_id TEXT NOT NULL DEFAULT 'legacy',
+    ADD COLUMN IF NOT EXISTS _sequence BIGINT NOT NULL DEFAULT 0;
 
 ALTER TABLE public.user_stases ENABLE ROW LEVEL SECURITY;
 

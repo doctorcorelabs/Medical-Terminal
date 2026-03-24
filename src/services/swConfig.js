@@ -8,6 +8,21 @@
 
 import { openDB } from './idbQueue';
 
+const DEVICE_ID_KEY = 'medterminal_device_id';
+
+export function getOrCreateDeviceId() {
+    try {
+        let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+        if (!deviceId) {
+            deviceId = crypto.randomUUID();
+            localStorage.setItem(DEVICE_ID_KEY, deviceId);
+        }
+        return deviceId;
+    } catch {
+        return `fallback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+}
+
 /**
  * Store Supabase URL + anon key into IDB so the service worker can read them.
  * Call this once after the app boots (e.g., in main.jsx or OfflineContext).
@@ -16,6 +31,7 @@ export async function storeSwConfig(accessToken = null) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseKey) return;
+    const deviceId = getOrCreateDeviceId();
 
     try {
         const db = await openDB();
@@ -23,7 +39,7 @@ export async function storeSwConfig(accessToken = null) {
             const tx = db.transaction('swConfig', 'readwrite');
             tx.objectStore('swConfig').put({ 
                 key: 'config', 
-                data: { supabaseUrl, supabaseKey, accessToken } 
+                data: { supabaseUrl, supabaseKey, accessToken, deviceId } 
             });
             tx.oncomplete = resolve;
             tx.onerror = () => reject(tx.error);

@@ -2,6 +2,7 @@
 import { supabase } from './supabaseClient.js';
 import { pendingSync, setPendingSyncScope } from './offlineQueue.js';
 import { enqueue, clearQueueByType } from './idbQueue.js';
+import { getOrCreateDeviceId } from './swConfig.js';
 import {
     getScheduleStorageKey,
     mergeSchedules,
@@ -15,6 +16,7 @@ const STASE_KEY = 'medterminal_stases';
 const DELETED_STASES_KEY = 'medterminal_deleted_stases'; // Tombstones for sync
 const PINNED_KEY = 'medterminal_pinned_stase';
 const DELETED_SCHEDULES_KEY = 'medterminal_deleted_schedules'; // Tombstones for schedule sync
+const SYNC_SEQUENCE_KEY = 'medterminal_sync_sequence';
 
 let activeDataUserId = null;
 let activeScheduleUserId = null;
@@ -26,6 +28,47 @@ function logSyncWarning(operation, userId, err, extra = {}) {
         error: err?.message || String(err || 'unknown'),
         ...extra,
     });
+}
+
+function getRoleSnapshot() {
+    try {
+        const raw = localStorage.getItem('medterminal_profile_cache');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return typeof parsed?.role === 'string' ? parsed.role : null;
+    } catch {
+        return null;
+    }
+}
+
+function getSequenceStorageKey(userId, type) {
+    const scope = userId || 'anonymous';
+    return `${SYNC_SEQUENCE_KEY}:${scope}:${type}`;
+}
+
+function nextSyncSequence(userId, type) {
+    const key = getSequenceStorageKey(userId, type);
+    let current = 0;
+    try {
+        current = Number(localStorage.getItem(key) || '0');
+    } catch {
+        current = 0;
+    }
+    const next = Number.isFinite(current) ? current + 1 : 1;
+    try {
+        localStorage.setItem(key, String(next));
+    } catch {
+        // Non-fatal: sequence falls back to current runtime value.
+    }
+    return next;
+}
+
+function buildSyncMetadata(userId, type) {
+    return {
+        deviceId: getOrCreateDeviceId(),
+        sequenceNum: nextSyncSequence(userId, type),
+        roleSnapshot: getRoleSnapshot(),
+    };
 }
 
 function getScopedDataKey(baseKey, userId = activeDataUserId) {
@@ -218,7 +261,14 @@ export async function syncToSupabase(userId) {
     if (!userId) return;
     setDataStorageScope(userId);
     const localPatients = getStoredData();
-    await enqueue({ type: 'patients', op: 'upsert', userId, payload: { patients_data: localPatients } }).catch((err) => {
+    const syncMeta = buildSyncMetadata(userId, 'patients');
+    await enqueue({
+        type: 'patients',
+        op: 'upsert',
+        userId,
+        payload: { patients_data: localPatients },
+        ...syncMeta,
+    }).catch((err) => {
         logSyncWarning('patients.enqueue', userId, err);
     });
     
@@ -238,7 +288,9 @@ export async function syncToSupabase(userId) {
         const { error } = await supabase.from('user_patients').upsert({
             user_id: userId,
             patients_data: finalPatients,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            _device_id: syncMeta.deviceId,
+            _sequence: syncMeta.sequenceNum,
         });
         
         if (error) throw error;
@@ -358,7 +410,14 @@ export async function syncStasesToSupabase(userId) {
     const localStases = getStoredStases();
     const pinnedStaseId = getPinnedStaseId();
     
-    await enqueue({ type: 'stases', op: 'upsert', userId, payload: { stases_data: localStases, pinned_stase_id: pinnedStaseId } }).catch((err) => {
+    const syncMeta = buildSyncMetadata(userId, 'stases');
+    await enqueue({
+        type: 'stases',
+        op: 'upsert',
+        userId,
+        payload: { stases_data: localStases, pinned_stase_id: pinnedStaseId },
+        ...syncMeta,
+    }).catch((err) => {
         logSyncWarning('stases.enqueue', userId, err);
     });
     
@@ -390,7 +449,9 @@ export async function syncStasesToSupabase(userId) {
             user_id: userId,
             stases_data: finalStases,
             pinned_stase_id: finalPinned,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            _device_id: syncMeta.deviceId,
+            _sequence: syncMeta.sequenceNum,
         });
         
         if (error) throw error;
@@ -989,6 +1050,7 @@ export async function syncSchedulesToSupabase(userId) {
     const deletedSchedulesState = getDeletedSchedulesState();
     
     // Enqueue for background retry
+    const syncMeta = buildSyncMetadata(userId, 'schedules');
     await enqueue({
         type: 'schedules',
         op: 'upsert',
@@ -997,6 +1059,7 @@ export async function syncSchedulesToSupabase(userId) {
             schedules_data: localSchedules,
             deleted_schedules_state: deletedSchedulesState,
         },
+        ...syncMeta,
     }).catch((err) => {
         logSyncWarning('schedules.enqueue', userId, err);
     });
@@ -1023,6 +1086,8 @@ export async function syncSchedulesToSupabase(userId) {
             user_id: userId,
             schedules_data: merged,
             updated_at: new Date().toISOString(),
+            _device_id: syncMeta.deviceId,
+            _sequence: syncMeta.sequenceNum,
         });
         
         if (error) throw error;
