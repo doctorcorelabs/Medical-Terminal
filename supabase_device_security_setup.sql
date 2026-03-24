@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS public.user_login_sessions (
   last_activity_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   revoked_at        TIMESTAMPTZ,
   revoke_reason     TEXT,
+  revoke_message_custom TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, session_id)
@@ -182,6 +183,7 @@ DECLARE
   v_revoked_session_id UUID;
   v_revoked_device_id TEXT;
   v_active_count INTEGER;
+  v_is_whitelisted BOOLEAN := false;
 BEGIN
   IF p_user_id IS NULL OR p_device_id IS NULL OR length(trim(p_device_id)) = 0 THEN
     RAISE EXCEPTION 'invalid device session payload';
@@ -191,6 +193,12 @@ BEGIN
   IF auth.uid() IS DISTINCT FROM p_user_id AND NOT public.is_admin() THEN
     RAISE EXCEPTION 'not authorized to register session for this user';
   END IF;
+
+  -- Check whitelist status (Admins are whitelisted by default)
+  SELECT (role = 'admin' OR is_security_whitelisted)
+  INTO v_is_whitelisted
+  FROM public.profiles
+  WHERE user_id = p_user_id;
 
   -- Upsert device catalog
   INSERT INTO public.user_devices (user_id, device_id, device_name, user_agent, is_trusted, first_seen_at, last_seen_at, revoked_at, revoked_reason, created_at, updated_at)
@@ -225,8 +233,8 @@ BEGIN
   WHERE s.user_id = p_user_id
     AND s.is_active = true;
 
-  -- If over limit, revoke oldest active session that is not current device
-  IF v_active_count > GREATEST(COALESCE(p_max_devices, 2), 1) THEN
+  -- If over limit (and NOT whitelisted), revoke oldest active session that is not current device
+  IF NOT COALESCE(v_is_whitelisted, false) AND v_active_count > GREATEST(COALESCE(p_max_devices, 2), 1) THEN
     WITH oldest AS (
       SELECT s.id, s.device_id
       FROM public.user_login_sessions s
@@ -240,6 +248,7 @@ BEGIN
       SET is_active = false,
           revoked_at = now(),
           revoke_reason = 'device_limit_auto_revoke',
+          revoke_message_custom = 'Sesi ini dihentikan secara otomatis karena Anda login dari perangkat baru dan telah melebihi batas maksimal 2 perangkat fisik.',
           updated_at = now()
       FROM oldest o
       WHERE s.id = o.id

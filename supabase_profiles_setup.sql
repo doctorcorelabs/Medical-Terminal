@@ -8,8 +8,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   user_id uuid UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   username text UNIQUE NOT NULL,
   full_name text,
+  is_security_whitelisted boolean NOT NULL DEFAULT false,
   created_at timestamp with time zone DEFAULT now()
-);
+ );
 
 -- 2) Ensure username is lowercase (optional) - add a check or use trigger
 -- This check enforces allowed characters and length (3-20, letters/numbers/underscore)
@@ -25,16 +26,19 @@ CREATE INDEX IF NOT EXISTS idx_profiles_username_ilower ON public.profiles (lowe
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- 4a) Users can read their own profile
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = user_id);
 
 -- 4b) Users can insert their own profile (signup flow)
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- 4c) Users can update their own profile
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = user_id)
@@ -42,6 +46,7 @@ CREATE POLICY "Users can update own profile"
 
 -- 4d) Allow reading username/full_name publicly (needed for availability check)
 --     Remove this if you want profiles to be strictly private.
+DROP POLICY IF EXISTS "Usernames are publicly readable" ON public.profiles;
 CREATE POLICY "Usernames are publicly readable"
   ON public.profiles FOR SELECT
   USING (true);

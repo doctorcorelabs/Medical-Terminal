@@ -14,7 +14,8 @@ import {
 const AuthContext = createContext();
 const AUTH_DENIAL_FALLBACK_REASON = 'Akun dibatasi oleh admin. Hubungi administrator.';
 
-function mapRevokeReasonToMessage(reasonCode) {
+function mapRevokeReasonToMessage(reasonCode, customMessage) {
+    if (customMessage) return customMessage;
     switch (reasonCode) {
         case 'admin_manual_revoke':
             return 'Sesi perangkat dicabut oleh admin.';
@@ -39,8 +40,8 @@ function buildBanDenialPayload(reason, source) {
     };
 }
 
-function buildRevokeDenialPayload(revokeReason, source) {
-    const normalizedReason = mapRevokeReasonToMessage(revokeReason);
+function buildRevokeDenialPayload(revokeReason, source, customMessage) {
+    const normalizedReason = mapRevokeReasonToMessage(revokeReason, customMessage);
     return {
         type: 'revoked',
         source,
@@ -99,7 +100,7 @@ export function AuthProvider({ children }) {
 
         const revokeStatus = await getCurrentDeviceRevocationStatus(userId);
         if (revokeStatus.isRevoked) {
-            return buildRevokeDenialPayload(revokeStatus.revokeReason, source);
+            return buildRevokeDenialPayload(revokeStatus.revokeReason, source, revokeStatus.revokeMessage);
         }
 
         return null;
@@ -199,7 +200,7 @@ export function AuthProvider({ children }) {
         const active = await isCurrentDeviceSessionActive(userId);
         if (!active) {
             const revokeStatus = await getCurrentDeviceRevocationStatus(userId);
-            const payload = buildRevokeDenialPayload(revokeStatus.revokeReason, 'auth_context_session_guard');
+            const payload = buildRevokeDenialPayload(revokeStatus.revokeReason, 'auth_context_session_guard', revokeStatus.revokeMessage);
             await forceSignOutRevokedSession(userId, payload);
         }
     }, [evaluateAuthDenial, forceSignOutRevokedSession]);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { useToast } from '../../context/ToastContext';
+import { getDeviceTypeIcon } from '../../utils/deviceDetection';
 
 export default function AdminUserDevices() {
     const { addToast } = useToast();
@@ -34,7 +35,7 @@ export default function AdminUserDevices() {
             if (userIds.length > 0) {
                 const { data: profiles, error: profilesError } = await supabase
                     .from('profiles')
-                    .select('user_id, username, full_name')
+                    .select('user_id, username, full_name, is_security_whitelisted, role')
                     .in('user_id', userIds);
 
                 if (profilesError) {
@@ -127,6 +128,8 @@ export default function AdminUserDevices() {
                 lastActivityAt: null,
                 isBanned: banByUserId[row.user_id]?.is_banned === true,
                 banReason: banByUserId[row.user_id]?.reason || null,
+                isWhitelisted: profileMap[row.user_id]?.is_security_whitelisted === true,
+                role: profileMap[row.user_id]?.role || 'user',
                 events: eventsByUserId[row.user_id] || [],
             };
 
@@ -233,6 +236,9 @@ export default function AdminUserDevices() {
     };
 
     const handleRevoke = async (session) => {
+        const customMsg = window.prompt('Pesan untuk user (opsional):', 'Sesi perangkat dicabut oleh admin.');
+        if (customMsg === null) return;
+
         setBusySessionId(session.id);
         const { error } = await supabase
             .from('user_login_sessions')
@@ -240,6 +246,7 @@ export default function AdminUserDevices() {
                 is_active: false,
                 revoked_at: new Date().toISOString(),
                 revoke_reason: 'admin_manual_revoke',
+                revoke_message_custom: customMsg || 'Sesi perangkat dicabut oleh admin.',
                 updated_at: new Date().toISOString(),
             })
             .eq('id', session.id);
@@ -257,7 +264,7 @@ export default function AdminUserDevices() {
                 device_id: session.device_id,
                 event_type: 'admin_manual_revoke_session',
                 severity: 'medium',
-                metadata: { source: 'admin_user_devices' },
+                metadata: { source: 'admin_user_devices', reason: customMsg },
             });
 
         addToast('Sesi perangkat berhasil direvoke.', 'success');
@@ -265,7 +272,7 @@ export default function AdminUserDevices() {
         fetchRows();
     };
 
-    const revokeAllSessionsForUser = async (userId, revokeReason, shouldWriteEvent) => {
+    const revokeAllSessionsForUser = async (userId, revokeReason, shouldWriteEvent, customMsg) => {
         const nowIso = new Date().toISOString();
         const { error } = await supabase
             .from('user_login_sessions')
@@ -273,6 +280,7 @@ export default function AdminUserDevices() {
                 is_active: false,
                 revoked_at: nowIso,
                 revoke_reason: revokeReason,
+                revoke_message_custom: customMsg || 'Semua sesi perangkat dicabut oleh admin.',
                 updated_at: nowIso,
             })
             .eq('user_id', userId)
@@ -299,7 +307,7 @@ export default function AdminUserDevices() {
                     user_id: userId,
                     event_type: 'admin_revoke_all_sessions',
                     severity: 'high',
-                    metadata: { source: 'admin_user_devices' },
+                    metadata: { source: 'admin_user_devices', reason: customMsg },
                 });
         }
 
@@ -307,8 +315,11 @@ export default function AdminUserDevices() {
     };
 
     const handleRevokeAll = async (userId) => {
+        const customMsg = window.prompt('Pesan untuk user (opsional):', 'Semua sesi perangkat dicabut oleh admin.');
+        if (customMsg === null) return;
+
         setBusyUserId(userId);
-        const { error } = await revokeAllSessionsForUser(userId, 'admin_revoke_all_sessions', true);
+        const { error } = await revokeAllSessionsForUser(userId, 'admin_revoke_all_sessions', true, customMsg);
         if (error) {
             addToast(`Gagal revoke semua sesi: ${error.message}`, 'error');
             setBusyUserId(null);
@@ -316,6 +327,24 @@ export default function AdminUserDevices() {
         }
 
         addToast('Semua sesi aktif user berhasil direvoke.', 'success');
+        setBusyUserId(null);
+        fetchRows();
+    };
+
+    const handleToggleWhitelist = async (userId, newStatus) => {
+        setBusyUserId(userId);
+        const { error } = await supabase
+            .from('profiles')
+            .update({ is_security_whitelisted: newStatus })
+            .eq('user_id', userId);
+
+        if (error) {
+            addToast(`Gagal update whitelist: ${error.message}`, 'error');
+            setBusyUserId(null);
+            return;
+        }
+
+        addToast(newStatus ? 'User berhasil dimasukkan ke whitelist.' : 'User dihapus dari whitelist.', 'success');
         setBusyUserId(null);
         fetchRows();
     };
@@ -546,6 +575,22 @@ export default function AdminUserDevices() {
                                                             Revoke All
                                                         </button>
 
+                                                        <button
+                                                            onClick={() => handleToggleWhitelist(user.user_id, !user.isWhitelisted)}
+                                                            disabled={busyUserId === user.user_id}
+                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                                                                user.isWhitelisted
+                                                                    ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-200'
+                                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                            } ${busyUserId === user.user_id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            title={user.isWhitelisted ? 'Hapus dari Whitelist Security' : 'Tambah ke Whitelist Security (Bypass Limit)'}
+                                                        >
+                                                            <span className="material-symbols-outlined text-[14px]">
+                                                                {user.isWhitelisted ? 'verified_user' : 'shield_person'}
+                                                            </span>
+                                                            {user.isWhitelisted ? 'Whitelisted' : 'Whitelist'}
+                                                        </button>
+
                                                         {user.isBanned ? (
                                                             <button
                                                                 onClick={() => handleSetBan(user.user_id, false)}
@@ -682,52 +727,78 @@ export default function AdminUserDevices() {
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                                        {user.sessions.map((session) => (
-                                                                            <tr key={session.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                                                                                <td className="px-4 py-3 align-top">
-                                                                                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{session.device_name || 'Unknown Device'}</p>
-                                                                                    <p className="text-[10px] font-mono text-slate-400 break-all">Device ID: {session.device_id}</p>
-                                                                                    <p className="text-[10px] font-mono text-slate-400 break-all">Session: {session.session_id || session.id}</p>
-                                                                                    <p className="text-[11px] text-slate-500 max-w-140 truncate mt-1">{session.user_agent || '-'}</p>
-                                                                                </td>
-                                                                                <td className="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-200">{formatDateTime(session.session_started_at)}</td>
-                                                                                <td className="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-200">{formatDateTime(session.last_activity_at || session.session_started_at)}</td>
-                                                                                <td className="px-4 py-3 align-top">
-                                                                                    {session.is_active ? (
-                                                                                        <span className="inline-flex items-center gap-1 text-green-500 font-bold text-xs">
-                                                                                            <span className="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                                                                            ACTIVE
-                                                                                        </span>
-                                                                                    ) : (
-                                                                                        <div>
-                                                                                            <span className="inline-flex items-center gap-1 text-slate-500 font-bold text-xs">
-                                                                                                <span className="size-1.5 rounded-full bg-slate-400"></span>
-                                                                                                REVOKED
-                                                                                            </span>
-                                                                                            <p className="text-[10px] text-slate-400 mt-1">{session.revoke_reason || '-'}</p>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </td>
-                                                                                <td className="px-4 py-3 align-top text-right">
-                                                                                    {session.is_active ? (
-                                                                                        <button
-                                                                                            onClick={() => handleRevoke(session)}
-                                                                                            disabled={busySessionId === session.id}
-                                                                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                                                                                                busySessionId === session.id
-                                                                                                    ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
-                                                                                                    : 'bg-red-500 text-white hover:bg-red-600'
-                                                                                            }`}
-                                                                                        >
-                                                                                            <span className="material-symbols-outlined text-[14px]">link_off</span>
-                                                                                            Revoke
-                                                                                        </button>
-                                                                                    ) : (
-                                                                                        <span className="text-[11px] text-slate-400">-</span>
-                                                                                    )}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
+                                                                        {(() => {
+                                                                            const deviceGroups = new Map();
+                                                                            user.sessions.forEach(s => {
+                                                                                if (!deviceGroups.has(s.device_id)) deviceGroups.set(s.device_id, []);
+                                                                                deviceGroups.get(s.device_id).push(s);
+                                                                            });
+                                                                            
+                                                                            return Array.from(deviceGroups.entries()).map(([deviceId, sessions]) => {
+                                                                                const mainSession = sessions[0];
+                                                                                const deviceName = mainSession.device_name || 'Alat Fisik';
+                                                                                const deviceIcon = getDeviceTypeIcon(mainSession.user_agent);
+                                                                                
+                                                                                return (
+                                                                                    <tr key={deviceId} className="bg-slate-50/20 dark:bg-slate-800/20">
+                                                                                        <td colSpan="5" className="px-4 py-0">
+                                                                                            <div className="py-3 border-b border-slate-100 dark:border-slate-800">
+                                                                                                <div className="flex items-center gap-3 mb-2">
+                                                                                                    <div className="size-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                                                                                                        <span className="material-symbols-outlined text-lg">{deviceIcon}</span>
+                                                                                                    </div>
+                                                                                                    <div>
+                                                                                                        <p className="text-sm font-black text-slate-800 dark:text-slate-100">{deviceName}</p>
+                                                                                                        <p className="text-[10px] font-mono text-slate-400">ID: {deviceId}</p>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                
+                                                                                                <div className="ml-11 space-y-2">
+                                                                                                    {sessions.map(session => (
+                                                                                                        <div key={session.id} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                                                                                                            <div className="flex-1 min-w-0 mr-4">
+                                                                                                                <div className="flex items-center gap-2">
+                                                                                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                                                                                                        {session.user_agent?.includes('Chrome') ? 'Google Chrome' : 
+                                                                                                                         session.user_agent?.includes('Firefox') ? 'Mozilla Firefox' : 
+                                                                                                                         session.user_agent?.includes('Safari') && !session.user_agent?.includes('Chrome') ? 'Apple Safari' : 
+                                                                                                                         session.user_agent?.includes('Edg') ? 'Microsoft Edge' : 'Browser'}
+                                                                                                                    </span>
+                                                                                                                    {session.is_active ? (
+                                                                                                                        <span className="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                                                                                                    ) : (
+                                                                                                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Revoked</span>
+                                                                                                                    )}
+                                                                                                                </div>
+                                                                                                                <p className="text-[10px] text-slate-400 truncate mt-0.5">{session.user_agent}</p>
+                                                                                                                <p className="text-[10px] text-slate-500 mt-1">
+                                                                                                                    Aktif: {formatDateTime(session.last_activity_at || session.session_started_at)}
+                                                                                                                </p>
+                                                                                                                {!session.is_active && session.revoke_reason && (
+                                                                                                                    <p className="text-[9px] text-red-400 mt-0.5 italic">Ket: {session.revoke_reason}</p>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                            <div className="flex items-center gap-2">
+                                                                                                                {session.is_active && (
+                                                                                                                    <button
+                                                                                                                        onClick={() => handleRevoke(session)}
+                                                                                                                        disabled={busySessionId === session.id}
+                                                                                                                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                                                                                                        title="Revoke Sesi"
+                                                                                                                    >
+                                                                                                                        <span className="material-symbols-outlined text-[18px]">no_accounts</span>
+                                                                                                                    </button>
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            });
+                                                                        })()}
                                                                     </tbody>
                                                                 </table>
                                                             </div>

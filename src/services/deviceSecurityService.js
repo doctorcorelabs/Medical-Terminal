@@ -138,7 +138,7 @@ export async function getCurrentDeviceRevocationStatus(userId) {
 
     const { data, error } = await supabase
         .from('user_login_sessions')
-        .select('is_active, revoke_reason, revoked_at')
+        .select('is_active, revoke_reason, revoked_at, revoke_message_custom')
         .eq('user_id', userId)
         .eq('session_id', sessionId)
         .order('updated_at', { ascending: false })
@@ -150,6 +150,7 @@ export async function getCurrentDeviceRevocationStatus(userId) {
             isRevoked: false,
             revokeReason: null,
             revokedAt: null,
+            revokeMessage: null,
         };
     }
 
@@ -160,5 +161,6 @@ export async function getCurrentDeviceRevocationStatus(userId) {
         isRevoked: hasRevokeFlag && denyReason,
         revokeReason: data.revoke_reason || null,
         revokedAt: data.revoked_at || null,
+        revokeMessage: data.revoke_message_custom || null,
     };
 }

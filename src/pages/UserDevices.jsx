@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
 import { useToast } from '../context/ToastContext';
 import { getOrCreateDeviceId, getOrCreateSessionId } from '../services/swConfig';
+import { getDeviceTypeIcon } from '../utils/deviceDetection';
 import { useAuth } from '../context/AuthContext';
 
 export default function UserDevices() {
@@ -13,6 +14,7 @@ export default function UserDevices() {
     const [rows, setRows] = useState([]);
 
     const currentSessionId = useMemo(() => getOrCreateSessionId(), []);
+    const currentDeviceId = useMemo(() => getOrCreateDeviceId(), []);
 
     const fetchSessions = useCallback(async () => {
         if (!user?.id) return;
@@ -152,19 +154,33 @@ export default function UserDevices() {
                                 </tr>
                             ) : (
                                 rows.map((row) => {
-                                    const isCurrentDevice = row.device_id === currentDeviceId;
+                                    const isCurrentSession = row.session_id === currentSessionId;
+                                    const deviceIcon = getDeviceTypeIcon(row.user_agent);
+                                    
                                     return (
-                                        <tr key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                        <tr key={row.id} className={`transition-colors ${isCurrentSession ? 'bg-primary/5 dark:bg-primary/5' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'}`}>
                                             <td className="px-6 py-4 align-top">
-                                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{row.device_name || 'Unknown Device'}</p>
-                                                <p className="text-[10px] font-mono text-slate-400 break-all">Device ID: {row.device_id}</p>
-                                                {row.session_id === currentSessionId && (
-                                                    <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                                                        <span className="size-1.5 rounded-full bg-primary"></span>
-                                                        Current Session
-                                                    </span>
-                                                )}
-                                                <p className="text-[11px] text-slate-500 mt-1 max-w-120 truncate">{row.user_agent || '-'}</p>
+                                                <div className="flex items-start gap-4">
+                                                    <div className={`size-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                                        isCurrentSession 
+                                                        ? 'bg-primary text-white' 
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                    }`}>
+                                                        <span className="material-symbols-outlined text-xl">{deviceIcon}</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                                            {row.device_name || 'Perangkat Tanpa Nama'}
+                                                        </p>
+                                                        {isCurrentSession && (
+                                                            <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-primary text-white">
+                                                                Sesi Saat Ini
+                                                            </span>
+                                                        )}
+                                                        <p className="text-[10px] font-mono text-slate-400 mt-1 max-w-64 truncate">ID: {row.device_id}</p>
+                                                        <p className="text-[11px] text-slate-500 mt-1 max-w-120 truncate">{row.user_agent || '-'}</p>
+                                                    </div>
+                                                </div>
                                             </td>
 
                                             <td className="px-6 py-4 align-top">
@@ -192,13 +208,13 @@ export default function UserDevices() {
                                             </td>
 
                                             <td className="px-6 py-4 align-top text-right">
-                                                {row.is_active && !isCurrentDevice ? (
+                                                {row.is_active && !isCurrentSession ? (
                                                     <button
                                                         onClick={() => handleRevoke(row)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white text-[11px] font-black uppercase tracking-wider rounded-lg hover:bg-red-600 transition-all"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-[11px] font-black uppercase tracking-wider rounded-lg hover:bg-red-500 hover:text-white transition-all"
                                                     >
-                                                        <span className="material-symbols-outlined text-[16px]">link_off</span>
-                                                        Revoke
+                                                        <span className="material-symbols-outlined text-[16px]">logout</span>
+                                                        Putus
                                                     </button>
                                                 ) : (
                                                     <span className="text-[11px] text-slate-400">-</span>

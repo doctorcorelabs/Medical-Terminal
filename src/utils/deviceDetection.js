@@ -69,3 +69,15 @@ export function getDeviceFingerprint(options = {}) {
         return 'hw-fallback-' + Math.random().toString(36).slice(2, 10);
     }
 }
+
+/**
+ * Returns a material icon name for the device type.
+ */
+export function getDeviceTypeIcon(ua = typeof navigator !== 'undefined' ? navigator.userAgent : '') {
+    const mobile = /Mobile|Android|iPhone|iPad|iPod|Windows Phone/i.test(ua);
+    const tablet = /Tablet|iPad|PlayBook|Silk/i.test(ua);
+    
+    if (tablet) return 'tablet_mac';
+    if (mobile) return 'smartphone';
+    return 'desktop_windows';
+}
