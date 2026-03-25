@@ -223,17 +223,28 @@ export function AuthProvider({ children }) {
         const active = await isCurrentDeviceSessionActive(userId);
         if (!active) {
             const revokeStatus = await getCurrentDeviceRevocationStatus(userId);
-            
-            // Only kick if it's an explicit revocation (has a deny reason)
-            // or if the user is NOT a whitelisted/admin account.
-            // Whitelisted accounts are allowed "fail open" on missing session rows 
-            // to avoid transient lockouts during network switches or re-registrations.
+
+            // Only hard-block on explicit revocation deny reasons.
+            // Missing/inactive rows can be transient during handover, auth event races,
+            // or short-lived registration lag after sign-in.
+            // Those cases are handled by heartbeat/lock flow instead of login denial.
             const isAdmin = profile?.role === 'admin';
             const isWhitelisted = profile?.is_security_whitelisted === true || isAdmin;
 
-            if (revokeStatus.isRevoked || !isWhitelisted) {
+            if (revokeStatus.isRevoked) {
                 const payload = buildRevokeDenialPayload(revokeStatus.revokeReason, 'auth_context_session_guard', revokeStatus.revokeMessage);
                 await forceSignOutRevokedSession(userId, payload);
+                return;
+            }
+
+            // Fail open for non-explicit revoke to avoid false "device revoked" screens.
+            if (!isWhitelisted) {
+                logUserActivity({
+                    userId,
+                    eventType: 'session_guard_inactive_without_revoke',
+                    featureKey: 'session_guard',
+                    metadata: { source: 'auth_context_session_guard' },
+                });
             }
         }
     }, [evaluateAuthDenial, forceSignOutRevokedSession, profile?.role, profile?.is_security_whitelisted]);
