@@ -17,8 +17,21 @@ function getWebGLAudit() {
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
         if (!gl) return { renderer: 'no-webgl', extensions: 0 };
         
-        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'masked';
+        // Base renderer (masked/standard)
+        let renderer = gl.getParameter(gl.RENDERER) || 'unknown';
+        
+        // Firefox warns about WEBGL_debug_renderer_info deprecation.
+        // We skip it on Firefox to avoid the console warning, as recommended by the browser.
+        const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox');
+        
+        if (!isFirefox) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                const unmasked = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                if (unmasked) renderer = unmasked;
+            }
+        }
+        
         const extensions = gl.getSupportedExtensions()?.length || 0;
         const maxTexture = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
 
