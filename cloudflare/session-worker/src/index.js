@@ -74,6 +74,52 @@ function validateReplayProtection(request, sessionId, nowMs, enforceReplayProtec
   return { ok: true };
 }
 
+function getSessionStartMs(sessionRow) {
+  const rawValue = sessionRow?.session_started_at || sessionRow?.created_at || null;
+  if (!rawValue) return null;
+
+  const ms = Date.parse(rawValue);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function shouldCurrentSessionBeLocked(currentSession, otherActiveRows, fallbackSessionId) {
+  if (!Array.isArray(otherActiveRows) || otherActiveRows.length === 0) {
+    return false;
+  }
+
+  const currentStartMs = getSessionStartMs(currentSession);
+  const currentSessionId = String(currentSession?.session_id || fallbackSessionId || '');
+
+  // If we cannot derive a stable start time for current session, keep previous behavior (locked on conflict).
+  if (currentStartMs === null) {
+    return true;
+  }
+
+  for (const other of otherActiveRows) {
+    const otherStartMs = getSessionStartMs(other);
+    const otherSessionId = String(other?.session_id || '');
+
+    // Older competing active session remains primary.
+    if (otherStartMs !== null && otherStartMs < currentStartMs) {
+      return true;
+    }
+
+    // Deterministic tie-breaker for equal start time.
+    if (otherStartMs !== null && otherStartMs === currentStartMs && otherSessionId && currentSessionId) {
+      if (otherSessionId < currentSessionId) {
+        return true;
+      }
+    }
+
+    // Unknown competitor start time: stay conservative and lock current.
+    if (otherStartMs === null) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export default {
   async fetch(request, env) {
     const nowMs = Date.now();
@@ -167,7 +213,7 @@ export default {
       const encodedSessionId = encodeURIComponent(session_id);
 
       const lookupResponse = await fetch(
-        `${supabaseUrl}/rest/v1/user_login_sessions?user_id=eq.${encodedUserId}&session_id=eq.${encodedSessionId}&select=id,is_active,revoke_reason,device_id&limit=1`,
+        `${supabaseUrl}/rest/v1/user_login_sessions?user_id=eq.${encodedUserId}&session_id=eq.${encodedSessionId}&select=id,session_id,is_active,revoke_reason,device_id,session_started_at,created_at&limit=1`,
         {
           headers: {
             "apikey": supabaseKey,
@@ -231,7 +277,7 @@ export default {
 
       // 4. Cek Konflik Eksklusif
       const conflictWindowIso = encodeURIComponent(new Date(nowMs - 7 * 60 * 1000).toISOString());
-      let conflictQuery = `user_id=eq.${encodedUserId}&is_active=eq.true&session_id=neq.${encodedSessionId}&last_activity_at=gt.${conflictWindowIso}&select=id`;
+      let conflictQuery = `user_id=eq.${encodedUserId}&is_active=eq.true&session_id=neq.${encodedSessionId}&last_activity_at=gt.${conflictWindowIso}&select=id,session_id,session_started_at,created_at`;
       
       if (device_id) {
         conflictQuery += `&device_id=neq.${encodeURIComponent(device_id)}`;
@@ -249,7 +295,7 @@ export default {
       }
 
       const otherActive = await conflictCheck.json();
-      const is_locked = otherActive.length > 0;
+      const is_locked = shouldCurrentSessionBeLocked(currentSession, otherActive, session_id);
 
       return jsonResponse({ 
         status: "ok", 

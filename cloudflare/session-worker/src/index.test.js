@@ -36,9 +36,12 @@ function makeRequest({
 function createSupabaseFetchMock({
   lookupSession = {
     id: 'row-1',
+    session_id: 'session-1',
     is_active: true,
     revoke_reason: null,
     device_id: 'device-1',
+    session_started_at: '2026-03-25T10:00:00.000Z',
+    created_at: '2026-03-25T10:00:00.000Z',
   },
   patchSession,
   conflictRows = [],
@@ -249,6 +252,110 @@ test('returns 429 when rate limit threshold exceeded in same window', async () =
     assert.ok(limitedResponse.headers.get('Retry-After'));
     const payload = await limitedResponse.json();
     assert.equal(payload.error, 'Too many heartbeat requests');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('keeps older active session unlocked when newer competing session exists', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = createSupabaseFetchMock({
+    lookupSession: {
+      id: 'row-old',
+      session_id: 'session-old',
+      is_active: true,
+      revoke_reason: null,
+      device_id: 'desktop-device',
+      session_started_at: '2026-03-25T10:00:00.000Z',
+      created_at: '2026-03-25T10:00:00.000Z',
+    },
+    patchSession: {
+      id: 'row-old',
+      session_id: 'session-old',
+      is_active: true,
+      revoke_reason: null,
+      device_id: 'desktop-device',
+      session_started_at: '2026-03-25T10:00:00.000Z',
+      created_at: '2026-03-25T10:00:00.000Z',
+    },
+    conflictRows: [
+      {
+        id: 'row-new',
+        session_id: 'session-new',
+        session_started_at: '2026-03-25T10:05:00.000Z',
+        created_at: '2026-03-25T10:05:00.000Z',
+      },
+    ],
+  });
+
+  try {
+    const response = await worker.fetch(
+      makeRequest({
+        body: {
+          user_id: 'user-1',
+          session_id: 'session-old',
+          device_id: 'desktop-device',
+        },
+      }),
+      BASE_ENV
+    );
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.is_locked, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('locks newer competing session while older session remains primary', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = createSupabaseFetchMock({
+    lookupSession: {
+      id: 'row-new',
+      session_id: 'session-new',
+      is_active: true,
+      revoke_reason: null,
+      device_id: 'mobile-device',
+      session_started_at: '2026-03-25T10:05:00.000Z',
+      created_at: '2026-03-25T10:05:00.000Z',
+    },
+    patchSession: {
+      id: 'row-new',
+      session_id: 'session-new',
+      is_active: true,
+      revoke_reason: null,
+      device_id: 'mobile-device',
+      session_started_at: '2026-03-25T10:05:00.000Z',
+      created_at: '2026-03-25T10:05:00.000Z',
+    },
+    conflictRows: [
+      {
+        id: 'row-old',
+        session_id: 'session-old',
+        session_started_at: '2026-03-25T10:00:00.000Z',
+        created_at: '2026-03-25T10:00:00.000Z',
+      },
+    ],
+  });
+
+  try {
+    const response = await worker.fetch(
+      makeRequest({
+        body: {
+          user_id: 'user-1',
+          session_id: 'session-new',
+          device_id: 'mobile-device',
+        },
+      }),
+      BASE_ENV
+    );
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.status, 'ok');
+    assert.equal(payload.is_locked, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
