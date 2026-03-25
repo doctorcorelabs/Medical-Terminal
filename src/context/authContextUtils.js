@@ -54,6 +54,7 @@ export function getRoleFlags(profile, now = new Date()) {
         isSpecialist: specialistActive,
         isExpiredSpecialist: specialistExpired,
         isIntern: !isAdmin && !specialistActive,
+        isWhitelisted: profile?.is_security_whitelisted === true || isAdmin,
     };
 }
 

@@ -6,6 +6,8 @@ export const DEFAULT_MAX_ACTIVE_DEVICES = 2;
 
 const REVOKE_DENY_REASONS = new Set([
     'admin_ban_enforced',
+    'admin_manual_revoke',
+    'device_limit_auto_revoke',
 ]);
 
 export async function registerCurrentDeviceSession(userId, maxDevices = DEFAULT_MAX_ACTIVE_DEVICES) {

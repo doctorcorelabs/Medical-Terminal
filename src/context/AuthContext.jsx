@@ -191,6 +191,10 @@ export function AuthProvider({ children }) {
     const enforceCurrentDeviceStillActive = useCallback(async (userId) => {
         if (!userId) return;
 
+        // Prevent race condition: If we are still bootstrapping the session, 
+        // don't try to enforce activity yet as it might not be registered in the DB.
+        if (sessionSecurityGateRef.current.inFlight) return;
+
         const denial = await evaluateAuthDenial(userId, 'auth_context_session_guard');
         if (denial) {
             await forceSignOutRevokedSession(userId, denial);
@@ -200,10 +204,20 @@ export function AuthProvider({ children }) {
         const active = await isCurrentDeviceSessionActive(userId);
         if (!active) {
             const revokeStatus = await getCurrentDeviceRevocationStatus(userId);
-            const payload = buildRevokeDenialPayload(revokeStatus.revokeReason, 'auth_context_session_guard', revokeStatus.revokeMessage);
-            await forceSignOutRevokedSession(userId, payload);
+            
+            // Only kick if it's an explicit revocation (has a deny reason)
+            // or if the user is NOT a whitelisted/admin account.
+            // Whitelisted accounts are allowed "fail open" on missing session rows 
+            // to avoid transient lockouts during network switches or re-registrations.
+            const isAdmin = profile?.role === 'admin';
+            const isWhitelisted = profile?.is_security_whitelisted === true || isAdmin;
+
+            if (revokeStatus.isRevoked || !isWhitelisted) {
+                const payload = buildRevokeDenialPayload(revokeStatus.revokeReason, 'auth_context_session_guard', revokeStatus.revokeMessage);
+                await forceSignOutRevokedSession(userId, payload);
+            }
         }
-    }, [evaluateAuthDenial, forceSignOutRevokedSession]);
+    }, [evaluateAuthDenial, forceSignOutRevokedSession, profile?.role, profile?.is_security_whitelisted]);
 
     const fetchProfile = useCallback(async (userId) => {
         if (!userId) { setProfile(null); return; }

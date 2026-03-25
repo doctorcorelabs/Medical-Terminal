@@ -10,6 +10,7 @@ test('getRoleFlags resolves admin role', () => {
         isSpecialist: false,
         isExpiredSpecialist: false,
         isIntern: false,
+        isWhitelisted: true,
     });
 });
 
@@ -20,6 +21,7 @@ test('getRoleFlags resolves active specialist with no expiry date', () => {
         isSpecialist: true,
         isExpiredSpecialist: false,
         isIntern: false,
+        isWhitelisted: false,
     });
 });
 
@@ -31,6 +33,12 @@ test('getRoleFlags resolves active specialist with future expiry date', () => {
     assert.strictEqual(flags.isSpecialist, true);
     assert.strictEqual(flags.isExpiredSpecialist, false);
     assert.strictEqual(flags.isIntern, false);
+    assert.strictEqual(flags.isWhitelisted, false);
+});
+
+test('getRoleFlags resolves whitelisted user', () => {
+    const flags = getRoleFlags({ role: 'user', is_security_whitelisted: true });
+    assert.strictEqual(flags.isWhitelisted, true);
 });
 
 test('getRoleFlags resolves expired specialist', () => {
@@ -50,6 +58,7 @@ test('getRoleFlags treats non-admin non-specialist as intern', () => {
         isSpecialist: false,
         isExpiredSpecialist: false,
         isIntern: true,
+        isWhitelisted: false,
     });
 });
 
