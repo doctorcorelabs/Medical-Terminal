@@ -193,7 +193,8 @@ async function processQueueOnce() {
         await broadcastToClients({
             type: 'SYNC_COMPLETE',
             success: true,
-            degraded: warnings.length > 0,
+            degraded: warnings.some(w => w.code === 'retry_backoff_deferred'),
+            hasStuckItems: warnings.some(w => w.code === 'retry_max_attempts_reached'),
             warningCount: warnings.length,
             warnings: warnings.slice(0, 10),
             processedAt: new Date().toISOString(),
@@ -246,8 +247,9 @@ async function processQueueOnce() {
     await broadcastToClients({
         type: 'SYNC_COMPLETE',
         success: allOk,
-        degraded: syncWarnings.length > 0 || deferredItems.length > 0 || maxAttemptItems.length > 0,
-        warningCount: syncWarnings.length + (deferredItems.length > 0 ? 1 : 0) + (maxAttemptItems.length > 0 ? 1 : 0),
+        degraded: syncWarnings.length > 0 || deferredItems.length > 0,
+        hasStuckItems: maxAttemptItems.length > 0,
+        warningCount: syncWarnings.length + (deferredItems.length > 0 ? 1 : 0),
         failedDequeueCount: failedDequeue.length,
         warnings: [
             ...syncWarnings,

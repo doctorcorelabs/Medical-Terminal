@@ -12,6 +12,7 @@ import { supabase } from '../services/supabaseClient';
 import { generateReceiptPDF } from '../services/receiptService';
 import { parseBackupPayload, validateBackupPayload, buildBackupPayload } from '../utils/backupFormat';
 import ImportWindowBox from '../components/ImportWindowBox';
+import SyncQueueManager from '../components/SyncQueueManager';
 
 const PDF_PREFS_LEGACY_KEY = 'medterminal_pdf_prefs';
 const DEFAULT_PDF_PREFS = {
@@ -941,7 +942,8 @@ export default function Settings() {
                     </div>
                 </div>
 
-                <div className="mt-6 lg:mt-10">
+                <div className="mt-6 lg:mt-10 space-y-6 lg:space-y-10">
+                    <SyncQueueManager />
                     <ConflictManager />
                 </div>
             </div>

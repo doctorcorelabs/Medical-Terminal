@@ -3,7 +3,7 @@ import { supabase } from '../services/supabaseClient';
 import { pendingSync, setPendingSyncScope } from '../services/offlineQueue';
 import { syncToSupabase, syncStasesToSupabase, syncSchedulesToSupabase } from '../services/dataService';
 import { useAuth } from './AuthContext';
-import { countConflicts } from '../services/idbQueue';
+import { countConflicts, clearQueueForUser } from '../services/idbQueue';
 import { storeSwConfig, triggerSwSync, onSwSyncComplete } from '../services/swConfig';
 import { getPendingStatusFromQueue } from './offlineContextUtils';
 import { logUserActivity } from '../services/activityService';
@@ -34,6 +34,7 @@ export function OfflineProvider({ children }) {
     const [lastSyncAt, setLastSyncAt] = useState(null);
     const [syncFailed, setSyncFailed] = useState(false);
     const [syncDegraded, setSyncDegraded] = useState(false);
+    const [hasStuckItems, setHasStuckItems] = useState(false);
     const [syncWarnings, setSyncWarnings] = useState([]);
     const [conflictCount, setConflictCount] = useState(0);
     const [pendingStatus, setPendingStatus] = useState(() => getPendingStatusFromQueue(pendingSync));
@@ -110,7 +111,7 @@ export function OfflineProvider({ children }) {
 
     // Listen to SYNC_COMPLETE messages from the service worker
     useEffect(() => {
-        const unsub = onSwSyncComplete(({ success, degraded, warningCount, warnings }) => {
+        const unsub = onSwSyncComplete(({ success, degraded, hasStuckItems, warningCount, warnings }) => {
             if (swSyncTimeoutRef.current) {
                 clearTimeout(swSyncTimeoutRef.current);
                 swSyncTimeoutRef.current = null;
@@ -124,7 +125,9 @@ export function OfflineProvider({ children }) {
             }
             const hasWarnings = Boolean(degraded || warningCount > 0);
             setSyncDegraded(hasWarnings);
+            setHasStuckItems(Boolean(hasStuckItems));
             setSyncWarnings(Array.isArray(warnings) ? warnings : []);
+            
             if (hasWarnings) {
                 console.warn('[OfflineContext] SW sync completed with degraded warnings', {
                     warningCount: Number(warningCount) || (Array.isArray(warnings) ? warnings.length : 0),
@@ -225,6 +228,19 @@ export function OfflineProvider({ children }) {
             refreshPendingStatus();
         }
     }, [refreshPendingStatus, setSyncSource]);
+    
+    const clearSyncQueue = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            await clearQueueForUser(user.id);
+            setSyncDegraded(false);
+            setSyncWarnings([]);
+            refreshPendingStatus();
+        } catch (err) {
+            logSyncWarning('clearSyncQueue', user.id, err);
+            throw err;
+        }
+    }, [user?.id, refreshPendingStatus]);
 
     // Listen to browser online/offline events
     useEffect(() => {
@@ -243,9 +259,20 @@ export function OfflineProvider({ children }) {
         };
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
+        
+        // Also sync when tab becomes visible (proactive)
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible' && navigator.onLine) {
+                triggerSwSync().catch(() => {});
+                flushPendingSync();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
     }, [beginSwSyncWindow, flushPendingSync, setSyncSource]);
 
@@ -272,12 +299,14 @@ export function OfflineProvider({ children }) {
             lastSyncAt,
             syncFailed,
             syncDegraded,
+            hasStuckItems,
             syncWarnings,
             flushPendingSync,
             conflictCount,
             refreshConflictCount,
             pendingStatus,
             refreshPendingStatus,
+            clearSyncQueue,
         }}>
             {children}
         </OfflineContext.Provider>

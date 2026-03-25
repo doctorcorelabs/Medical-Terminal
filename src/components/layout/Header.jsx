@@ -129,11 +129,23 @@ export default function Header({ onMenuToggle }) {
                 )}
                 {isOnline && !isSyncing && !syncFailed && syncDegraded && (
                     <div
-                        title={`Sinkronisasi selesai dengan mode degradasi. Peringatan: ${(syncWarnings || []).length}`}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-[11px] font-bold whitespace-nowrap"
+                        onClick={() => navigate('/settings')}
+                        title={`Sinkronisasi sedang tertunda (${(syncWarnings || []).length} item menunggu antrean). Klik untuk buka pengelola.`}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 text-[11px] font-bold whitespace-nowrap cursor-pointer hover:bg-amber-100 transition-colors"
                     >
-                        <span className="material-symbols-outlined text-[14px]">warning</span>
-                        <span className="hidden sm:inline">Sync degradasi</span>
+                        <span className="size-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        <span className="hidden sm:inline">Sync tertunda</span>
+                    </div>
+                )}
+
+                {isOnline && !isSyncing && !syncFailed && !syncDegraded && hasStuckItems && (
+                    <div
+                        onClick={() => navigate('/settings')}
+                        title="Ada item yang gagal sinkron berkali-kali. Cek pengelola antrean di Pengaturan."
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-[11px] font-bold whitespace-nowrap cursor-pointer hover:bg-slate-200 transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-[14px]">priority_high</span>
+                        <span className="hidden lg:inline">Cek Antrean</span>
                     </div>
                 )}
                 {isOnline && !isSyncing && !syncFailed && !syncDegraded && lastSyncAt && (

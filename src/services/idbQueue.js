@@ -179,6 +179,24 @@ export function peekQueue() {
     }));
 }
 
+/** Get ALL queue items (synced or not) for diagnostics */
+export function peekAllQueueItems() {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction('syncQueue', 'readonly');
+        const req = tx.objectStore('syncQueue').getAll();
+        req.onsuccess = () => {
+            const items = (req.result || [])
+                .sort((a, b) => {
+                    const left = Date.parse(a?.enqueuedAt || '1970-01-01T00:00:00.000Z');
+                    const right = Date.parse(b?.enqueuedAt || '1970-01-01T00:00:00.000Z');
+                    return left - right;
+                });
+            resolve(items);
+        };
+        req.onerror = () => reject(req.error);
+    }));
+}
+
 /** Remove a single queue item by its auto-increment id */
 export function dequeue(id) {
     return withStore('syncQueue', 'readwrite', store => store.delete(id));
@@ -221,6 +239,28 @@ export function markQueueItemSyncFailure(id, errorMessage) {
                 attemptCount: Number(item?.attemptCount || 0) + 1,
                 lastAttemptAt: new Date().toISOString(),
                 lastError: String(errorMessage || 'sync_failed'),
+            });
+        };
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    }));
+}
+
+/** Reset retry state for a queue item to force immediate retry */
+export function resetQueueItemRetry(id) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+        const tx = db.transaction('syncQueue', 'readwrite');
+        const store = tx.objectStore('syncQueue');
+        const req = store.get(id);
+        req.onsuccess = () => {
+            const item = req.result;
+            if (!item) return;
+            store.put({
+                ...item,
+                attemptCount: 0,
+                lastAttemptAt: null,
+                lastError: null,
             });
         };
         req.onerror = () => reject(req.error);

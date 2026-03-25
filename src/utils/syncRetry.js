@@ -15,7 +15,12 @@ export function computeRetryDelayMs(attemptCount, options = {}, randomFn = Math.
 
     if (attempts <= 0) return 0;
 
-    const exponent = Math.min(attempts - 1, 10);
+    // BURST RETRY: First 3 attempts are fast (approx 5s each)
+    if (attempts <= 3) {
+        return Math.min(maxDelayMs, 5000);
+    }
+
+    const exponent = Math.min(attempts - 4, 10);
     const backoff = Math.min(maxDelayMs, baseDelayMs * (2 ** exponent));
     const safeRandom = typeof randomFn === 'function' ? randomFn() : 0;
     const normalizedRandom = Number.isFinite(Number(safeRandom))
