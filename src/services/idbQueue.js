@@ -1,7 +1,7 @@
 /**
  * idbQueue.js — IndexedDB-backed sync queue & conflict store
  *
- * DB: medterminal-db  v5
+ * DB: medterminal-db  v6
  * Stores:
  *   syncQueue    — pending write operations to flush to Supabase
  *   conflicts    — data conflicts detected during sync (multi-device)
@@ -17,7 +17,7 @@
  */
 
 const DB_NAME = 'medterminal-db';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 // ── Open / upgrade ──────────────────────────────────────────────
 // Single canonical openDB — creates ALL stores in one place.
