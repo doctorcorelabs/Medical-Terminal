@@ -64,14 +64,50 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
 
         // Initial heartbeat
         sendHeartbeat();
-
+ 
         // 30 second interval
         intervalRef.current = setInterval(sendHeartbeat, 30000);
-
+ 
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
     }, [userId, sessionId, isWhitelisted, WORKER_URL, addToast]);
+ 
+    /**
+     * Manual trigger to update lock status immediately
+     */
+    const refreshLockStatus = async () => {
+        if (!userId || !sessionId || !WORKER_URL) return;
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+ 
+            const response = await fetch(`${WORKER_URL}/heartbeat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ 
+                    user_id: userId, 
+                    session_id: sessionId,
+                    device_id: deviceId 
+                })
+            });
+ 
+            if (response.ok) {
+                const result = await response.json();
+                if (result.status === 'ok') {
+                    setIsLocked(result.is_locked);
+                    return result.is_locked;
+                }
+            }
+        } catch (_err) {
+            // silent fail for manual refresh
+        }
+        return isLocked;
+    };
 
-    return { isLocked, isKicked };
+    return { isLocked, isKicked, refreshLockStatus };
 }

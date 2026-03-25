@@ -69,7 +69,7 @@ function AppContent() {
   const location = useLocation();
 
   const isWhitelisted = profile?.is_security_whitelisted === true || profile?.role === 'admin';
-  const { isLocked, isKicked } = useSessionHeartbeat(user?.id, dbSessionId, isWhitelisted, dbDeviceId);
+  const { isLocked, isKicked, refreshLockStatus } = useSessionHeartbeat(user?.id, dbSessionId, isWhitelisted, dbDeviceId);
 
   // Always allow the reset-password route regardless of auth state
   if (location.pathname === '/reset-password') {
@@ -94,7 +94,7 @@ function AppContent() {
       isKicked={isKicked} 
       userId={user?.id} 
       sessionId={dbSessionId}
-      onTakeoverSuccess={refreshProfile}
+      onTakeoverSuccess={refreshLockStatus}
     >
     <StaseProvider>
       <PatientProvider>

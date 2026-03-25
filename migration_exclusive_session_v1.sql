@@ -7,7 +7,10 @@ ON public.user_login_sessions (user_id, is_active, last_activity_at);
 
 -- 2. RPC: Takeover Exclusive Session (FIXED)
 -- Fungsi ini akan mematikan semua sesi aktif user kecuali sesi yang sedang digunakan sekarang.
--- Parameter p_current_session_id diubah ke TEXT agar cocok dengan ID browser (hw-xxxx).
+-- Hapus versi lama (UUID, UUID) jika ada untuk menghindari error "function not unique"
+DROP FUNCTION IF EXISTS public.takeover_exclusive_session(UUID, UUID);
+DROP FUNCTION IF EXISTS public.takeover_exclusive_session(UUID, TEXT);
+
 CREATE OR REPLACE FUNCTION public.takeover_exclusive_session(
     p_user_id UUID,
     p_current_session_id TEXT 
@@ -41,6 +44,11 @@ BEGIN
     RETURN QUERY SELECT true, 'Takeover berhasil. Sesi lain telah diputus.'::TEXT;
 END;
 $$;
+
+-- IZINKAN USER TERAUTENTIKASI MENJALANKAN FUNGSI INI
+GRANT EXECUTE ON FUNCTION public.takeover_exclusive_session(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.takeover_exclusive_session(UUID, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION public.takeover_exclusive_session(UUID, TEXT) TO service_role;
 
 -- 3. Log Retention (Auto-Delete) via pg_cron
 -- Pastikan ekstensi pg_cron aktif (biasanya sudah aktif di Supabase)
