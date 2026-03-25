@@ -16,68 +16,34 @@ test('getDeviceFingerprint is stable and uses V6 dev- prefix', () => {
     assert.ok(id.startsWith('dev-'), 'Should use dev- prefix');
 });
 
-test('getDeviceName identifies iPhone 14 via A15 Chipset', () => {
+test('getDeviceName identifies iPhone 14 as simplified Brand', () => {
     const iphone14Ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
     
     // Mock global screen and window
     global.screen = { width: 390, height: 844 }; // iPhone 12/13/14 resolution
     global.window = { 
-        devicePixelRatio: 3, 
-        matchMedia: () => ({ matches: true }),
-        getComputedStyle: () => ({ paddingTop: '50px' }) // Mocking Safe Area > 47
-    };
-    global.document = {
-        createElement: () => ({ 
-            style: {}, 
-            appendChild: () => {}, 
-            removeChild: () => {},
-            getContext: () => ({
-                getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 0x9245 }),
-                getParameter: () => 'Apple A15 GPU',
-                getSupportedExtensions: () => []
-            })
-        }),
-        body: { appendChild: () => {}, removeChild: () => {} }
+        devicePixelRatio: 3
     };
     
     const name = getDeviceName(iphone14Ua);
-    // iPhone 14 is A15 + 390x844 + Inset > 47
-    assert.strictEqual(name, 'iPhone 13 Pro / 14');
+    // Phase 11: Simplified to just Brand name
+    assert.strictEqual(name, 'iPhone');
     
     delete global.screen;
     delete global.window;
-    delete global.document;
 });
 
-test('getDeviceName identifies iPhone 12 via A14 Chipset', () => {
-    const iphone12Ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
+test('getDeviceName identifies iPad as simplified Brand', () => {
+    const ipadUa = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
     
-    global.screen = { width: 390, height: 844 };
-    global.window = { 
-        devicePixelRatio: 3, 
-        matchMedia: () => ({ matches: true }),
-        getComputedStyle: () => ({ paddingTop: '47px' })
-    };
-    global.document = {
-        createElement: () => ({ 
-            style: {}, 
-            appendChild: () => {}, 
-            removeChild: () => {},
-            getContext: () => ({
-                getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 0x9245 }),
-                getParameter: () => 'Apple A14 GPU',
-                getSupportedExtensions: () => []
-            })
-        }),
-        body: { appendChild: () => {}, removeChild: () => {} }
-    };
+    global.screen = { width: 768, height: 1024 };
+    global.window = { devicePixelRatio: 2 };
     
-    const name = getDeviceName(iphone12Ua);
-    assert.strictEqual(name, 'iPhone 12 / 12 Pro');
+    const name = getDeviceName(ipadUa);
+    assert.strictEqual(name, 'iPad');
     
     delete global.screen;
     delete global.window;
-    delete global.document;
 });
 
 test('Audio Fingerprint initialization (Mocked V6)', async () => {

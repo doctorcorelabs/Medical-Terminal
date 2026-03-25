@@ -15,6 +15,8 @@ import FeatureGate from './components/FeatureGate';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import CopilotChat from './components/common/CopilotChat';
+import ExclusiveSessionGuard from './components/security/ExclusiveSessionGuard';
+import { useSessionHeartbeat } from './hooks/useSessionHeartbeat';
 // Eager — rendered immediately on first load or before auth check
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
@@ -62,9 +64,12 @@ function PageLoader() {
 }
 
 function AppContent() {
-  const { user, isRecoveryMode, sessionSecurityPending } = useAuth();
+  const { user, profile, isRecoveryMode, sessionSecurityPending, dbSessionId, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+
+  const isWhitelisted = profile?.is_security_whitelisted === true || profile?.role === 'admin';
+  const { isLocked, isKicked } = useSessionHeartbeat(user?.id, dbSessionId, isWhitelisted);
 
   // Always allow the reset-password route regardless of auth state
   if (location.pathname === '/reset-password') {
@@ -84,6 +89,13 @@ function AppContent() {
   }
 
   return (
+    <ExclusiveSessionGuard 
+      isLocked={isLocked} 
+      isKicked={isKicked} 
+      userId={user?.id} 
+      sessionId={dbSessionId}
+      onTakeoverSuccess={refreshProfile}
+    >
     <StaseProvider>
       <PatientProvider>
       <ScheduleProvider>
@@ -140,6 +152,7 @@ function AppContent() {
       </ScheduleProvider>
       </PatientProvider>
     </StaseProvider>
+    </ExclusiveSessionGuard>
   );
 }
 

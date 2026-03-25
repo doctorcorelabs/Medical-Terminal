@@ -47,7 +47,7 @@ export default function AdminUserDevices() {
         try {
             const { data: sessions, error: sessionsError } = await supabase
                 .from('user_login_sessions')
-                .select('id, user_id, device_id, session_id, user_agent, is_active, session_started_at, last_activity_at, revoked_at, revoke_reason')
+                .select('id, user_id, device_id, session_id, user_agent, is_active, session_started_at, last_activity_at, revoked_at, revoke_reason, location_metadata')
                 .order('last_activity_at', { ascending: false })
                 .limit(500);
 
@@ -108,12 +108,15 @@ export default function AdminUserDevices() {
 
                 const { data: deviceMetadata, error: deviceError } = await supabase
                     .from('user_devices')
-                    .select('user_id, device_id, device_name')
+                    .select('user_id, device_id, device_name, location_metadata')
                     .in('user_id', userIds);
 
                 if (!deviceError && deviceMetadata) {
                     deviceMap = deviceMetadata.reduce((acc, d) => {
-                        acc[`${d.user_id}:${d.device_id}`] = d.device_name;
+                        acc[`${d.user_id}:${d.device_id}`] = {
+                            name: d.device_name,
+                            location: d.location_metadata
+                        };
                         return acc;
                     }, {});
                 }
@@ -123,7 +126,8 @@ export default function AdminUserDevices() {
                 ...item,
                 username: profileMap[item.user_id]?.username || 'unknown',
                 full_name: profileMap[item.user_id]?.full_name || '-',
-                device_name: deviceMap[`${item.user_id}:${item.device_id}`] || null,
+                device_name: deviceMap[`${item.user_id}:${item.device_id}`]?.name || null,
+                device_location: deviceMap[`${item.user_id}:${item.device_id}`]?.location || item.location_metadata || null,
                 is_security_whitelisted: profileMap[item.user_id]?.is_security_whitelisted || false,
                 role: profileMap[item.user_id]?.role || 'user',
             }));
@@ -166,6 +170,7 @@ export default function AdminUserDevices() {
             const device = current.devices.get(deviceId) || {
                 device_id: deviceId,
                 device_name: row.device_name || 'Unknown Device',
+                device_location: row.device_location || null,
                 last_seen_at: null,
                 sessions: []
             };
@@ -739,7 +744,14 @@ export default function AdminUserDevices() {
                                                                                 <span className="material-symbols-outlined">{getDeviceTypeIcon(device.sessions[0]?.user_agent)}</span>
                                                                             </div>
                                                                             <div className="min-w-0">
-                                                                                <h5 className="text-[11px] font-black text-slate-700 dark:text-slate-200 truncate uppercase tracking-tight">{device.device_name}</h5>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <h5 className="text-[11px] font-black text-slate-700 dark:text-slate-200 truncate uppercase tracking-tight">{device.device_name}</h5>
+                                                                                    {device.device_location && (
+                                                                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[8px] font-medium text-slate-400">
+                                                                                            {device.device_location.city}, {device.device_location.country}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
                                                                                 <p className="text-[9px] font-mono text-slate-400 truncate">ID: {device.device_id}</p>
                                                                             </div>
                                                                         </div>
@@ -768,9 +780,14 @@ export default function AdminUserDevices() {
                                                                                 <div className="flex items-center gap-3 min-w-0">
                                                                                     <div className={`size-2 rounded-full shrink-0 ${session.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
                                                                                     <div className="min-w-0">
-                                                                                        <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate">
-                                                                                            {session.user_agent.split(' ')[0]} / {session.user_agent.includes('Chrome') ? 'Chrome' : session.user_agent.includes('Firefox') ? 'Firefox' : session.user_agent.includes('Safari') ? 'Safari' : 'Browser'}
-                                                                                        </p>
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate">
+                                                                                                {session.user_agent.split(' ')[0]} / {session.user_agent.includes('Chrome') ? 'Chrome' : session.user_agent.includes('Firefox') ? 'Firefox' : session.user_agent.includes('Safari') ? 'Safari' : 'Browser'}
+                                                                                            </p>
+                                                                                            {session.location_metadata && (
+                                                                                                <span className="text-[8px] text-slate-300 font-medium">({session.location_metadata.city})</span>
+                                                                                            )}
+                                                                                        </div>
                                                                                         <p className="text-[9px] text-slate-400 line-clamp-1">{session.user_agent}</p>
                                                                                     </div>
                                                                                 </div>

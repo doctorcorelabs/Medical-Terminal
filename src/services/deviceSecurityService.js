@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { getOrCreateDeviceId, getOrCreateSessionId } from './swConfig';
-import { getDeviceName } from '../utils/deviceDetection.js';
+import { getDeviceName, fetchIpLocation } from '../utils/deviceDetection.js';
 
 export const DEFAULT_MAX_ACTIVE_DEVICES = 2;
 
@@ -17,6 +17,7 @@ export async function registerCurrentDeviceSession(userId, maxDevices = DEFAULT_
     const sessionId = getOrCreateSessionId();
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
     const deviceName = getDeviceName();
+    const locationMetadata = await fetchIpLocation();
 
     const result = await supabase.rpc('register_user_device_session', {
         p_user_id: userId,
@@ -25,12 +26,14 @@ export async function registerCurrentDeviceSession(userId, maxDevices = DEFAULT_
         p_device_name: deviceName,
         p_max_devices: maxDevices,
         p_session_id: sessionId,
+        p_location_metadata: locationMetadata,
     });
 
     return {
         data: result.data,
         error: result.error,
         deviceId,
+        sessionId,
     };
 }
 

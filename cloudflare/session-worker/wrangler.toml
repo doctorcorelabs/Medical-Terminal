@@ -1,0 +1,12 @@
+# cloudflare/session-worker/wrangler.toml
+
+name = "medical-terminal-session-worker"
+main = "src/index.js"
+compatibility_date = "2024-03-25"
+
+[vars]
+SUPABASE_URL = "https://hvhsoscduqektunuryky.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_Z0t0eVVtfEuQqlaTIn1YYA_Az5GdQkI"
+
+[observability]
+enabled = true

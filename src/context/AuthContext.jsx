@@ -65,6 +65,9 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [sessionSecurityPending, setSessionSecurityPending] = useState(false);
     const [authDenial, setAuthDenial] = useState(null);
+    const [dbSessionId, setDbSessionId] = useState(() => {
+        return localStorage.getItem('medterminal_db_session_id') || null;
+    });
     // Pre-detect recovery mode from URL hash before Supabase events fire to prevent dashboard flash
     const [isRecoveryMode, _setIsRecoveryMode] = useState(() =>
         window.location.hash.includes('type=recovery')
@@ -140,7 +143,13 @@ export function AuthProvider({ children }) {
                 return;
             }
 
-            const { data: sessionSync, error: sessionSyncError } = await registerCurrentDeviceSession(userId, DEFAULT_MAX_ACTIVE_DEVICES);
+            const { data: sessionSync, error: sessionSyncError, sessionId: regSessionId } = await registerCurrentDeviceSession(userId, DEFAULT_MAX_ACTIVE_DEVICES);
+            
+            if (!sessionSyncError && regSessionId) {
+                setDbSessionId(regSessionId);
+                localStorage.setItem('medterminal_db_session_id', regSessionId);
+            }
+
             if (sessionSyncError) {
                 console.warn('[AuthContext] registerCurrentDeviceSession failed:', sessionSyncError.message);
             } else if (sessionSync?.revoked_device_id) {
@@ -270,6 +279,8 @@ export function AuthProvider({ children }) {
                 localStorage.removeItem('medterminal_user_cache');
                 localStorage.removeItem('medterminal_profile_cache');
                 setProfile(null);
+                setDbSessionId(null);
+                localStorage.removeItem('medterminal_db_session_id');
                 setSessionSecurityPending(false);
                 resetSessionSecurityGate();
             }
@@ -494,6 +505,7 @@ export function AuthProvider({ children }) {
         refreshProfile: () => fetchProfile(user?.id),
         isRecoveryMode,
         setIsRecoveryMode,
+        dbSessionId
     };
 
     return (

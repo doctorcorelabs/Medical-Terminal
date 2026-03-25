@@ -1,14 +1,16 @@
 /**
  * src/utils/deviceDetection.js
- * Utilitas untuk deteksi perangkat, browser, dan pembuatan fingerprint hardware.
- * Versi EXTREME (V6): Chipset-First (A14-A16), Audio Fingerprinting, dan PWA-Safe.
+ * Utilitas untuk deteksi perangkat, browser, dan geolokasi.
+ * Versi 11: Simplified Identity + Passive Geolocation.
  */
 import { UAParser } from 'ua-parser-js';
 
 let cachedAudioFingerprint = 'pending';
+let cachedLocation = null;
 
 /**
- * Mendapatkan renderer WebGL dan Audit Ekstensi untuk audit hardware mendalam.
+ * Mendapatkan renderer WebGL dan Audit Ekstensi.
+ * Preserving manual Firefox fix from Step 1255.
  */
 function getWebGLAudit() {
     if (typeof document === 'undefined') return { renderer: 'unknown', extensions: 0 };
@@ -17,11 +19,7 @@ function getWebGLAudit() {
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
         if (!gl) return { renderer: 'no-webgl', extensions: 0 };
         
-        // Base renderer (masked/standard)
         let renderer = gl.getParameter(gl.RENDERER) || 'unknown';
-        
-        // Firefox warns about WEBGL_debug_renderer_info deprecation.
-        // We skip it on Firefox to avoid the console warning, as recommended by the browser.
         const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('firefox');
         
         if (!isFirefox) {
@@ -42,34 +40,24 @@ function getWebGLAudit() {
 }
 
 /**
- * Audio Fingerprinting (Extreme Precision)
+ * Audio Fingerprinting (Hardware signature)
  */
 export async function initializeAudioFingerprint() {
     if (typeof window === 'undefined' || cachedAudioFingerprint !== 'pending') return;
-    
     try {
         const AudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
         if (!AudioContext) {
             cachedAudioFingerprint = 'no-api';
             return;
         }
-
         const context = new AudioContext(1, 44100, 44100);
         const oscillator = context.createOscillator();
         oscillator.type = 'triangle';
         oscillator.frequency.setValueAtTime(10000, context.currentTime);
-
         const compressor = context.createDynamicsCompressor();
-        compressor.threshold.setValueAtTime(-50, context.currentTime);
-        compressor.knee.setValueAtTime(40, context.currentTime);
-        compressor.ratio.setValueAtTime(12, context.currentTime);
-        compressor.attack.setValueAtTime(0, context.currentTime);
-        compressor.release.setValueAtTime(0.25, context.currentTime);
-
         oscillator.connect(compressor);
         compressor.connect(context.destination);
         oscillator.start(0);
-
         const buffer = await context.startRendering();
         const data = buffer.getChannelData(0);
         let sum = 0;
@@ -81,92 +69,52 @@ export async function initializeAudioFingerprint() {
 }
 
 /**
- * Mendapatkan nilai pixel tepat dari Safe Area (iPhone differentiation).
+ * Passive Geolocation (IP-based)
+ * No permission popup required.
  */
-function getPixelPerfectInsets() {
-    if (typeof document === 'undefined' || !document.body) return 0;
+export async function fetchIpLocation() {
+    if (cachedLocation) return cachedLocation;
     try {
-        const el = document.createElement('div');
-        el.style.paddingTop = 'env(safe-area-inset-top)';
-        el.style.visibility = 'hidden';
-        el.style.position = 'absolute';
-        document.body.appendChild(el);
-        const inset = parseInt(window.getComputedStyle(el).paddingTop, 10) || 0;
-        document.body.removeChild(el);
-        return inset;
-    } catch (_e) {
-        return 0;
+        // Using ipapi.co (Free tier) with a timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        
+        const response = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        const data = await response.json();
+        if (data && data.city) {
+            cachedLocation = {
+                city: data.city,
+                region: data.region,
+                country: data.country_name,
+                ip: data.ip
+            };
+            return cachedLocation;
+        }
+    } catch (_err) {
+        // Fallback or ignore
     }
-}
-
-function getAdvancedHardwareSignals() {
-    if (typeof window === 'undefined') return {};
-    return {
-        p3: window.matchMedia?.('(color-gamut: p3)').matches || false,
-        touch: navigator.maxTouchPoints || 0,
-        safeInset: getPixelPerfectInsets(),
-        cores: navigator.hardwareConcurrency || 'unknown'
-    };
+    return null;
 }
 
 /**
- * Tabel lookup berbasis Chipset (GPU) + Resolusi.
- * Prioritas Chipset untuk membedakan iPhone 12 vs 13 vs 14.
+ * Simplified iOS Model Detection (Phase 11 requested)
  */
 function getIOSModel() {
     if (typeof window === 'undefined') return 'iPhone/iPad';
-    
     const w = screen.width;
     const h = screen.height;
     const ratio = window.devicePixelRatio || 1;
     const res = `${Math.min(w, h)}x${Math.max(w, h)}@${ratio}x`;
-    const audit = getWebGLAudit();
-    const signals = getAdvancedHardwareSignals();
     
-    const gpu = audit.renderer.toUpperCase();
-
-    // 1. A16 / A17 Chipsets (iPhone 14 Pro, 15, 15 Pro, 16)
-    if (gpu.includes('A16') || gpu.includes('A17')) {
-        if (res === '393x852@3x') return 'iPhone 14 Pro / 15 / 16';
-        if (res === '430x932@3x') return 'iPhone 14 Pro Max / 15 Plus / 16 Plus';
-        return 'iPhone (A16/A17)';
+    // Simplification: Focus on Brand/Type rather than specific generation
+    if (res.includes('@3x')) return 'iPhone';
+    if (res.includes('@2x')) {
+        if (Math.min(w, h) >= 768) return 'iPad';
+        return 'iPhone';
     }
-
-    // 2. A15 Chipsets (iPhone 13 Series, iPhone 14 Standard)
-    if (gpu.includes('A15')) {
-        if (res === '390x844@3x') {
-            // Membedakan iPhone 13 Pro vs 14 via Safe Area jika tersedia
-            return signals.safeInset > 47 ? 'iPhone 13 Pro / 14' : 'iPhone 13';
-        }
-        if (res === '428x926@3x') return 'iPhone 13 Pro Max / 14 Plus';
-        if (res === '375x812@3x') return 'iPhone 13 Mini';
-        return 'iPhone (A15)';
-    }
-
-    // 3. A14 Chipsets (iPhone 12 Series)
-    if (gpu.includes('A14')) {
-        if (res === '390x844@3x') return 'iPhone 12 / 12 Pro';
-        if (res === '428x926@3x') return 'iPhone 12 Pro Max';
-        if (res === '375x812@3x') return 'iPhone 12 Mini';
-        return 'iPhone 12 Series';
-    }
-
-    // Fallback: Resolution based lookup (Standard)
-    const models = {
-        '375x667@2x': 'iPhone 6/7/8/SE',
-        '414x736@3x': 'iPhone 6+/7+/8+',
-        '375x812@3x': 'iPhone X/XS/11 Pro/13 Mini',
-        '414x896@2x': 'iPhone XR/11',
-        '414x896@3x': 'iPhone XS Max/11 Pro Max',
-        // iPads
-        '768x1024@2x': 'iPad Mini/Air',
-        '810x1080@2x': 'iPad 7/8/9/10th Gen',
-        '820x1180@2x': 'iPad Air 4/5',
-        '834x1194@2x': 'iPad Pro 11',
-        '1024x1366@2x': 'iPad Pro 12.9'
-    };
-
-    return models[res] || 'iPhone / iPad';
+    return 'Apple Device';
 }
 
 export function getDeviceName(customUa) {
@@ -194,28 +142,23 @@ function normalizeUAForFingerprint(ua) {
 }
 
 /**
- * Fingerprint EXTREME (V6)
+ * Fingerprint Calculation (V6 stable logic)
  */
 export function getDeviceFingerprint(options = {}) {
     try {
         const nav = options.navigator || (typeof navigator !== 'undefined' ? navigator : {});
         const scr = options.screen || (typeof screen !== 'undefined' ? screen : {});
-        const adv = getAdvancedHardwareSignals();
         const audit = getWebGLAudit();
         const normUa = normalizeUAForFingerprint(nav.userAgent);
 
         const signals = [
             nav.platform || 'unknown',
-            adv.cores,
-            adv.touch,
-            adv.p3 ? 'p3' : 'np3',
-            adv.safeInset,
+            nav.hardwareConcurrency || 'unknown',
+            nav.maxTouchPoints || 0,
             scr.width,
             scr.height,
             scr.colorDepth,
             audit.renderer,
-            audit.extensions,
-            audit.maxTexture,
             normUa,
             cachedAudioFingerprint
         ];
@@ -228,8 +171,8 @@ export function getDeviceFingerprint(options = {}) {
                 if (ctx) {
                     canvas.width = 160;
                     canvas.height = 30;
-                    ctx.font = "bold 14px 'Inter', sans-serif";
-                    ctx.fillText("MT-SECURE-V6", 5, 20); // V6 for force reload
+                    ctx.font = "bold 14px sans-serif";
+                    ctx.fillText("MT-SECURE-V11", 5, 20);
                     canvasHash = canvas.toDataURL().slice(-45);
                 }
             } catch (_e) { /* ignore */ }
