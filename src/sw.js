@@ -136,8 +136,29 @@ async function processQueueOnce() {
         console.warn('[SW] compactSyncedQueueItems failed:', err);
     });
 
-    const items = await peekQueue();
-    if (items.length === 0) return;
+    const config = await getSwConfig().catch(() => null);
+    const activeUserId = config?.userId;
+
+    const allPendingItems = await peekQueue();
+    // Only process items for the currently logged-in user to avoid ghost warnings 
+    // from previous sessions or other accounts on the same device.
+    const items = allPendingItems.filter(item => !activeUserId || item.userId === activeUserId);
+    
+    if (items.length === 0) {
+        // If we found 0 items for the active user, we still broadcast success 
+        // to clear any 'isSyncing' signals on the page.
+        await broadcastToClients({
+            type: 'SYNC_COMPLETE',
+            success: true,
+            degraded: false,
+            hasStuckItems: false,
+            warningCount: 0,
+            warnings: [],
+            userId: activeUserId,
+            processedAt: new Date().toISOString(),
+        });
+        return;
+    }
     const syncWarnings = [];
 
     const retryableItems = [];
@@ -197,6 +218,7 @@ async function processQueueOnce() {
             hasStuckItems: warnings.some(w => w.code === 'retry_max_attempts_reached'),
             warningCount: warnings.length,
             warnings: warnings.slice(0, 10),
+            userId: activeUserId,
             processedAt: new Date().toISOString(),
         });
         return;
@@ -251,6 +273,7 @@ async function processQueueOnce() {
         hasStuckItems: maxAttemptItems.length > 0,
         warningCount: syncWarnings.length + (deferredItems.length > 0 ? 1 : 0),
         failedDequeueCount: failedDequeue.length,
+        userId: activeUserId,
         warnings: [
             ...syncWarnings,
             ...(deferredItems.length > 0
@@ -297,6 +320,7 @@ function processQueue() {
                 success: false,
                 degraded: true,
                 warningCount: 1,
+                userId: activeUserId,
                 warnings: [{
                     scope: 'sw',
                     code: 'process_queue_failed',

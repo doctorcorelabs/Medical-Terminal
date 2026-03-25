@@ -74,6 +74,7 @@ export async function storeSwConfig(sessionOrToken = null) {
                     accessToken,
                     accessTokenExpiresAt,
                     deviceId,
+                    userId: sessionOrToken?.user?.id || null,
                 }
             });
             tx.oncomplete = resolve;

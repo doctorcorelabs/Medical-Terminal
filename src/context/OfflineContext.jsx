@@ -111,7 +111,12 @@ export function OfflineProvider({ children }) {
 
     // Listen to SYNC_COMPLETE messages from the service worker
     useEffect(() => {
-        const unsub = onSwSyncComplete(({ success, degraded, hasStuckItems, warningCount, warnings }) => {
+        const unsub = onSwSyncComplete(({ success, degraded, hasStuckItems, warningCount, warnings, userId: messageUserId }) => {
+            // Only process messages for the current user to avoid 'ghost' alerts from previous sessions
+            if (messageUserId && userRef.current?.id && messageUserId !== userRef.current.id) {
+                return;
+            }
+
             if (swSyncTimeoutRef.current) {
                 clearTimeout(swSyncTimeoutRef.current);
                 swSyncTimeoutRef.current = null;
@@ -291,6 +296,17 @@ export function OfflineProvider({ children }) {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]);
+
+    // Reset sync states on logout
+    useEffect(() => {
+        if (!user) {
+            setSyncFailed(false);
+            setSyncDegraded(false);
+            setHasStuckItems(false);
+            setSyncWarnings([]);
+            setConflictCount(0);
+        }
+    }, [user]);
 
     return (
         <OfflineContext.Provider value={{
