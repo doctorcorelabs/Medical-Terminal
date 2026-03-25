@@ -64,12 +64,12 @@ function PageLoader() {
 }
 
 function AppContent() {
-  const { user, profile, isRecoveryMode, sessionSecurityPending, dbSessionId, refreshProfile } = useAuth();
+  const { user, profile, isRecoveryMode, sessionSecurityPending, dbSessionId, dbDeviceId, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
   const isWhitelisted = profile?.is_security_whitelisted === true || profile?.role === 'admin';
-  const { isLocked, isKicked } = useSessionHeartbeat(user?.id, dbSessionId, isWhitelisted);
+  const { isLocked, isKicked } = useSessionHeartbeat(user?.id, dbSessionId, isWhitelisted, dbDeviceId);
 
   // Always allow the reset-password route regardless of auth state
   if (location.pathname === '/reset-password') {

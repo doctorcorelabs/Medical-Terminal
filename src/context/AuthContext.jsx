@@ -68,6 +68,9 @@ export function AuthProvider({ children }) {
     const [dbSessionId, setDbSessionId] = useState(() => {
         return localStorage.getItem('medterminal_db_session_id') || null;
     });
+    const [dbDeviceId, setDbDeviceId] = useState(() => {
+        return localStorage.getItem('medterminal_db_device_id') || null;
+    });
     // Pre-detect recovery mode from URL hash before Supabase events fire to prevent dashboard flash
     const [isRecoveryMode, _setIsRecoveryMode] = useState(() =>
         window.location.hash.includes('type=recovery')
@@ -143,11 +146,18 @@ export function AuthProvider({ children }) {
                 return;
             }
 
-            const { data: sessionSync, error: sessionSyncError, sessionId: regSessionId } = await registerCurrentDeviceSession(userId, DEFAULT_MAX_ACTIVE_DEVICES);
+            // Increase to 10 to allow multiple tabs/sessions on up to 2-3 devices 
+            // without triggering aggressive "Revoked" states. 
+            // Exclusivity is now handled by the ExclusiveSessionGuard.
+            const { data: sessionSync, error: sessionSyncError, sessionId: regSessionId } = await registerCurrentDeviceSession(userId, 10);
             
             if (!sessionSyncError && regSessionId) {
                 setDbSessionId(regSessionId);
                 localStorage.setItem('medterminal_db_session_id', regSessionId);
+                if (sessionSync?.device_id) {
+                    setDbDeviceId(sessionSync.device_id);
+                    localStorage.setItem('medterminal_db_device_id', sessionSync.device_id);
+                }
             }
 
             if (sessionSyncError) {
@@ -280,7 +290,9 @@ export function AuthProvider({ children }) {
                 localStorage.removeItem('medterminal_profile_cache');
                 setProfile(null);
                 setDbSessionId(null);
+                setDbDeviceId(null);
                 localStorage.removeItem('medterminal_db_session_id');
+                localStorage.removeItem('medterminal_db_device_id');
                 setSessionSecurityPending(false);
                 resetSessionSecurityGate();
             }
@@ -505,7 +517,8 @@ export function AuthProvider({ children }) {
         refreshProfile: () => fetchProfile(user?.id),
         isRecoveryMode,
         setIsRecoveryMode,
-        dbSessionId
+        dbSessionId,
+        dbDeviceId
     };
 
     return (

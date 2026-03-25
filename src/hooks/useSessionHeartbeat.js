@@ -9,8 +9,9 @@ import { useToast } from '../context/ToastContext';
  * @param {string} userId - Current user UUID
  * @param {string} sessionId - Current session UUID (from user_login_sessions)
  * @param {boolean} isWhitelisted - If true, bypasses exclusivity checks
+ * @param {string} deviceId - Physical device ID
  */
-export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false) {
+export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, deviceId = null) {
     const { addToast } = useToast();
     const intervalRef = useRef(null);
     const [isLocked, setIsLocked] = useState(false);
@@ -36,7 +37,11 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false) {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${session.access_token}`
                     },
-                    body: JSON.stringify({ user_id: userId, session_id: sessionId })
+                    body: JSON.stringify({ 
+                        user_id: userId, 
+                        session_id: sessionId,
+                        device_id: deviceId 
+                    })
                 });
 
                 if (response.ok) {

@@ -24,7 +24,7 @@ export default {
       if (!authHeader) return new Response("Unauthorized", { status: 401 });
 
       const body = await request.json();
-      const { session_id, user_id } = body;
+      const { session_id, user_id, device_id } = body;
 
       if (!session_id || !user_id) {
         return new Response("Missing parameters", { status: 400 });
@@ -66,9 +66,16 @@ export default {
       }
 
       // 4. Cek Konflik Eksklusif (Cari sesi lain yang lebih baru/panas)
-      // Query sesi aktif lain milik user yang sama
+      // JIKA ada device_id, kita EXEMPT (kecualikan) sesi dari perangkat fisik yang sama.
+      // Ini membolehkan multi-tab di laptop yang sama.
+      let conflictQuery = `user_id=eq.${user_id}&is_active=eq.true&id=neq.${session_id}&last_activity_at=gt.${new Date(Date.now() - 7 * 60 * 1000).toISOString()}&select=id`;
+      
+      if (device_id) {
+        conflictQuery += `&device_id=neq.${device_id}`;
+      }
+
       const conflictCheck = await fetch(
-        `${supabaseUrl}/rest/v1/user_login_sessions?user_id=eq.${user_id}&is_active=eq.true&id=neq.${session_id}&last_activity_at=gt.${new Date(Date.now() - 7 * 60 * 1000).toISOString()}&select=id`,
+        `${supabaseUrl}/rest/v1/user_login_sessions?${conflictQuery}`,
         {
           headers: { "apikey": supabaseKey, "Authorization": authHeader }
         }
