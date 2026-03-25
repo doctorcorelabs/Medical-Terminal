@@ -342,7 +342,6 @@ export default function Login() {
                                             logCaptchaTelemetry('unsupported_browser');
                                         }}
                                         scriptOptions={{
-                                            onload: 'onloadTurnstileCallback',
                                             onError: () => {
                                                 setCaptchaLoadError('Script captcha gagal dimuat. Periksa koneksi atau pemblokir konten.');
                                                 logCaptchaTelemetry('script_error');
