@@ -1,7 +1,7 @@
 /**
  * src/utils/deviceDetection.js
  * Utilitas untuk deteksi perangkat, browser, dan pembuatan fingerprint hardware.
- * Versi EXTREME (V5): Audio Fingerprinting, Safe-Area Precision, dan WebGL Audit.
+ * Versi EXTREME (V6): Chipset-First (A14-A16), Audio Fingerprinting, dan PWA-Safe.
  */
 import { UAParser } from 'ua-parser-js';
 
@@ -30,7 +30,6 @@ function getWebGLAudit() {
 
 /**
  * Audio Fingerprinting (Extreme Precision)
- * Menganalisis variasi manufaktur pada chip audio.
  */
 export async function initializeAudioFingerprint() {
     if (typeof window === 'undefined' || cachedAudioFingerprint !== 'pending') return;
@@ -42,7 +41,6 @@ export async function initializeAudioFingerprint() {
             return;
         }
 
-        // 1 sample @ 44.1kHz
         const context = new AudioContext(1, 44100, 44100);
         const oscillator = context.createOscillator();
         oscillator.type = 'triangle';
@@ -62,9 +60,7 @@ export async function initializeAudioFingerprint() {
         const buffer = await context.startRendering();
         const data = buffer.getChannelData(0);
         let sum = 0;
-        for (let i = 4500; i < 5000; i++) {
-            sum += Math.abs(data[i]);
-        }
+        for (let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
         cachedAudioFingerprint = sum.toString().slice(0, 15);
     } catch (_e) {
         cachedAudioFingerprint = 'error';
@@ -75,7 +71,7 @@ export async function initializeAudioFingerprint() {
  * Mendapatkan nilai pixel tepat dari Safe Area (iPhone differentiation).
  */
 function getPixelPerfectInsets() {
-    if (typeof document === 'undefined') return 0;
+    if (typeof document === 'undefined' || !document.body) return 0;
     try {
         const el = document.createElement('div');
         el.style.paddingTop = 'env(safe-area-inset-top)';
@@ -101,7 +97,8 @@ function getAdvancedHardwareSignals() {
 }
 
 /**
- * Tabel lookup dengan Safe Area Precision.
+ * Tabel lookup berbasis Chipset (GPU) + Resolusi.
+ * Prioritas Chipset untuk membedakan iPhone 12 vs 13 vs 14.
  */
 function getIOSModel() {
     if (typeof window === 'undefined') return 'iPhone/iPad';
@@ -112,30 +109,51 @@ function getIOSModel() {
     const res = `${Math.min(w, h)}x${Math.max(w, h)}@${ratio}x`;
     const audit = getWebGLAudit();
     const signals = getAdvancedHardwareSignals();
+    
+    const gpu = audit.renderer.toUpperCase();
 
-    const models = {
-        '320x480@2x': 'iPhone 4/4S',
-        '320x568@2x': 'iPhone 5/5S/5C/SE1',
-        '375x667@2x': 'iPhone 6/6S/7/8/SE2/SE3',
-        '414x736@3x': 'iPhone 6+/7+/8+',
-        '375x812@3x': audit.renderer.includes('A11') ? 'iPhone X' : 'iPhone 11 Pro/12 Mini/13 Mini',
-        '414x896@2x': 'iPhone XR/11',
-        '414x896@3x': 'iPhone XS Max/11 Pro Max',
-        // Recent with Safe Area Precision
-        '390x844@3x': signals.safeInset > 47 ? 'iPhone 13/14' : 'iPhone 12',
-        '393x852@3x': 'iPhone 14 Pro/15/15 Pro',
-        '430x932@3x': 'iPhone 14 Pro Max/15 Plus/15 Pro Max',
-        '428x926@3x': 'iPhone 12/13/14 Pro Max/14 Plus',
-    };
-
-    let modelName = models[res];
-    if (!modelName) {
-        if (audit.renderer.includes('A16')) modelName = 'iPhone 14 Pro/15 Series';
-        else if (audit.renderer.includes('A15')) modelName = 'iPhone 13/14 Series';
-        else modelName = 'iPhone/iPad';
+    // 1. A16 / A17 Chipsets (iPhone 14 Pro, 15, 15 Pro, 16)
+    if (gpu.includes('A16') || gpu.includes('A17')) {
+        if (res === '393x852@3x') return 'iPhone 14 Pro / 15 / 16';
+        if (res === '430x932@3x') return 'iPhone 14 Pro Max / 15 Plus / 16 Plus';
+        return 'iPhone (A16/A17)';
     }
 
-    return modelName;
+    // 2. A15 Chipsets (iPhone 13 Series, iPhone 14 Standard)
+    if (gpu.includes('A15')) {
+        if (res === '390x844@3x') {
+            // Membedakan iPhone 13 Pro vs 14 via Safe Area jika tersedia
+            return signals.safeInset > 47 ? 'iPhone 13 Pro / 14' : 'iPhone 13';
+        }
+        if (res === '428x926@3x') return 'iPhone 13 Pro Max / 14 Plus';
+        if (res === '375x812@3x') return 'iPhone 13 Mini';
+        return 'iPhone (A15)';
+    }
+
+    // 3. A14 Chipsets (iPhone 12 Series)
+    if (gpu.includes('A14')) {
+        if (res === '390x844@3x') return 'iPhone 12 / 12 Pro';
+        if (res === '428x926@3x') return 'iPhone 12 Pro Max';
+        if (res === '375x812@3x') return 'iPhone 12 Mini';
+        return 'iPhone 12 Series';
+    }
+
+    // Fallback: Resolution based lookup (Standard)
+    const models = {
+        '375x667@2x': 'iPhone 6/7/8/SE',
+        '414x736@3x': 'iPhone 6+/7+/8+',
+        '375x812@3x': 'iPhone X/XS/11 Pro/13 Mini',
+        '414x896@2x': 'iPhone XR/11',
+        '414x896@3x': 'iPhone XS Max/11 Pro Max',
+        // iPads
+        '768x1024@2x': 'iPad Mini/Air',
+        '810x1080@2x': 'iPad 7/8/9/10th Gen',
+        '820x1180@2x': 'iPad Air 4/5',
+        '834x1194@2x': 'iPad Pro 11',
+        '1024x1366@2x': 'iPad Pro 12.9'
+    };
+
+    return models[res] || 'iPhone / iPad';
 }
 
 export function getDeviceName(customUa) {
@@ -163,8 +181,7 @@ function normalizeUAForFingerprint(ua) {
 }
 
 /**
- * Fingerprint EXTREME (V5)
- * Menggabungkan Audio Fingerprint, WebGL Audit, dan Safe-Area Precision.
+ * Fingerprint EXTREME (V6)
  */
 export function getDeviceFingerprint(options = {}) {
     try {
@@ -187,7 +204,7 @@ export function getDeviceFingerprint(options = {}) {
             audit.extensions,
             audit.maxTexture,
             normUa,
-            cachedAudioFingerprint // Nilai audio yang di-cache
+            cachedAudioFingerprint
         ];
 
         let canvasHash = 'no-canvas';
@@ -196,11 +213,11 @@ export function getDeviceFingerprint(options = {}) {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    canvas.width = 150;
+                    canvas.width = 160;
                     canvas.height = 30;
-                    ctx.font = "bold 14px 'Inter', system-ui";
-                    ctx.fillText("MT-EXTREME-V5", 5, 20);
-                    canvasHash = canvas.toDataURL().slice(-40);
+                    ctx.font = "bold 14px 'Inter', sans-serif";
+                    ctx.fillText("MT-SECURE-V6", 5, 20); // V6 for force reload
+                    canvasHash = canvas.toDataURL().slice(-45);
                 }
             } catch (_e) { /* ignore */ }
         }
