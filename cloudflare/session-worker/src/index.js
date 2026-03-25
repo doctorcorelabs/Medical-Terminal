@@ -276,8 +276,7 @@ export default {
       }
 
       // 4. Cek Konflik Eksklusif
-      const conflictWindowIso = encodeURIComponent(new Date(nowMs - 7 * 60 * 1000).toISOString());
-      let conflictQuery = `user_id=eq.${encodedUserId}&is_active=eq.true&session_id=neq.${encodedSessionId}&last_activity_at=gt.${conflictWindowIso}&select=id,session_id,session_started_at,created_at`;
+      let conflictQuery = `user_id=eq.${encodedUserId}&is_active=eq.true&session_id=neq.${encodedSessionId}&select=id,session_id,session_started_at,created_at`;
       
       if (device_id) {
         conflictQuery += `&device_id=neq.${encodeURIComponent(device_id)}`;
