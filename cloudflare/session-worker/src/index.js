@@ -2,45 +2,62 @@
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    };
 
-    // 1. CORS Preflight
+    // 1. Handle Preflight OPTIONS
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        },
-      });
+      return new Response(null, { headers: corsHeaders });
     }
 
+    const url = new URL(request.url);
+
+    // Helper to return JSON with CORS
+    const jsonResponse = (data, status = 200) => {
+      return new Response(JSON.stringify(data), {
+        status,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      });
+    };
+
     if (url.pathname !== "/heartbeat" || request.method !== "POST") {
-      return new Response("Not Found", { status: 404 });
+      return new Response("Not Found", { status: 404, headers: corsHeaders });
     }
 
     try {
       const authHeader = request.headers.get("Authorization");
-      if (!authHeader) return new Response("Unauthorized", { status: 401 });
+      if (!authHeader) {
+        return jsonResponse({ error: "Unauthorized" }, 401);
+      }
 
       const body = await request.json();
       const { session_id, user_id, device_id } = body;
 
       if (!session_id || !user_id) {
-        return new Response("Missing parameters", { status: 400 });
+        return jsonResponse({ 
+          error: "Missing parameters", 
+          received: { session_id: !!session_id, user_id: !!user_id } 
+        }, 400);
       }
 
       // 2. Update Supabase
-      // Kita menggunakan direct POST ke REST API Supabase (PostgREST) untuk kecepatan maksimal.
       const supabaseUrl = env.SUPABASE_URL;
       const supabaseKey = env.SUPABASE_ANON_KEY; 
 
-      const response = await fetch(`${supabaseUrl}/rest/v1/user_login_sessions?id=eq.${session_id}`, {
+      // PENTING: Gunakan session_id=eq., bukan id=eq. karena session_id adalah TEXT (UUID custom)
+      const response = await fetch(`${supabaseUrl}/rest/v1/user_login_sessions?session_id=eq.${session_id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           "apikey": supabaseKey,
-          "Authorization": authHeader, // Teruskan JWT User untuk RLS
+          "Authorization": authHeader,
           "Prefer": "return=representation"
         },
         body: JSON.stringify({ 
@@ -51,7 +68,7 @@ export default {
 
       if (!response.ok) {
         const error = await response.text();
-        return new Response(`Sync Error: ${error}`, { status: response.status });
+        return jsonResponse({ error: "Supabase sync failed", detail: error }, response.status);
       }
 
       const data = await response.json();
@@ -59,16 +76,14 @@ export default {
 
       // 3. Cek apakah sesi ini masih aktif (tidak di-kick)
       if (!session || !session.is_active) {
-        return new Response(JSON.stringify({ status: "kicked", reason: session?.revoke_reason }), {
-          status: 200,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-        });
+        return jsonResponse({ 
+          status: "kicked", 
+          reason: session?.revoke_reason 
+        }, 200);
       }
 
-      // 4. Cek Konflik Eksklusif (Cari sesi lain yang lebih baru/panas)
-      // JIKA ada device_id, kita EXEMPT (kecualikan) sesi dari perangkat fisik yang sama.
-      // Ini membolehkan multi-tab di laptop yang sama.
-      let conflictQuery = `user_id=eq.${user_id}&is_active=eq.true&id=neq.${session_id}&last_activity_at=gt.${new Date(Date.now() - 7 * 60 * 1000).toISOString()}&select=id`;
+      // 4. Cek Konflik Eksklusif
+      let conflictQuery = `user_id=eq.${user_id}&is_active=eq.true&session_id=neq.${session_id}&last_activity_at=gt.${new Date(Date.now() - 7 * 60 * 1000).toISOString()}&select=id`;
       
       if (device_id) {
         conflictQuery += `&device_id=neq.${device_id}`;
@@ -81,23 +96,21 @@ export default {
         }
       );
 
+      if (!conflictCheck.ok) {
+        return jsonResponse({ error: "Conflict check failed" }, conflictCheck.status);
+      }
+
       const otherActive = await conflictCheck.json();
       const is_locked = otherActive.length > 0;
 
-      return new Response(JSON.stringify({ 
+      return jsonResponse({ 
         status: "ok", 
         is_locked,
-        is_exclusive: session.is_exclusive // Jika kita nanti butuh flag ini
-      }), {
-        status: 200,
-        headers: { 
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*" 
-        }
-      });
+        session_state: "active"
+      }, 200);
 
     } catch (err) {
-      return new Response(err.message, { status: 500 });
+      return jsonResponse({ error: "Internal Server Error", message: err.message }, 500);
     }
   },
 };
