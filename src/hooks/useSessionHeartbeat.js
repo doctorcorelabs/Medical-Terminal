@@ -64,6 +64,17 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
         hasShownForbiddenToastRef.current = false;
     }, []);
 
+    /**
+     * IMPORTANT: Reset isKicked when sessionId changes (new session/login)
+     * Without this, stale "kicked" state persists across fresh logins
+     */
+    useEffect(() => {
+        if (sessionId) {
+            setIsKicked(false);
+            clearFailureBackoff();
+        }
+    }, [sessionId, clearFailureBackoff]);
+
     const performHeartbeat = useCallback(async ({ allowHidden = false } = {}) => {
         if (!userId || !sessionId || !WORKER_URL) return { ok: false, isLocked: false };
         if (!allowHidden && document.visibilityState !== 'visible') return { ok: false, isLocked };
