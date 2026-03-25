@@ -137,12 +137,12 @@ async function processQueueOnce() {
     });
 
     const config = await getSwConfig().catch(() => null);
-    const activeUserId = config?.userId;
+    const activeUserId = config?.userId || null;
 
     const allPendingItems = await peekQueue();
     // Only process items for the currently logged-in user to avoid ghost warnings 
     // from previous sessions or other accounts on the same device.
-    const items = allPendingItems.filter(item => !activeUserId || item.userId === activeUserId);
+    const items = allPendingItems.filter(item => item.userId === activeUserId);
     
     if (items.length === 0) {
         // If we found 0 items for the active user, we still broadcast success 

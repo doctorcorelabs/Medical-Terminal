@@ -112,8 +112,11 @@ export function OfflineProvider({ children }) {
     // Listen to SYNC_COMPLETE messages from the service worker
     useEffect(() => {
         const unsub = onSwSyncComplete(({ success, degraded, hasStuckItems, warningCount, warnings, userId: messageUserId }) => {
+            const currentUserId = userRef.current?.id || null;
+            const normalizedMessageUserId = messageUserId || null;
+
             // Only process messages for the current user to avoid 'ghost' alerts from previous sessions
-            if (messageUserId && userRef.current?.id && messageUserId !== userRef.current.id) {
+            if (normalizedMessageUserId !== currentUserId) {
                 return;
             }
 
