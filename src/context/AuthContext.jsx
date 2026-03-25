@@ -146,10 +146,10 @@ export function AuthProvider({ children }) {
                 return;
             }
 
-            // Increase to 10 to allow multiple tabs/sessions on up to 2-3 devices 
-            // without triggering aggressive "Revoked" states. 
-            // Exclusivity is now handled by the ExclusiveSessionGuard.
-            const { data: sessionSync, error: sessionSyncError, sessionId: regSessionId } = await registerCurrentDeviceSession(userId, 10);
+            // Restore to 2 as per user choice. This limits the total physical devices 
+            // allowed in the account inventory. Usage exclusivity (1 at a time) 
+            // is still strictly enforced by ExclusiveSessionGuard.
+            const { data: sessionSync, error: sessionSyncError, sessionId: regSessionId } = await registerCurrentDeviceSession(userId, 2);
             
             if (!sessionSyncError && regSessionId) {
                 setDbSessionId(regSessionId);

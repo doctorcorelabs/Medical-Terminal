@@ -10,3 +10,21 @@ SUPABASE_ANON_KEY = "sb_publishable_Z0t0eVVtfEuQqlaTIn1YYA_Az5GdQkI"
 
 [observability]
 enabled = true
+
+[env.staging]
+name = "medical-terminal-session-worker-staging"
+
+[env.staging.vars]
+SUPABASE_URL = "https://hvhsoscduqektunuryky.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_Z0t0eVVtfEuQqlaTIn1YYA_Az5GdQkI"
+CORS_ALLOWED_ORIGINS = "https://staging.medicalterminal.app,https://medicalterminal.app,http://localhost:5173,http://127.0.0.1:5173"
+ENFORCE_HEARTBEAT_REPLAY_PROTECTION = "false"
+
+[env.production]
+name = "medical-terminal-session-worker"
+
+[env.production.vars]
+SUPABASE_URL = "https://hvhsoscduqektunuryky.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_Z0t0eVVtfEuQqlaTIn1YYA_Az5GdQkI"
+CORS_ALLOWED_ORIGINS = "https://medicalterminal.app,https://www.medicalterminal.app"
+ENFORCE_HEARTBEAT_REPLAY_PROTECTION = "false"

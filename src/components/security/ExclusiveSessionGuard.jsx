@@ -1,6 +1,7 @@
 import React from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { useToast } from '../../context/ToastContext';
+import { logUserActivity } from '../../services/activityService';
 
 /**
  * ExclusiveSessionGuard
@@ -17,6 +18,13 @@ export default function ExclusiveSessionGuard({
 }) {
     const { addToast } = useToast();
     const [isTakingOver, setIsTakingOver] = React.useState(false);
+    const [isReportingKickIssue, setIsReportingKickIssue] = React.useState(false);
+
+    const normalizeTakeoverResult = (rawData) => {
+        if (Array.isArray(rawData)) return rawData[0] || null;
+        if (rawData && typeof rawData === 'object') return rawData;
+        return null;
+    };
 
     const handleTakeover = async () => {
         setIsTakingOver(true);
@@ -28,7 +36,25 @@ export default function ExclusiveSessionGuard({
 
             if (error) throw error;
 
-            addToast('Berhasil mengambil alih sesi. Perangkat lain telah diputuskan.', 'success');
+            const takeoverResult = normalizeTakeoverResult(data);
+
+            if (!takeoverResult) {
+                addToast('Takeover selesai, memeriksa status sesi terbaru.', 'info');
+                if (onTakeoverSuccess) onTakeoverSuccess();
+                return;
+            }
+
+            if (takeoverResult.success !== true) {
+                const errorMessage = takeoverResult.message || 'Takeover ditolak oleh sistem keamanan.';
+                throw new Error(errorMessage);
+            }
+
+            if (takeoverResult.code === 'already_primary') {
+                addToast('Perangkat ini sudah menjadi sesi utama aktif.', 'info');
+            } else {
+                addToast('Berhasil mengambil alih sesi. Perangkat lain telah diputuskan.', 'success');
+            }
+
             if (onTakeoverSuccess) onTakeoverSuccess();
         } catch (err) {
             addToast(`Gagal mengambil alih: ${err.message}`, 'error');
@@ -37,10 +63,28 @@ export default function ExclusiveSessionGuard({
         }
     };
 
+    const handleReportKickIssue = async () => {
+        if (!userId || isReportingKickIssue) return;
+        setIsReportingKickIssue(true);
+        try {
+            await logUserActivity({
+                userId,
+                eventType: 'session_false_kick_reported',
+                featureKey: 'session_guard',
+                metadata: { session_id: sessionId || null },
+            });
+            addToast('Laporan terkirim. Tim akan meninjau kemungkinan false-kick.', 'success');
+        } catch (_err) {
+            addToast('Gagal mengirim laporan. Coba lagi dalam beberapa saat.', 'error');
+        } finally {
+            setIsReportingKickIssue(false);
+        }
+    };
+
     // 1. If Kicked (by another device), show specialized screen
     if (isKicked) {
         return (
-            <div className="fixed inset-0 z-[9999] bg-slate-900 flex items-center justify-center p-6 text-center">
+            <div className="fixed inset-0 z-9999 bg-slate-900 flex items-center justify-center p-6 text-center">
                 <div className="max-w-md w-full space-y-6 animate-[fadeIn_0.3s_ease-out]">
                     <div className="size-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto">
                         <span className="material-symbols-outlined text-rose-500 text-4xl animate-pulse">phonelink_erase</span>
@@ -55,6 +99,13 @@ export default function ExclusiveSessionGuard({
                     >
                         Kembali ke Login
                     </button>
+                    <button
+                        onClick={handleReportKickIssue}
+                        disabled={isReportingKickIssue}
+                        className="w-full py-3 bg-transparent border border-slate-700 text-slate-300 font-bold rounded-2xl hover:border-slate-500 hover:text-white transition-all text-xs uppercase tracking-widest disabled:opacity-50"
+                    >
+                        {isReportingKickIssue ? 'Mengirim Laporan...' : 'Laporkan Jika Ini Keliru'}
+                    </button>
                 </div>
             </div>
         );
@@ -63,7 +114,7 @@ export default function ExclusiveSessionGuard({
     // 2. If Locked (another device is active), show lockout screen
     if (isLocked) {
         return (
-            <div className="fixed inset-0 z-[9998] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-6 text-center">
+            <div className="fixed inset-0 z-9998 bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-6 text-center">
                 <div className="max-w-md w-full space-y-8 animate-[scaleIn_0.3s_ease-out]">
                     <div className="space-y-4">
                         <div className="size-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto border border-amber-500/20">
