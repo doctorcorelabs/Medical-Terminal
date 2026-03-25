@@ -1,22 +1,23 @@
--- PHASE 13: EXCLUSIVE SESSION & LOG RETENTION
+-- PHASE 13: EXCLUSIVE SESSION & LOG RETENTION (FIXED VERSION)
 -- Tujuan: Mendukung mekanisme Hard Lock dan Pembersihan Otomatis.
 
 -- 1. Tambahkan Index untuk Performa Heartbeat
 CREATE INDEX IF NOT EXISTS idx_sessions_active_activity 
 ON public.user_login_sessions (user_id, is_active, last_activity_at);
 
--- 2. RPC: Takeover Exclusive Session
+-- 2. RPC: Takeover Exclusive Session (FIXED)
 -- Fungsi ini akan mematikan semua sesi aktif user kecuali sesi yang sedang digunakan sekarang.
+-- Parameter p_current_session_id diubah ke TEXT agar cocok dengan ID browser (hw-xxxx).
 CREATE OR REPLACE FUNCTION public.takeover_exclusive_session(
     p_user_id UUID,
-    p_current_session_id UUID
+    p_current_session_id TEXT 
 )
 RETURNS TABLE (success BOOLEAN, message TEXT)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-    -- Matikan semua sesi aktif lainnya
+    -- Matikan semua sesi aktif lainnya milik user ini
     UPDATE public.user_login_sessions
     SET 
         is_active = false,
@@ -24,7 +25,8 @@ BEGIN
         revoke_reason = 'kicked_by_exclusive_takeover',
         updated_at = now()
     WHERE user_id = p_user_id
-      AND id != p_current_session_id
+        -- Gunakan kolom session_id (TEXT), bukan id (UUID)
+      AND session_id != p_current_session_id 
       AND is_active = true;
 
     -- Catat kejadian keamanan
