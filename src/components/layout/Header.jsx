@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAdminAlerts } from '../../context/AdminAlertContext';
 
 export default function Header({ onMenuToggle }) {
-    const { isOnline, isSyncing, syncFailed, syncDegraded, syncWarnings, lastSyncAt, pendingStatus } = useOffline();
+    const { isOnline, isSyncing, syncFailed, syncDegraded, hasStuckItems, syncWarnings, lastSyncAt, pendingStatus } = useOffline();
     const { isAdmin, profile, isSpecialist } = useAuth();
     const { openAlertsCount } = useAdminAlerts();
     const navigate = useNavigate();
