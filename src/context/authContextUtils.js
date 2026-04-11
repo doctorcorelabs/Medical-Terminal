@@ -34,6 +34,12 @@ const GLOBAL_SIGNOUT_KEYS = [
     'patientDetailActiveTab',
     'addPatientActiveTab',
     'medterminal_schedule_view',
+    // Session ID must be cleared on sign-out so that re-login always generates
+    // a fresh session_id. Without this, the returning device reuses the revoked
+    // session_id (kicked_by_exclusive_takeover) and gets kicked again immediately.
+    'medterminal_session_id',
+    'medterminal_db_session_id',
+    'medterminal_db_device_id',
 ];
 
 function isFutureIsoDate(isoDate, nowMs) {

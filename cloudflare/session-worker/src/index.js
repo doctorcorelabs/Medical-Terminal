@@ -276,11 +276,10 @@ export default {
       }
 
       // 4. Cek Konflik Eksklusif
-      let conflictQuery = `user_id=eq.${encodedUserId}&is_active=eq.true&session_id=neq.${encodedSessionId}&select=id,session_id,session_started_at,created_at`;
-      
-      if (device_id) {
-        conflictQuery += `&device_id=neq.${encodeURIComponent(device_id)}`;
-      }
+      // Fix 8: Do NOT filter by device_id here. A user opening two different browsers
+      // on the same device shares the same device_id but has distinct session_ids — both
+      // should trigger a conflict. Filtering by device_id=neq would silently allow this.
+      const conflictQuery = `user_id=eq.${encodedUserId}&is_active=eq.true&session_id=neq.${encodedSessionId}&select=id,session_id,session_started_at,created_at`;
 
       const conflictCheck = await fetch(
         `${supabaseUrl}/rest/v1/user_login_sessions?${conflictQuery}`,

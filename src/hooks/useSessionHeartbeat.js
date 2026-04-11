@@ -22,6 +22,17 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
     const hasShownForbiddenToastRef = useRef(false);
     const [isLocked, setIsLocked] = useState(false);
     const [isKicked, setIsKicked] = useState(false);
+
+    // Fix 3: Use a ref to hold isLocked so performHeartbeat doesn't need isLocked
+    // in its dependency array — prevents the state → recreate → re-interval feedback loop.
+    const isLockedRef = useRef(false);
+    useEffect(() => {
+        isLockedRef.current = isLocked;
+    }, [isLocked]);
+
+    // Fix 4: Store the pending sign-out timer so it can be cancelled on unmount
+    // or if the component re-renders before the 3-second delay fires.
+    const signOutTimerRef = useRef(null);
     
     const primaryWorkerUrl = import.meta.env.VITE_SESSION_WORKER_URL || '';
     const canaryWorkerUrl = import.meta.env.VITE_SESSION_WORKER_CANARY_URL || '';
@@ -65,8 +76,8 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
     }, []);
 
     /**
-     * IMPORTANT: Reset isKicked when sessionId changes (new session/login)
-     * Without this, stale "kicked" state persists across fresh logins
+     * Reset isKicked when sessionId changes (new session/login).
+     * Without this, stale "kicked" state persists across fresh logins.
      */
     useEffect(() => {
         if (sessionId) {
@@ -75,16 +86,26 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
         }
     }, [sessionId, clearFailureBackoff]);
 
+    // Fix 4 (cont.): Clean up pending sign-out timer on unmount.
+    useEffect(() => {
+        return () => {
+            if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+        };
+    }, []);
+
+    // Fix 3 (cont.): performHeartbeat no longer includes `isLocked` in its deps.
+    // Instead it reads isLockedRef.current for early-return values so the callback
+    // identity is stable and won't restart the 30-second interval on every lock toggle.
     const performHeartbeat = useCallback(async ({ allowHidden = false } = {}) => {
-        if (!userId || !sessionId || !WORKER_URL) return { ok: false, isLocked: false };
-        if (!allowHidden && document.visibilityState !== 'visible') return { ok: false, isLocked };
+        if (!userId || !sessionId || !WORKER_URL) return { ok: false, isLocked: isLockedRef.current };
+        if (!allowHidden && document.visibilityState !== 'visible') return { ok: false, isLocked: isLockedRef.current };
 
         if (Date.now() < nextAllowedHeartbeatAtRef.current) {
-            return { ok: false, isLocked };
+            return { ok: false, isLocked: isLockedRef.current };
         }
 
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return { ok: false, isLocked };
+        if (!session) return { ok: false, isLocked: isLockedRef.current };
 
         const response = await fetch(`${WORKER_URL}/heartbeat`, {
             method: 'POST',
@@ -114,7 +135,7 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
                     metadata: { retry_after_seconds: retryAfterSec || null },
                 });
             }
-            return { ok: false, isLocked };
+            return { ok: false, isLocked: isLockedRef.current };
         }
 
         if (response.status === 401 || response.status === 403) {
@@ -129,12 +150,12 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
                     metadata: { worker_url: WORKER_URL || null },
                 });
             }
-            return { ok: false, isLocked };
+            return { ok: false, isLocked: isLockedRef.current };
         }
 
         if (!response.ok) {
             applyFailureBackoff();
-            return { ok: false, isLocked };
+            return { ok: false, isLocked: isLockedRef.current };
         }
 
         const result = await response.json();
@@ -152,14 +173,19 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
                     worker_url: WORKER_URL || null,
                 },
             });
-            setTimeout(() => supabase.auth.signOut(), 3000);
+            // Fix 4: Store timer in ref so it can be cancelled on unmount.
+            if (signOutTimerRef.current) clearTimeout(signOutTimerRef.current);
+            signOutTimerRef.current = setTimeout(() => supabase.auth.signOut(), 3000);
             return { ok: true, isLocked: false };
         }
 
         const nextLockState = Boolean(result.is_locked);
         setIsLocked(nextLockState);
         return { ok: true, isLocked: nextLockState };
-    }, [WORKER_URL, addToast, applyFailureBackoff, clearFailureBackoff, createHeartbeatSecurityHeaders, deviceId, isLocked, sessionId, userId]);
+    // isLocked intentionally excluded: read via isLockedRef.current to avoid
+    // the state→recreate→re-interval feedback loop (Fix 3).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [WORKER_URL, addToast, applyFailureBackoff, clearFailureBackoff, createHeartbeatSecurityHeaders, deviceId, sessionId, userId]);
 
     useEffect(() => {
         if (!userId || !sessionId || !WORKER_URL) return;
@@ -197,7 +223,7 @@ export function useSessionHeartbeat(userId, sessionId, isWhitelisted = false, de
         } catch (_err) {
             // silent fail for manual refresh
         }
-        return isLocked;
+        return isLockedRef.current;
     };
 
     return { isLocked, isKicked, refreshLockStatus };

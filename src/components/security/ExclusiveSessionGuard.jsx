@@ -19,6 +19,9 @@ export default function ExclusiveSessionGuard({
     const { addToast } = useToast();
     const [isTakingOver, setIsTakingOver] = React.useState(false);
     const [isReportingKickIssue, setIsReportingKickIssue] = React.useState(false);
+    // Fix 6: Prevent spam-clicking takeover by enforcing a 5-second cooldown
+    // after each attempt (success or failure).
+    const [takeoverCooldownUntil, setTakeoverCooldownUntil] = React.useState(0);
 
     const normalizeTakeoverResult = (rawData) => {
         if (Array.isArray(rawData)) return rawData[0] || null;
@@ -27,6 +30,7 @@ export default function ExclusiveSessionGuard({
     };
 
     const handleTakeover = async () => {
+        if (Date.now() < takeoverCooldownUntil) return;
         setIsTakingOver(true);
         try {
             const { data, error } = await supabase.rpc('takeover_exclusive_session', {
@@ -60,6 +64,8 @@ export default function ExclusiveSessionGuard({
             addToast(`Gagal mengambil alih: ${err.message}`, 'error');
         } finally {
             setIsTakingOver(false);
+            // Fix 6: Apply cooldown regardless of outcome to prevent spam.
+            setTakeoverCooldownUntil(Date.now() + 5000);
         }
     };
 
@@ -147,7 +153,7 @@ export default function ExclusiveSessionGuard({
                     <div className="grid grid-cols-1 gap-3 pt-4">
                         <button 
                             onClick={handleTakeover}
-                            disabled={isTakingOver}
+                            disabled={isTakingOver || Date.now() < takeoverCooldownUntil}
                             className="group relative w-full py-4 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all overflow-hidden disabled:opacity-50"
                         >
                             {isTakingOver ? (

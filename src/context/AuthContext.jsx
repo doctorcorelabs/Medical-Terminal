@@ -78,6 +78,9 @@ export function AuthProvider({ children }) {
     const isRecoveryRef = useRef(window.location.hash.includes('type=recovery'));
     const activeUserIdRef = useRef(user?.id || null);
     const sessionSecurityGateRef = useRef({ userId: null, lastRunAt: 0, inFlight: false });
+    // Fix 5: Debounce ref to prevent burst DB queries when realtime fires multiple
+    // events simultaneously (e.g. takeover deactivating N sessions at once).
+    const guardDebounceRef = useRef(null);
 
     useEffect(() => {
         activeUserIdRef.current = user?.id || null;
@@ -329,6 +332,15 @@ export function AuthProvider({ children }) {
             enforceCurrentDeviceStillActive(userId);
         };
 
+        // Fix 5: Debounced version for realtime events — prevents N parallel DB queries
+        // when a takeover deactivates N sessions and fires N postgres_changes events.
+        const runGuardDebounced = () => {
+            if (guardDebounceRef.current) clearTimeout(guardDebounceRef.current);
+            guardDebounceRef.current = setTimeout(() => {
+                enforceCurrentDeviceStillActive(userId);
+            }, 500);
+        };
+
         // Initial check after auth/bootstrap.
         runGuard();
 
@@ -345,6 +357,7 @@ export function AuthProvider({ children }) {
         window.addEventListener('focus', onFocus);
 
         // Realtime hook: session table updates for this user.
+        // Uses debounced guard because takeover can fire multiple events at once.
         const channel = supabase
             .channel(`session_realtime_${userId}`)
             .on(
@@ -356,7 +369,7 @@ export function AuthProvider({ children }) {
                     filter: `user_id=eq.${userId}`,
                 },
                 () => {
-                    runGuard();
+                    runGuardDebounced();
                 }
             );
 
@@ -370,6 +383,7 @@ export function AuthProvider({ children }) {
             document.removeEventListener('visibilitychange', onVisibilityChange);
             window.removeEventListener('focus', onFocus);
             clearTimeout(subTimeoutId);
+            if (guardDebounceRef.current) clearTimeout(guardDebounceRef.current);
             supabase.removeChannel(channel);
         };
     }, [enforceCurrentDeviceStillActive, user?.id]);
